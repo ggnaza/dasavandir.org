@@ -64,6 +64,15 @@ export default async function LearnCoursePage({ params }: { params: { id: string
         </div>
       )}
 
+      <div className="mb-6">
+        <Link
+          href={`/learn/courses/${course.id}/discussions`}
+          className="inline-flex items-center gap-2 text-sm border rounded-lg px-4 py-2 hover:bg-gray-50 text-gray-600"
+        >
+          <span>💬</span> Discussions
+        </Link>
+      </div>
+
       <div className="space-y-2">
         {lessons?.map((lesson, i) => {
           const done = completedIds.has(lesson.id);

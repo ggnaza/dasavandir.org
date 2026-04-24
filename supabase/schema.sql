@@ -266,6 +266,86 @@ create policy "Admins view all sessions" on lesson_sessions
 
 
 -- ============================================================
+-- DISCUSSIONS (PLC — Professional Learning Community)
+-- ============================================================
+
+create table if not exists discussions (
+  id uuid primary key default gen_random_uuid(),
+  course_id uuid not null references courses(id) on delete cascade,
+  lesson_id uuid references lessons(id) on delete set null,
+  user_id uuid not null references profiles(id) on delete cascade,
+  title text not null,
+  body text not null,
+  created_at timestamptz default now()
+);
+
+create table if not exists discussion_replies (
+  id uuid primary key default gen_random_uuid(),
+  discussion_id uuid not null references discussions(id) on delete cascade,
+  user_id uuid not null references profiles(id) on delete cascade,
+  body text not null,
+  created_at timestamptz default now()
+);
+
+alter table discussions enable row level security;
+alter table discussion_replies enable row level security;
+
+-- Enrolled users and admins can view discussions
+create policy "Enrolled users view discussions" on discussions
+  for select using (
+    exists (select 1 from enrollments where user_id = auth.uid() and course_id = discussions.course_id)
+    or exists (select 1 from profiles where id = auth.uid() and role = 'admin')
+  );
+
+-- Enrolled users can post discussions
+create policy "Enrolled users create discussions" on discussions
+  for insert with check (
+    auth.uid() = user_id and (
+      exists (select 1 from enrollments where user_id = auth.uid() and course_id = discussions.course_id)
+      or exists (select 1 from profiles where id = auth.uid() and role = 'admin')
+    )
+  );
+
+-- Users delete own; admins delete any
+create policy "Users delete own discussions" on discussions
+  for delete using (
+    auth.uid() = user_id
+    or exists (select 1 from profiles where id = auth.uid() and role = 'admin')
+  );
+
+-- Replies: enrolled users view
+create policy "Enrolled users view replies" on discussion_replies
+  for select using (
+    exists (
+      select 1 from discussions d
+      join enrollments e on e.course_id = d.course_id
+      where d.id = discussion_replies.discussion_id and e.user_id = auth.uid()
+    )
+    or exists (select 1 from profiles where id = auth.uid() and role = 'admin')
+  );
+
+-- Replies: enrolled users create
+create policy "Enrolled users create replies" on discussion_replies
+  for insert with check (
+    auth.uid() = user_id and (
+      exists (
+        select 1 from discussions d
+        join enrollments e on e.course_id = d.course_id
+        where d.id = discussion_replies.discussion_id and e.user_id = auth.uid()
+      )
+      or exists (select 1 from profiles where id = auth.uid() and role = 'admin')
+    )
+  );
+
+-- Replies: users delete own; admins delete any
+create policy "Users delete own replies" on discussion_replies
+  for delete using (
+    auth.uid() = user_id
+    or exists (select 1 from profiles where id = auth.uid() and role = 'admin')
+  );
+
+
+-- ============================================================
 -- MAKE YOUR FIRST ADMIN
 -- After signing up, run this to make yourself admin:
 -- UPDATE profiles SET role = 'admin' WHERE id = '<your-user-id>';
