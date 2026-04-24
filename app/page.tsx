@@ -2,12 +2,17 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import { cookies } from "next/headers";
+import { getLang, translations } from "@/lib/i18n";
+import { LanguageToggle } from "@/components/language-toggle";
+
+export const dynamic = "force-dynamic";
 
 async function getPublishedCourses() {
   const admin = createAdminClient();
   const { data } = await admin
     .from("courses")
-    .select("id, title, description, cover_image_url, is_paid, price_amd")
+    .select("id, title, description, cover_image_url, is_paid, price_amd, language")
     .eq("published", true)
     .order("created_at", { ascending: false })
     .limit(6);
@@ -24,6 +29,8 @@ export default async function Home() {
     redirect(profile?.role === "admin" ? "/admin" : "/learn");
   }
 
+  const lang = getLang(cookies().get("lang")?.value);
+  const T = translations[lang];
   const courses = await getPublishedCourses();
 
   return (
@@ -37,18 +44,19 @@ export default async function Home() {
             <span className="text-xs text-gray-400 mt-1">.org</span>
           </div>
           <div className="flex items-center gap-3">
+            <LanguageToggle current={lang} />
             <Link href="/courses" className="text-sm text-gray-600 hover:text-gray-900 font-medium">
-              Courses
+              {T.courses}
             </Link>
             <Link href="/auth/login" className="text-sm text-gray-600 hover:text-gray-900 font-medium">
-              Sign in
+              {T.signIn}
             </Link>
             <Link
               href="/auth/signup"
               className="text-sm text-white px-4 py-2 rounded-lg font-medium"
               style={{ backgroundColor: "#EC5328" }}
             >
-              Get started
+              {T.getStarted}
             </Link>
           </div>
         </div>
@@ -56,35 +64,27 @@ export default async function Home() {
 
       {/* Hero */}
       <section className="pt-24 pb-20 relative overflow-hidden" style={{ backgroundColor: "#323131" }}>
-        {/* Decorative circles — TFA motif */}
         <div className="absolute -top-32 -right-32 w-96 h-96 rounded-full opacity-10" style={{ backgroundColor: "#EC5328" }} />
         <div className="absolute -bottom-20 -left-20 w-72 h-72 rounded-full opacity-10" style={{ backgroundColor: "#2085C7" }} />
         <div className="absolute top-20 right-1/3 w-48 h-48 rounded-full opacity-5" style={{ backgroundColor: "#EFA159" }} />
 
         <div className="max-w-4xl mx-auto px-6 relative z-10">
           <div className="inline-block text-xs font-semibold uppercase tracking-widest px-3 py-1 rounded-full mb-6" style={{ backgroundColor: "#EC5328", color: "white" }}>
-            Teach For Armenia
+            {T.heroTag}
           </div>
           <h1 className="text-5xl sm:text-6xl font-bold text-white leading-tight mb-6">
-            The learning platform<br />
-            <span style={{ color: "#EC5328" }}>built for educators.</span>
+            {T.heroTitle}<br />
+            <span style={{ color: "#EC5328" }}>{T.heroTitleAccent}</span>
           </h1>
           <p className="text-lg text-gray-300 max-w-2xl mb-10 leading-relaxed">
-            Dasavandir.org is an AI-powered learning management system built on Teach For Armenia's decade of experience transforming education across Armenia. Create courses, track progress, and let AI support every learner.
+            {T.heroDesc}
           </p>
           <div className="flex flex-wrap gap-4">
-            <Link
-              href="/auth/signup"
-              className="px-7 py-3 rounded-lg text-white font-semibold text-sm"
-              style={{ backgroundColor: "#EC5328" }}
-            >
-              Start for free →
+            <Link href="/auth/signup" className="px-7 py-3 rounded-lg text-white font-semibold text-sm" style={{ backgroundColor: "#EC5328" }}>
+              {T.startFree}
             </Link>
-            <Link
-              href="/auth/login"
-              className="px-7 py-3 rounded-lg font-semibold text-sm border border-white/20 text-white hover:bg-white/10"
-            >
-              Sign in
+            <Link href="/auth/login" className="px-7 py-3 rounded-lg font-semibold text-sm border border-white/20 text-white hover:bg-white/10">
+              {T.signIn}
             </Link>
           </div>
         </div>
@@ -94,10 +94,10 @@ export default async function Home() {
       <section style={{ backgroundColor: "#2085C7" }}>
         <div className="max-w-6xl mx-auto px-6 py-10 grid grid-cols-2 sm:grid-cols-4 gap-6 text-center">
           {[
-            { number: "10+", label: "Years of experience" },
-            { number: "60K", label: "Students reached" },
-            { number: "410", label: "Schools across Armenia" },
-            { number: "10", label: "Regions covered" },
+            { number: T.stat1Number, label: T.stat1Label },
+            { number: T.stat2Number, label: T.stat2Label },
+            { number: T.stat3Number, label: T.stat3Label },
+            { number: T.stat4Number, label: T.stat4Label },
           ].map((s) => (
             <div key={s.label}>
               <p className="text-4xl font-bold text-white">{s.number}</p>
@@ -111,49 +111,11 @@ export default async function Home() {
       <section className="py-20" style={{ backgroundColor: "#E8E7E5" }}>
         <div className="max-w-6xl mx-auto px-6">
           <h2 className="text-3xl font-bold text-center mb-2" style={{ color: "#323131" }}>
-            EVERYTHING YOU NEED TO TEACH
+            {T.featuresTitle}
           </h2>
-          <p className="text-center text-gray-500 mb-12 text-sm">Built for educators who want to focus on teaching, not technology.</p>
-
+          <p className="text-center text-gray-500 mb-12 text-sm">{T.featuresSubtitle}</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[
-              {
-                icon: "✦",
-                title: "AI Course Builder",
-                desc: "Paste your materials and AI generates a full course — lessons, summaries, and quizzes — in seconds.",
-                color: "#EC5328",
-              },
-              {
-                icon: "🎓",
-                title: "Rich Lesson Editor",
-                desc: "Create beautiful lessons with text, video, images, and file attachments. No coding needed.",
-                color: "#2085C7",
-              },
-              {
-                icon: "💬",
-                title: "AI Tutor per Lesson",
-                desc: "Every lesson has a built-in AI coach that answers questions, explains concepts, and quizzes learners.",
-                color: "#EC5328",
-              },
-              {
-                icon: "📝",
-                title: "Assignments & AI Evaluation",
-                desc: "Set rubric-based assignments. AI evaluates submissions instantly. You review before releasing feedback.",
-                color: "#2085C7",
-              },
-              {
-                icon: "📊",
-                title: "Progress Tracking",
-                desc: "Track every learner's progress across courses, lessons, quizzes, and assignments in one dashboard.",
-                color: "#EC5328",
-              },
-              {
-                icon: "📱",
-                title: "Mobile Friendly",
-                desc: "Works beautifully on phones, tablets, and computers. Learners can study anywhere, anytime.",
-                color: "#2085C7",
-              },
-            ].map((f) => (
+            {T.features.map((f) => (
               <div key={f.title} className="bg-white rounded-2xl p-6 shadow-sm">
                 <div className="w-10 h-10 rounded-xl flex items-center justify-center text-white text-lg mb-4" style={{ backgroundColor: f.color }}>
                   {f.icon}
@@ -171,12 +133,12 @@ export default async function Home() {
         <section className="py-20 bg-white">
           <div className="max-w-6xl mx-auto px-6">
             <div className="flex items-center justify-between mb-2">
-              <h2 className="text-3xl font-bold" style={{ color: "#323131" }}>Explore Courses</h2>
+              <h2 className="text-3xl font-bold" style={{ color: "#323131" }}>{T.exploreCoursesTitle}</h2>
               <Link href="/courses" className="text-sm font-semibold hover:underline" style={{ color: "#EC5328" }}>
-                See all →
+                {T.seeAll}
               </Link>
             </div>
-            <p className="text-gray-500 text-sm mb-10">Start learning with courses designed by Armenian educators.</p>
+            <p className="text-gray-500 text-sm mb-10">{T.exploreCoursesSub}</p>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {courses.map((course) => (
@@ -188,20 +150,23 @@ export default async function Home() {
                   {course.cover_image_url ? (
                     <img src={course.cover_image_url} alt={course.title} className="w-full h-36 object-cover" />
                   ) : (
-                    <div className="w-full h-36 flex items-center justify-center text-4xl" style={{ backgroundColor: "#323131" }}>
-                      🎓
-                    </div>
+                    <div className="w-full h-36 flex items-center justify-center text-4xl" style={{ backgroundColor: "#323131" }}>🎓</div>
                   )}
                   <div className="p-5 flex flex-col flex-1">
                     <div className="flex items-start justify-between gap-2 mb-1">
                       <h3 className="font-bold text-gray-900 text-sm leading-snug">{course.title}</h3>
-                      {course.is_paid ? (
-                        <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 shrink-0">
-                          {course.price_amd ? `${course.price_amd.toLocaleString()} ֏` : "Paid"}
+                      <div className="flex flex-col items-end gap-1 shrink-0">
+                        {course.is_paid ? (
+                          <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-orange-100 text-orange-700">
+                            {course.price_amd ? `${course.price_amd.toLocaleString()} ֏` : T.paid}
+                          </span>
+                        ) : (
+                          <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-green-100 text-green-700">{T.free}</span>
+                        )}
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">
+                          {course.language === "en" ? T.languageEnglish : T.languageArmenian}
                         </span>
-                      ) : (
-                        <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-green-100 text-green-700 shrink-0">Free</span>
-                      )}
+                      </div>
                     </div>
                     {course.description && (
                       <p className="text-xs text-gray-500 line-clamp-2">{course.description}</p>
@@ -214,23 +179,15 @@ export default async function Home() {
         </section>
       )}
 
-      {/* CTA section */}
+      {/* CTA */}
       <section className="py-20 relative overflow-hidden" style={{ backgroundColor: "#EC5328" }}>
         <div className="absolute -top-16 -right-16 w-64 h-64 rounded-full opacity-10 bg-white" />
         <div className="absolute -bottom-16 -left-16 w-48 h-48 rounded-full opacity-10 bg-white" />
         <div className="max-w-3xl mx-auto px-6 text-center relative z-10">
-          <h2 className="text-4xl font-bold text-white mb-4">
-            Ready to transform learning?
-          </h2>
-          <p className="text-orange-100 mb-8 text-lg">
-            Join educators across Armenia who are using Dasavandir to create better learning experiences.
-          </p>
-          <Link
-            href="/auth/signup"
-            className="inline-block bg-white px-8 py-3 rounded-lg font-bold text-sm"
-            style={{ color: "#EC5328" }}
-          >
-            Create free account →
+          <h2 className="text-4xl font-bold text-white mb-4">{T.ctaTitle}</h2>
+          <p className="text-orange-100 mb-8 text-lg">{T.ctaDesc}</p>
+          <Link href="/auth/signup" className="inline-block bg-white px-8 py-3 rounded-lg font-bold text-sm" style={{ color: "#EC5328" }}>
+            {T.createAccount}
           </Link>
         </div>
       </section>
@@ -240,13 +197,13 @@ export default async function Home() {
         <div className="max-w-6xl mx-auto px-6 py-10 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div>
             <span className="text-xl font-bold" style={{ color: "#EC5328" }}>Dasavandir.org</span>
-            <p className="text-gray-400 text-xs mt-1">Built by Teach For Armenia</p>
+            <p className="text-gray-400 text-xs mt-1">{T.builtBy}</p>
           </div>
           <div className="flex gap-6 text-sm text-gray-400">
-            <Link href="/auth/login" className="hover:text-white">Sign in</Link>
-            <Link href="/auth/signup" className="hover:text-white">Sign up</Link>
+            <Link href="/auth/login" className="hover:text-white">{T.signIn}</Link>
+            <Link href="/auth/signup" className="hover:text-white">{T.getStarted}</Link>
           </div>
-          <p className="text-gray-500 text-xs">© {new Date().getFullYear()} Teach For Armenia. All rights reserved.</p>
+          <p className="text-gray-500 text-xs">© {new Date().getFullYear()} Teach For Armenia. {T.allRights}</p>
         </div>
       </footer>
 

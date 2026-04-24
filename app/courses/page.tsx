@@ -1,79 +1,92 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import Link from "next/link";
+import { cookies } from "next/headers";
+import { getLang, translations } from "@/lib/i18n";
+import { LanguageToggle } from "@/components/language-toggle";
 
 export const dynamic = "force-dynamic";
-
-function PriceBadge({ isPaid, priceAmd }: { isPaid: boolean; priceAmd: number | null }) {
-  if (!isPaid) {
-    return (
-      <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-green-100 text-green-700">
-        Free
-      </span>
-    );
-  }
-  return (
-    <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-orange-100 text-orange-700">
-      {priceAmd ? `${priceAmd.toLocaleString()} AMD` : "Paid"}
-    </span>
-  );
-}
 
 export default async function CourseCatalogPage({
   searchParams,
 }: {
-  searchParams: { filter?: string };
+  searchParams: { filter?: string; lang_filter?: string };
 }) {
   const admin = createAdminClient();
   const { data: courses } = await admin
     .from("courses")
-    .select("id, title, description, cover_image_url, is_paid, price_amd")
+    .select("id, title, description, cover_image_url, is_paid, price_amd, language")
     .eq("published", true)
     .order("created_at", { ascending: false });
 
+  const uiLang = getLang(cookies().get("lang")?.value);
+  const T = translations[uiLang];
+
   const filter = searchParams.filter ?? "all";
+  const langFilter = searchParams.lang_filter ?? "all";
+
   const filtered = (courses ?? []).filter((c) => {
-    if (filter === "free") return !c.is_paid;
-    if (filter === "paid") return c.is_paid;
-    return true;
+    const priceMatch = filter === "free" ? !c.is_paid : filter === "paid" ? c.is_paid : true;
+    const langMatch = langFilter === "hy" ? c.language === "hy" : langFilter === "en" ? c.language === "en" : true;
+    return priceMatch && langMatch;
   });
 
-  const tabs = [
-    { key: "all", label: "All" },
-    { key: "free", label: "Free" },
-    { key: "paid", label: "Paid" },
+  const priceTabs = [
+    { key: "all", label: T.filterAll },
+    { key: "free", label: T.filterFree },
+    { key: "paid", label: T.filterPaid },
   ];
+
+  const langTabs = [
+    { key: "all", label: T.filterAll },
+    { key: "hy", label: T.filterArmenian },
+    { key: "en", label: T.filterEnglish },
+  ];
+
+  function buildUrl(newFilter?: string, newLangFilter?: string) {
+    const f = newFilter ?? filter;
+    const l = newLangFilter ?? langFilter;
+    return `/courses?filter=${f}&lang_filter=${l}`;
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
       <div className="bg-white border-b">
         <div className="max-w-6xl mx-auto px-6 py-8">
           <div className="flex items-center justify-between mb-1">
-            <Link href="/" className="text-2xl font-bold" style={{ color: "#EC5328" }}>
-              Dasavandir
-            </Link>
-            <div className="flex gap-3 text-sm">
-              <Link href="/auth/login" className="text-gray-600 hover:text-gray-900 font-medium">Sign in</Link>
+            <Link href="/" className="text-2xl font-bold" style={{ color: "#EC5328" }}>Dasavandir</Link>
+            <div className="flex items-center gap-3 text-sm">
+              <LanguageToggle current={uiLang} />
+              <Link href="/auth/login" className="text-gray-600 hover:text-gray-900 font-medium">{T.signIn}</Link>
               <Link href="/auth/signup" className="text-white px-4 py-1.5 rounded-lg font-medium" style={{ backgroundColor: "#EC5328" }}>
-                Get started
+                {T.getStarted}
               </Link>
             </div>
           </div>
-          <h1 className="text-3xl font-bold text-gray-900 mt-4 mb-1">Browse Courses</h1>
-          <p className="text-gray-500 text-sm">Explore courses built by educators at Teach For Armenia.</p>
+          <h1 className="text-3xl font-bold text-gray-900 mt-4 mb-1">{T.browseCourses}</h1>
+          <p className="text-gray-500 text-sm">{T.browseCoursesSub}</p>
 
-          {/* Filter tabs */}
+          {/* Price filter */}
           <div className="flex gap-1 mt-5">
-            {tabs.map((tab) => (
+            {priceTabs.map((tab) => (
               <Link
                 key={tab.key}
-                href={`/courses?filter=${tab.key}`}
-                className={`px-4 py-1.5 rounded-full text-sm font-medium transition ${
-                  filter === tab.key
-                    ? "text-white"
-                    : "text-gray-600 hover:bg-gray-100"
-                }`}
+                href={buildUrl(tab.key, langFilter)}
+                className={`px-4 py-1.5 rounded-full text-sm font-medium transition ${filter === tab.key ? "text-white" : "text-gray-600 hover:bg-gray-100"}`}
                 style={filter === tab.key ? { backgroundColor: "#EC5328" } : {}}
+              >
+                {tab.label}
+              </Link>
+            ))}
+          </div>
+
+          {/* Language filter */}
+          <div className="flex gap-1 mt-2">
+            {langTabs.map((tab) => (
+              <Link
+                key={tab.key}
+                href={buildUrl(filter, tab.key)}
+                className={`px-4 py-1.5 rounded-full text-sm font-medium transition ${langFilter === tab.key ? "text-white" : "text-gray-600 hover:bg-gray-100"}`}
+                style={langFilter === tab.key ? { backgroundColor: "#2085C7" } : {}}
               >
                 {tab.label}
               </Link>
@@ -82,10 +95,9 @@ export default async function CourseCatalogPage({
         </div>
       </div>
 
-      {/* Course grid */}
       <div className="max-w-6xl mx-auto px-6 py-10">
         {filtered.length === 0 ? (
-          <p className="text-gray-500">No courses found.</p>
+          <p className="text-gray-500">{T.noCourses}</p>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {filtered.map((course) => (
@@ -94,30 +106,31 @@ export default async function CourseCatalogPage({
                 href={`/courses/${course.id}`}
                 className="bg-white border rounded-2xl overflow-hidden hover:shadow-md transition flex flex-col"
               >
-                {/* Cover image */}
                 {course.cover_image_url ? (
-                  <img
-                    src={course.cover_image_url}
-                    alt={course.title}
-                    className="w-full h-40 object-cover"
-                  />
+                  <img src={course.cover_image_url} alt={course.title} className="w-full h-40 object-cover" />
                 ) : (
-                  <div className="w-full h-40 flex items-center justify-center text-4xl" style={{ backgroundColor: "#323131" }}>
-                    🎓
-                  </div>
+                  <div className="w-full h-40 flex items-center justify-center text-4xl" style={{ backgroundColor: "#323131" }}>🎓</div>
                 )}
-
                 <div className="p-5 flex flex-col flex-1">
                   <div className="flex items-start justify-between gap-2 mb-2">
                     <h2 className="font-bold text-gray-900 leading-snug">{course.title}</h2>
-                    <PriceBadge isPaid={!!course.is_paid} priceAmd={course.price_amd} />
+                    <div className="flex flex-col items-end gap-1 shrink-0">
+                      {course.is_paid ? (
+                        <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-orange-100 text-orange-700">
+                          {course.price_amd ? `${course.price_amd.toLocaleString()} ֏` : T.paid}
+                        </span>
+                      ) : (
+                        <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-green-100 text-green-700">{T.free}</span>
+                      )}
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">
+                        {course.language === "en" ? T.languageEnglish : T.languageArmenian}
+                      </span>
+                    </div>
                   </div>
                   {course.description && (
                     <p className="text-sm text-gray-500 line-clamp-2 flex-1">{course.description}</p>
                   )}
-                  <p className="text-sm font-medium mt-4" style={{ color: "#EC5328" }}>
-                    View course →
-                  </p>
+                  <p className="text-sm font-medium mt-4" style={{ color: "#EC5328" }}>{T.viewCourse}</p>
                 </div>
               </Link>
             ))}

@@ -11,6 +11,7 @@ type Course = {
   cover_image_url: string | null;
   is_paid: boolean | null;
   price_amd: number | null;
+  language: string | null;
 };
 
 export function CourseEditor({ course }: { course: Course }) {
@@ -21,6 +22,7 @@ export function CourseEditor({ course }: { course: Course }) {
   const [published, setPublished] = useState(course.published);
   const [isPaid, setIsPaid] = useState(course.is_paid ?? false);
   const [priceAmd, setPriceAmd] = useState(course.price_amd?.toString() ?? "");
+  const [language, setLanguage] = useState<"en" | "hy">(course.language === "en" ? "en" : "hy");
   const [coverUrl, setCoverUrl] = useState(course.cover_image_url ?? "");
   const [uploadingImage, setUploadingImage] = useState(false);
   const [imageError, setImageError] = useState("");
@@ -64,6 +66,7 @@ export function CourseEditor({ course }: { course: Course }) {
         cover_image_url: coverUrl || null,
         is_paid: isPaid,
         price_amd: isPaid && priceAmd ? parseInt(priceAmd) : null,
+        language,
       })
       .eq("id", course.id);
     setSaving(false);
@@ -140,6 +143,21 @@ export function CourseEditor({ course }: { course: Course }) {
           rows={3}
           className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-500"
         />
+      </div>
+
+      {/* Language */}
+      <div className="border rounded-lg p-4 space-y-3">
+        <p className="text-sm font-medium">Course language</p>
+        <div className="flex items-center gap-4">
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input type="radio" name="language" checked={language === "hy"} onChange={() => setLanguage("hy")} className="w-4 h-4" />
+            <span className="text-sm">Հայerеn (Armenian)</span>
+          </label>
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input type="radio" name="language" checked={language === "en"} onChange={() => setLanguage("en")} className="w-4 h-4" />
+            <span className="text-sm">English</span>
+          </label>
+        </div>
       </div>
 
       {/* Pricing */}

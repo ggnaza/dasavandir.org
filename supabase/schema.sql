@@ -38,7 +38,8 @@ create table if not exists courses (
   description text,
   published boolean default false,
   created_by uuid references profiles(id),
-  created_at timestamptz default now()
+  created_at timestamptz default now(),
+  language text not null default 'hy' check (language in ('en', 'hy'))
 );
 
 

@@ -2,15 +2,20 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { LanguageToggle } from "@/components/language-toggle";
+import type { Lang } from "@/lib/i18n";
+import { translations } from "@/lib/i18n";
 
 type NavProps = {
   role: "admin" | "learner";
   userName?: string;
   unreadNotifications?: number;
+  lang?: Lang;
 };
 
-export function Nav({ role, userName, unreadNotifications = 0 }: NavProps) {
+export function Nav({ role, userName, unreadNotifications = 0, lang = "en" }: NavProps) {
   const router = useRouter();
+  const T = translations[lang];
 
   async function handleSignOut() {
     const supabase = createClient();
@@ -30,9 +35,9 @@ export function Nav({ role, userName, unreadNotifications = 0 }: NavProps) {
           { href: "/admin/analytics", label: "Analytics" },
         ]
       : [
-          { href: "/learn", label: "My Courses" },
-          { href: "/learn/progress", label: "My Progress" },
-          { href: "/courses", label: "Browse" },
+          { href: "/learn", label: T.myCourses },
+          { href: "/learn/progress", label: T.myProgress },
+          { href: "/courses", label: T.browse },
         ];
 
   return (
@@ -50,17 +55,20 @@ export function Nav({ role, userName, unreadNotifications = 0 }: NavProps) {
       <div className="flex items-center gap-3 text-sm">
         {userName && <span className="text-gray-500 hidden sm:inline">{userName}</span>}
         {role === "learner" && (
-          <Link href="/learn/notifications" className="relative">
-            <span className="text-gray-600 hover:text-gray-900 text-lg leading-none">🔔</span>
-            {unreadNotifications > 0 && (
-              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center font-medium">
-                {unreadNotifications > 9 ? "9+" : unreadNotifications}
-              </span>
-            )}
-          </Link>
+          <>
+            <LanguageToggle current={lang} />
+            <Link href="/learn/notifications" className="relative">
+              <span className="text-gray-600 hover:text-gray-900 text-lg leading-none">🔔</span>
+              {unreadNotifications > 0 && (
+                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center font-medium">
+                  {unreadNotifications > 9 ? "9+" : unreadNotifications}
+                </span>
+              )}
+            </Link>
+          </>
         )}
         <button onClick={handleSignOut} className="text-gray-600 hover:text-gray-900">
-          Sign out
+          {T.signOut}
         </button>
       </div>
     </nav>

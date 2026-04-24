@@ -2,6 +2,8 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { Nav } from "@/components/nav";
+import { cookies } from "next/headers";
+import { getLang } from "@/lib/i18n";
 
 export const dynamic = "force-dynamic";
 
@@ -17,9 +19,11 @@ export default async function LearnLayout({ children }: { children: React.ReactN
     admin.from("notifications").select("*", { count: "exact", head: true }).eq("user_id", user.id).eq("read", false),
   ]);
 
+  const lang = getLang(cookies().get("lang")?.value);
+
   return (
     <div className="min-h-screen">
-      <Nav role="learner" userName={profile?.full_name} unreadNotifications={unreadCount ?? 0} />
+      <Nav role="learner" userName={profile?.full_name} unreadNotifications={unreadCount ?? 0} lang={lang} />
       <main className="max-w-5xl mx-auto px-4 py-8">{children}</main>
     </div>
   );
