@@ -20,7 +20,7 @@ export function Nav({ role, userName, unreadNotifications = 0, lang = "en" }: Na
   async function handleSignOut() {
     const supabase = createClient();
     await supabase.auth.signOut();
-    router.push("/auth/login");
+    router.push("/");
     router.refresh();
   }
 
