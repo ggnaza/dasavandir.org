@@ -1,7 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import OpenAI from "openai";
-import pdfParse from "pdf-parse";
+import * as pdfParseModule from "pdf-parse";
+const pdfParse = (pdfParseModule as any).default ?? pdfParseModule;
 
 export const runtime = "nodejs";
 
