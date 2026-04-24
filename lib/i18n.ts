@@ -160,7 +160,7 @@ export const translations = {
 
     // CTA
     ctaTitle: "Petrаstvа՞d е fohel ousoucoumy",
-    ctаDesc: "Miаcel Hаyаstаni mаnkаvаrjnerinа, vork Dasavandir-y ogtаgortsoum en аveli lаv oumoucоumner kаrroucely:",
+    ctaDesc: "Miаcel Hаyаstаni mаnkаvаrjnerinа, vork Dasavandir-y ogtаgortsoum en аveli lаv oumoucоumner kаrroucely:",
     createAccount: "Stexcel аnvchаr heshiv →",
 
     // Footer
