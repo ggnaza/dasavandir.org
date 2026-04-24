@@ -47,11 +47,22 @@ export default async function AdminDashboard() {
         ))}
       </div>
 
+      {/* Studio banner */}
+      <Link
+        href="/admin/studio"
+        className="flex items-center gap-4 bg-brand-600 text-white rounded-xl p-5 mb-4 hover:bg-brand-700 transition"
+      >
+        <span className="text-3xl shrink-0">🎛️</span>
+        <div>
+          <p className="font-semibold">Creation Studio</p>
+          <p className="text-brand-100 text-sm">AI builder · Manual courses · Audio narration · Drive import</p>
+        </div>
+        <span className="ml-auto text-brand-200 text-lg">→</span>
+      </Link>
+
       <div className="bg-white border rounded-xl p-6">
         <h2 className="font-semibold mb-2">Quick links</h2>
         <ul className="space-y-2 text-sm text-brand-600">
-          <li><Link href="/admin/ai-builder" className="hover:underline font-medium text-brand-600">✦ Generate course with AI</Link></li>
-          <li><Link href="/admin/courses/new" className="hover:underline">→ Create course manually</Link></li>
           <li><Link href="/admin/courses" className="hover:underline">→ Manage courses</Link></li>
           <li><Link href="/admin/analytics" className="hover:underline">→ View analytics</Link></li>
         </ul>
