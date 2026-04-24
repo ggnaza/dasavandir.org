@@ -1,15 +1,18 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import OpenAI from "openai";
 
 export const runtime = "nodejs";
-
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 export async function POST(req: Request) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return new Response("Unauthorized", { status: 401 });
+
+  // 10 submissions per hour per user
+  const { allowed } = checkRateLimit(`submit:${user.id}`, 10, 60 * 60_000);
+  if (!allowed) return rateLimitResponse();
 
   const { assignment_id, content, file_path, file_name, link_url } = await req.json();
 
@@ -77,6 +80,7 @@ Return ONLY valid JSON:
 If only a file or link was submitted without text, note that manual review may be needed for full evaluation. Be fair and constructive.`;
 
   try {
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
     const completion = await openai.chat.completions.create({
       model: "gpt-4o",
       messages: [{ role: "user", content: prompt }],

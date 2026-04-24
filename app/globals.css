@@ -25,3 +25,9 @@
   content: attr(data-placeholder);
   @apply text-gray-400 pointer-events-none float-left h-0;
 }
+
+@media print {
+  .no-print { display: none !important; }
+  nav { display: none !important; }
+  body { background: white !important; }
+}
