@@ -18,7 +18,7 @@ export async function GET(req: Request) {
     path: "/",
     httpOnly: true,
     maxAge: 60 * 60 * 24 * 30,
-    sameSite: "lax",
+    sameSite: "strict",
   });
 
   return res;

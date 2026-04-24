@@ -1,4 +1,10 @@
+"use client";
+import { useMemo } from "react";
+import DOMPurify from "dompurify";
+
 export function LessonHtmlRenderer({ content }: { content: string }) {
+  const clean = useMemo(() => DOMPurify.sanitize(content), [content]);
+
   return (
     <div
       className="prose prose-sm max-w-none text-gray-800
@@ -12,7 +18,7 @@ export function LessonHtmlRenderer({ content }: { content: string }) {
         prose-pre:bg-gray-100 prose-pre:p-4 prose-pre:rounded-lg prose-pre:overflow-x-auto
         prose-a:text-brand-600 prose-a:underline
         prose-hr:border-gray-200"
-      dangerouslySetInnerHTML={{ __html: content }}
+      dangerouslySetInnerHTML={{ __html: clean }}
     />
   );
 }
