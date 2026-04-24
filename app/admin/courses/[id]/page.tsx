@@ -23,6 +23,15 @@ export default async function CoursePage({ params }: { params: { id: string } })
 
       <CourseEditor course={course} />
 
+      <div className="mt-6 flex gap-3">
+        <Link
+          href={`/admin/courses/${course.id}/invitations`}
+          className="text-sm border border-gray-300 text-gray-600 px-4 py-2 rounded-lg hover:bg-gray-50 font-medium"
+        >
+          Manage invitations
+        </Link>
+      </div>
+
       <div className="mt-8">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold">Lessons</h2>
