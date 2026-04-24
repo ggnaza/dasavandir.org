@@ -222,9 +222,7 @@ export function LessonEditor({ lesson, courseId }: { lesson: Lesson; courseId: s
       </div>
 
       {/* Video chapters */}
-      {videoUrl && (
-        <ChaptersEditor lessonId={lesson.id} initial={lesson.chapters ?? []} />
-      )}
+      <ChaptersEditor lessonId={lesson.id} initial={lesson.chapters ?? []} />
 
       {/* Audio narration */}
       <div className="border rounded-xl p-4 space-y-3 bg-gray-50">
