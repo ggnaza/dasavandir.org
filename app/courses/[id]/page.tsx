@@ -2,6 +2,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import { EnrollButton } from "./enroll-button";
 
 export const dynamic = "force-dynamic";
 
@@ -9,13 +10,26 @@ export default async function CourseDetailPage({ params }: { params: { id: strin
   const admin = createAdminClient();
   const supabase = createClient();
 
-  const [{ data: course }, { data: lessons }, { data: { user } }] = await Promise.all([
+  const { data: { user } } = await supabase.auth.getUser();
+
+  const [{ data: course }, { data: lessons }] = await Promise.all([
     admin.from("courses").select("*").eq("id", params.id).eq("published", true).single(),
     admin.from("lessons").select("id, title, order").eq("course_id", params.id).order("order"),
-    supabase.auth.getUser(),
   ]);
 
   if (!course) notFound();
+
+  // Check if already enrolled (only if logged in)
+  let isEnrolled = false;
+  if (user) {
+    const { data: enrollment } = await admin
+      .from("enrollments")
+      .select("id")
+      .eq("user_id", user.id)
+      .eq("course_id", params.id)
+      .single();
+    isEnrolled = !!enrollment;
+  }
 
   const lessonCount = lessons?.length ?? 0;
 
@@ -41,7 +55,6 @@ export default async function CourseDetailPage({ params }: { params: { id: strin
 
       <div className="max-w-4xl mx-auto px-6 py-12">
         <div className="bg-white rounded-2xl border overflow-hidden">
-          {/* Cover image */}
           {course.cover_image_url ? (
             <img src={course.cover_image_url} alt={course.title} className="w-full h-56 object-cover" />
           ) : (
@@ -51,16 +64,13 @@ export default async function CourseDetailPage({ params }: { params: { id: strin
           )}
 
           <div className="p-8">
-            {/* Price badge */}
             <div className="mb-4">
               {course.is_paid ? (
                 <span className="text-sm font-semibold px-3 py-1 rounded-full bg-orange-100 text-orange-700">
                   {course.price_amd ? `${course.price_amd.toLocaleString()} AMD` : "Paid"}
                 </span>
               ) : (
-                <span className="text-sm font-semibold px-3 py-1 rounded-full bg-green-100 text-green-700">
-                  Free
-                </span>
+                <span className="text-sm font-semibold px-3 py-1 rounded-full bg-green-100 text-green-700">Free</span>
               )}
             </div>
 
@@ -70,14 +80,10 @@ export default async function CourseDetailPage({ params }: { params: { id: strin
               <p className="text-gray-600 leading-relaxed mb-6">{course.description}</p>
             )}
 
-            {/* Lesson count */}
             {lessonCount > 0 && (
-              <p className="text-sm text-gray-500 mb-6">
-                {lessonCount} lesson{lessonCount !== 1 ? "s" : ""}
-              </p>
+              <p className="text-sm text-gray-500 mb-6">{lessonCount} lesson{lessonCount !== 1 ? "s" : ""}</p>
             )}
 
-            {/* Lesson preview */}
             {lessons && lessons.length > 0 && (
               <div className="mb-8">
                 <h2 className="font-semibold text-gray-900 mb-3">What you'll learn</h2>
@@ -99,24 +105,28 @@ export default async function CourseDetailPage({ params }: { params: { id: strin
 
             {/* CTA */}
             {user ? (
-              <Link
-                href={`/learn/courses/${course.id}`}
-                className="inline-block text-white px-8 py-3 rounded-xl font-semibold text-sm"
-                style={{ backgroundColor: "#EC5328" }}
-              >
-                Go to course →
-              </Link>
+              isEnrolled ? (
+                <Link
+                  href={`/learn/courses/${course.id}`}
+                  className="inline-block text-white px-8 py-3 rounded-xl font-semibold text-sm"
+                  style={{ backgroundColor: "#EC5328" }}
+                >
+                  Continue learning →
+                </Link>
+              ) : (
+                <EnrollButton courseId={course.id} isPaid={!!course.is_paid} />
+              )
             ) : (
               <div className="flex flex-wrap gap-3">
                 <Link
-                  href={`/auth/signup?next=/learn/courses/${course.id}`}
+                  href={`/auth/signup?next=/courses/${course.id}`}
                   className="inline-block text-white px-8 py-3 rounded-xl font-semibold text-sm"
                   style={{ backgroundColor: "#EC5328" }}
                 >
                   {course.is_paid ? "Enroll now" : "Start for free"} →
                 </Link>
                 <Link
-                  href={`/auth/login?next=/learn/courses/${course.id}`}
+                  href={`/auth/login?next=/courses/${course.id}`}
                   className="inline-block border border-gray-300 text-gray-700 px-8 py-3 rounded-xl font-semibold text-sm hover:bg-gray-50"
                 >
                   Sign in

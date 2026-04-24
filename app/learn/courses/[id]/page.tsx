@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 
 export default async function LearnCoursePage({ params }: { params: { id: string } }) {
@@ -15,6 +15,29 @@ export default async function LearnCoursePage({ params }: { params: { id: string
   ]);
 
   if (!course) notFound();
+
+  // Check enrollment — auto-enroll if user already has progress (migration compat)
+  const { data: enrollment } = await admin
+    .from("enrollments")
+    .select("id")
+    .eq("user_id", user!.id)
+    .eq("course_id", params.id)
+    .single();
+
+  if (!enrollment) {
+    const hasProgress = (progress ?? []).some((p) =>
+      (lessons ?? []).some((l) => l.id === p.lesson_id)
+    );
+    if (hasProgress) {
+      // Auto-enroll legacy users who already have progress
+      await admin.from("enrollments").upsert(
+        { user_id: user!.id, course_id: params.id },
+        { onConflict: "user_id,course_id" }
+      );
+    } else {
+      redirect(`/courses/${params.id}`);
+    }
+  }
 
   const completedIds = new Set((progress ?? []).map((p) => p.lesson_id));
   const total = lessons?.length ?? 0;
