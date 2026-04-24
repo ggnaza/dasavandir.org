@@ -11,6 +11,30 @@ export default async function LearnDashboard({
   const admin = createAdminClient();
   const { data: { user } } = await supabase.auth.getUser();
 
+  // Process pending invitations for this user's email → auto-enroll
+  const userEmail = user!.email?.toLowerCase();
+  if (userEmail) {
+    const { data: pendingInvites } = await admin
+      .from("invitations")
+      .select("id, course_id")
+      .eq("email", userEmail)
+      .eq("status", "pending");
+
+    if (pendingInvites && pendingInvites.length > 0) {
+      await Promise.all(
+        pendingInvites.map((inv) =>
+          Promise.all([
+            admin.from("enrollments").upsert(
+              { user_id: user!.id, course_id: inv.course_id },
+              { onConflict: "user_id,course_id" }
+            ),
+            admin.from("invitations").update({ status: "accepted" }).eq("id", inv.id),
+          ])
+        )
+      );
+    }
+  }
+
   // Get enrolled course IDs
   const { data: enrollments } = await admin
     .from("enrollments")
