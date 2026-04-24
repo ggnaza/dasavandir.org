@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { LessonContentEditor } from "@/components/lesson-content-editor-dynamic";
+import { ChaptersEditor } from "./chapters-editor";
 
 type Lesson = {
   id: string;
@@ -15,6 +16,7 @@ type Lesson = {
   what_you_learn: string | null;
   skills: string[] | null;
   order: number;
+  chapters: any[] | null;
 };
 
 export function LessonEditor({ lesson, courseId }: { lesson: Lesson; courseId: string }) {
@@ -218,6 +220,11 @@ export function LessonEditor({ lesson, courseId }: { lesson: Lesson; courseId: s
           </div>
         </div>
       </div>
+
+      {/* Video chapters */}
+      {videoUrl && (
+        <ChaptersEditor lessonId={lesson.id} initial={lesson.chapters ?? []} />
+      )}
 
       {/* Audio narration */}
       <div className="border rounded-xl p-4 space-y-3 bg-gray-50">

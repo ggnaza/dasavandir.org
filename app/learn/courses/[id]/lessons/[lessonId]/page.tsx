@@ -8,6 +8,7 @@ import { LessonHtmlRenderer } from "@/components/lesson-html-renderer";
 import { LessonFiles } from "./lesson-files";
 import { SessionTracker } from "./session-tracker";
 import { VideoTracker } from "./video-tracker";
+import { ChapterView } from "./chapter-view";
 
 function getSlidesEmbedUrl(url: string): string | null {
   try {
@@ -112,7 +113,9 @@ export default async function LessonPage({
         </Link>
         <h1 className="text-2xl font-bold mt-2 mb-6">{lesson.title}</h1>
 
-        {embedUrl && (
+        {lesson.video_url && lesson.chapters?.length > 0 ? (
+          <ChapterView chapters={lesson.chapters} videoUrl={lesson.video_url} />
+        ) : embedUrl && (
           <VideoTracker
             embedUrl={embedUrl}
             isYouTube={!!(lesson.video_url && (lesson.video_url.includes("youtube.com") || lesson.video_url.includes("youtu.be")))}

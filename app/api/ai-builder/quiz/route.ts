@@ -48,7 +48,7 @@ export async function POST(req: Request) {
   const { data: profile } = await admin.from("profiles").select("role").eq("id", user.id).single();
   if (profile?.role !== "admin") return new Response("Forbidden", { status: 403 });
 
-  const { lessonId, count = 5 } = await req.json();
+  const { lessonId, count = 5, chapterTitle, chapterStart, chapterEnd } = await req.json();
   if (!lessonId) return new Response("Missing lessonId", { status: 400 });
 
   const { data: lesson } = await admin
@@ -70,6 +70,10 @@ export async function POST(req: Request) {
 
   const parts: string[] = [];
   parts.push(`Lesson title: ${lesson.title}`);
+  if (chapterTitle) {
+    const fmt = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+    parts.push(`Focus on chapter: "${chapterTitle}" (${fmt(chapterStart ?? 0)} – ${fmt(chapterEnd ?? 0)}). Generate questions specifically about the content in this segment.`);
+  }
 
   if (lesson.content) {
     parts.push(`Lesson content:\n${htmlToText(lesson.content).slice(0, 4000)}`);
