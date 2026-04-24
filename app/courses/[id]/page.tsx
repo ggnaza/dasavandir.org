@@ -81,7 +81,7 @@ export default async function CourseDetailPage({ params }: { params: { id: strin
                 )}
                 {course.language && (
                   <span className="text-xs px-2.5 py-1 rounded-full bg-blue-50 text-blue-600">
-                    {course.language === "hy" ? "Հայerеn" : "English"}
+                    {course.language === "hy" ? "Հայերեն" : "English"}
                   </span>
                 )}
               </div>

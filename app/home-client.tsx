@@ -31,7 +31,7 @@ export function HomeClient({ courses, lang }: Props) {
     <div className="min-h-screen bg-white font-sans">
 
       {modal && (
-        <AuthModal defaultTab={modal} onClose={() => setModal(null)} />
+        <AuthModal defaultTab={modal} onClose={() => setModal(null)} lang={lang} />
       )}
 
       {/* Nav */}

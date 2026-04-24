@@ -218,7 +218,7 @@ export function CourseEditor({ course }: { course: Course }) {
         <div className="flex items-center gap-4">
           <label className="flex items-center gap-2 cursor-pointer">
             <input type="radio" name="language" checked={language === "hy"} onChange={() => setLanguage("hy")} className="w-4 h-4" />
-            <span className="text-sm">Հայerеn (Armenian)</span>
+            <span className="text-sm">Հայերեն (Armenian)</span>
           </label>
           <label className="flex items-center gap-2 cursor-pointer">
             <input type="radio" name="language" checked={language === "en"} onChange={() => setLanguage("en")} className="w-4 h-4" />
