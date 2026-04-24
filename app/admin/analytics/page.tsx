@@ -1,6 +1,8 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import Link from "next/link";
 
+export const dynamic = "force-dynamic";
+
 function fmtTime(seconds: number): string {
   if (seconds < 60) return `${seconds}s`;
   if (seconds < 3600) return `${Math.round(seconds / 60)}m`;

@@ -1,6 +1,8 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { notFound } from "next/navigation";
 import Link from "next/link";
+
+export const dynamic = "force-dynamic";
 import { InviteForm } from "./invite-form";
 
 export default async function InvitationsPage({ params }: { params: { id: string } }) {

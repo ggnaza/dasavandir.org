@@ -1,6 +1,8 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import Link from "next/link";
 
+export const dynamic = "force-dynamic";
+
 const STATUS_STYLES: Record<string, string> = {
   submitted: "bg-yellow-100 text-yellow-700",
   ai_reviewed: "bg-blue-100 text-blue-700",
