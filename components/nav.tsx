@@ -30,12 +30,13 @@ export function Nav({ role, userName }: NavProps) {
       : [
           { href: "/learn", label: "My Courses" },
           { href: "/learn/progress", label: "My Progress" },
+          { href: "/courses", label: "Browse" },
         ];
 
   return (
     <nav className="bg-white border-b px-4 py-3 flex items-center justify-between">
       <div className="flex items-center gap-6">
-        <span className="font-bold text-brand-600">Gor LMS</span>
+        <Link href="/" className="font-bold text-brand-600">Dasavandir</Link>
         <div className="hidden sm:flex gap-4 text-sm">
           {links.map((l) => (
             <Link key={l.href} href={l.href} className="text-gray-600 hover:text-gray-900">
