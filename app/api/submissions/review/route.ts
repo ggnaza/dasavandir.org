@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createNotification } from "@/lib/notifications";
 
 export async function POST(req: Request) {
   const supabase = createClient();
@@ -14,7 +15,7 @@ export async function POST(req: Request) {
 
   const status = action === "approve" ? "approved" : "returned";
 
-  const { error } = await admin
+  const { data: submission, error } = await admin
     .from("submissions")
     .update({
       status,
@@ -23,8 +24,23 @@ export async function POST(req: Request) {
       final_feedback: final_feedback ?? null,
       reviewed_at: new Date().toISOString(),
     })
-    .eq("id", submission_id);
+    .eq("id", submission_id)
+    .select("user_id, assignment_id, assignments(title, lessons(course_id))")
+    .single();
 
   if (error) return new Response(error.message, { status: 500 });
+
+  if (submission) {
+    const assignment = submission.assignments as any;
+    const courseId = assignment?.lessons?.course_id;
+    await createNotification({
+      user_id: submission.user_id,
+      type: status,
+      title: status === "approved" ? "Submission approved" : "Submission returned",
+      body: `Your submission for "${assignment?.title}" has been ${status === "approved" ? "approved" : "returned with feedback"}.`,
+      link: courseId ? `/learn/courses/${courseId}/lessons/${assignment?.lesson_id}/assignment` : "/learn",
+    });
+  }
+
   return new Response("OK");
 }

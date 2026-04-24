@@ -266,6 +266,32 @@ create policy "Admins view all sessions" on lesson_sessions
 
 
 -- ============================================================
+-- NOTIFICATIONS (in-app alerts for learners)
+-- ============================================================
+
+create table if not exists notifications (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references profiles(id) on delete cascade,
+  type text not null,
+  title text not null,
+  body text,
+  link text,
+  read boolean not null default false,
+  created_at timestamptz default now()
+);
+
+alter table notifications enable row level security;
+
+create policy "Users manage own notifications" on notifications
+  for all using (auth.uid() = user_id);
+
+create policy "Admins insert notifications" on notifications
+  for insert with check (
+    exists (select 1 from profiles where id = auth.uid() and role = 'admin')
+  );
+
+
+-- ============================================================
 -- CAPSTONE PROJECTS (course-level final project)
 -- ============================================================
 

@@ -6,9 +6,10 @@ import { createClient } from "@/lib/supabase/client";
 type NavProps = {
   role: "admin" | "learner";
   userName?: string;
+  unreadNotifications?: number;
 };
 
-export function Nav({ role, userName }: NavProps) {
+export function Nav({ role, userName, unreadNotifications = 0 }: NavProps) {
   const router = useRouter();
 
   async function handleSignOut() {
@@ -48,6 +49,16 @@ export function Nav({ role, userName }: NavProps) {
       </div>
       <div className="flex items-center gap-3 text-sm">
         {userName && <span className="text-gray-500 hidden sm:inline">{userName}</span>}
+        {role === "learner" && (
+          <Link href="/learn/notifications" className="relative">
+            <span className="text-gray-600 hover:text-gray-900 text-lg leading-none">🔔</span>
+            {unreadNotifications > 0 && (
+              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center font-medium">
+                {unreadNotifications > 9 ? "9+" : unreadNotifications}
+              </span>
+            )}
+          </Link>
+        )}
         <button onClick={handleSignOut} className="text-gray-600 hover:text-gray-900">
           Sign out
         </button>

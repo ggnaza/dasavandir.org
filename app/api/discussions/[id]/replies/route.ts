@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createNotification } from "@/lib/notifications";
 
 export async function POST(
   req: Request,
@@ -17,7 +18,7 @@ export async function POST(
   // Verify the discussion exists and user is enrolled
   const { data: discussion } = await admin
     .from("discussions")
-    .select("course_id")
+    .select("course_id, user_id")
     .eq("id", params.id)
     .single();
 
@@ -38,5 +39,17 @@ export async function POST(
   }).select().single();
 
   if (error) return new Response(error.message, { status: 500 });
+
+  // Notify the discussion author if someone else replied
+  if (discussion.user_id !== user.id) {
+    await createNotification({
+      user_id: discussion.user_id,
+      type: "reply",
+      title: "New reply to your discussion",
+      body: `Someone replied to your discussion.`,
+      link: `/learn/courses/${discussion.course_id}/discussions/${params.id}`,
+    });
+  }
+
   return Response.json(data);
 }
