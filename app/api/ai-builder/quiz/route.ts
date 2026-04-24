@@ -39,6 +39,7 @@ async function fetchGoogleSlidesText(url: string): Promise<string | null> {
 }
 
 export async function POST(req: Request) {
+  try {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return new Response("Unauthorized", { status: 401 });
@@ -141,5 +142,8 @@ The "correct" field is the 0-based index of the correct option.`,
     return Response.json({ questions: json.questions });
   } catch {
     return new Response("AI returned invalid response. Please try again.", { status: 500 });
+  }
+  } catch (err: any) {
+    return new Response(`Server error: ${err?.message ?? String(err)}`, { status: 500 });
   }
 }
