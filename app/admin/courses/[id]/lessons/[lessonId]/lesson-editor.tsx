@@ -9,6 +9,7 @@ type Lesson = {
   title: string;
   content: string | null;
   video_url: string | null;
+  audio_url: string | null;
   order: number;
 };
 
@@ -17,8 +18,30 @@ export function LessonEditor({ lesson, courseId }: { lesson: Lesson; courseId: s
   const [title, setTitle] = useState(lesson.title);
   const [content, setContent] = useState(lesson.content ?? "");
   const [videoUrl, setVideoUrl] = useState(lesson.video_url ?? "");
+  const [audioUrl, setAudioUrl] = useState(lesson.audio_url ?? "");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [generatingAudio, setGeneratingAudio] = useState(false);
+  const [audioError, setAudioError] = useState("");
+
+  async function handleGenerateAudio() {
+    setGeneratingAudio(true);
+    setAudioError("");
+    const res = await fetch("/api/ai-builder/audio", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ lessonId: lesson.id }),
+    });
+    if (!res.ok) {
+      setAudioError(await res.text());
+      setGeneratingAudio(false);
+      return;
+    }
+    const { audioUrl: url } = await res.json();
+    setAudioUrl(url);
+    setGeneratingAudio(false);
+    router.refresh();
+  }
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
@@ -66,6 +89,28 @@ export function LessonEditor({ lesson, courseId }: { lesson: Lesson; courseId: s
           className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-500"
         />
         {videoUrl && <p className="text-xs text-gray-500 mt-1">Video will be embedded for learners.</p>}
+      </div>
+
+      {/* Audio narration */}
+      <div className="border rounded-xl p-4 space-y-3 bg-gray-50">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium">Audio narration</p>
+            <p className="text-xs text-gray-400">AI-generated voice narration of this lesson's content.</p>
+          </div>
+          <button
+            type="button"
+            onClick={handleGenerateAudio}
+            disabled={generatingAudio}
+            className="text-sm bg-brand-600 text-white px-4 py-1.5 rounded-lg hover:bg-brand-700 disabled:opacity-50 font-medium shrink-0"
+          >
+            {generatingAudio ? "Generating…" : audioUrl ? "Regenerate" : "Generate audio"}
+          </button>
+        </div>
+        {audioError && <p className="text-xs text-red-500">{audioError}</p>}
+        {audioUrl && !generatingAudio && (
+          <audio controls className="w-full h-10" src={audioUrl} />
+        )}
       </div>
 
       <div className="flex items-center justify-between pt-2">

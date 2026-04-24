@@ -101,6 +101,16 @@ export default async function LessonPage({
           </div>
         )}
 
+        {lesson.audio_url && (
+          <div className="bg-white border rounded-xl px-5 py-4 mb-4 flex items-center gap-3">
+            <span className="text-xl shrink-0">🎧</span>
+            <div className="flex-1">
+              <p className="text-xs font-medium text-gray-500 mb-1.5">Listen to this lesson</p>
+              <audio controls className="w-full h-9" src={lesson.audio_url} />
+            </div>
+          </div>
+        )}
+
         {lesson.content && (
           <div className="bg-white border rounded-xl p-6 mb-6">
             <LessonHtmlRenderer content={lesson.content} />

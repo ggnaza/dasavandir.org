@@ -76,7 +76,7 @@ export function DriveBrowser({ onExtract }: Props) {
     const res = await fetch("/api/drive/extract", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ fileIds: [...selected] }),
+      body: JSON.stringify({ fileIds: Array.from(selected) }),
     });
     if (!res.ok) { setError(await res.text()); setExtracting(false); return; }
     const { text } = await res.json();
