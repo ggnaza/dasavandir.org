@@ -1,8 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import OpenAI from "openai";
-import * as pdfParseModule from "pdf-parse";
-const pdfParse = (pdfParseModule as any).default ?? pdfParseModule;
 
 export const runtime = "nodejs";
 
@@ -90,17 +88,7 @@ export async function POST(req: Request) {
   }
 
   if (lesson.document_url) {
-    try {
-      const pdfRes = await fetch(lesson.document_url, { cache: "no-store" });
-      if (pdfRes.ok) {
-        const buffer = Buffer.from(await pdfRes.arrayBuffer());
-        const parsed = await pdfParse(buffer);
-        const text = parsed.text.slice(0, 6000).trim();
-        if (text) parts.push(`Uploaded document (PDF) text:\n${text}`);
-      }
-    } catch {
-      // PDF extraction failed — skip silently
-    }
+    parts.push(`This lesson includes an uploaded PDF document.`);
   }
 
   // Only have the title and nothing else
