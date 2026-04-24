@@ -95,10 +95,13 @@ export function LessonEditor({ lesson, courseId }: { lesson: Lesson; courseId: s
           type="url"
           value={videoUrl}
           onChange={(e) => setVideoUrl(e.target.value)}
-          placeholder="https://youtube.com/watch?v=..."
+          placeholder="YouTube, Vimeo, or Google Drive share link"
           className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-500"
         />
         {videoUrl && <p className="text-xs text-gray-500 mt-1">Video will be embedded for learners.</p>}
+        <p className="text-xs text-gray-400 mt-1">
+          Google Drive: open the file → Share → copy link (must be set to "Anyone with the link")
+        </p>
       </div>
 
       {/* Module preview info */}

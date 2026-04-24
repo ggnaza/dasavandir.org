@@ -21,6 +21,11 @@ function getEmbedUrl(url: string): string | null {
     if (u.hostname.includes("vimeo.com")) {
       return `https://player.vimeo.com/video${u.pathname}`;
     }
+    if (u.hostname.includes("drive.google.com")) {
+      // Supports: /file/d/FILE_ID/view and /file/d/FILE_ID/preview
+      const match = u.pathname.match(/\/file\/d\/([^/]+)/);
+      if (match) return `https://drive.google.com/file/d/${match[1]}/preview`;
+    }
     return null;
   } catch {
     return null;
