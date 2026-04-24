@@ -30,6 +30,12 @@ export default async function CoursePage({ params }: { params: { id: string } })
         >
           Manage invitations
         </Link>
+        <Link
+          href={`/admin/courses/${course.id}/capstone`}
+          className="text-sm border border-purple-300 text-purple-600 px-4 py-2 rounded-lg hover:bg-purple-50 font-medium"
+        >
+          Capstone project
+        </Link>
       </div>
 
       <div className="mt-8">

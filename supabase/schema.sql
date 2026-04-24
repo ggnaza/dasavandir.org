@@ -266,6 +266,63 @@ create policy "Admins view all sessions" on lesson_sessions
 
 
 -- ============================================================
+-- CAPSTONE PROJECTS (course-level final project)
+-- ============================================================
+
+create table if not exists capstones (
+  id uuid primary key default gen_random_uuid(),
+  course_id uuid not null references courses(id) on delete cascade,
+  title text not null,
+  instructions text,
+  rubric jsonb not null default '[]',
+  created_at timestamptz default now(),
+  unique(course_id)
+);
+
+create table if not exists capstone_submissions (
+  id uuid primary key default gen_random_uuid(),
+  capstone_id uuid not null references capstones(id) on delete cascade,
+  user_id uuid not null references profiles(id) on delete cascade,
+  content text,
+  file_path text,
+  file_name text,
+  link_url text,
+  status text not null default 'submitted' check (status in ('submitted', 'ai_reviewed', 'approved', 'returned')),
+  ai_feedback jsonb,
+  ai_total_score integer,
+  final_score integer,
+  instructor_note text,
+  final_feedback text,
+  submitted_at timestamptz default now(),
+  reviewed_at timestamptz,
+  unique(capstone_id, user_id)
+);
+
+alter table capstones enable row level security;
+alter table capstone_submissions enable row level security;
+
+-- Capstones: admins manage; enrolled users view
+create policy "Admins manage capstones" on capstones
+  for all using (
+    exists (select 1 from profiles where id = auth.uid() and role = 'admin')
+  );
+
+create policy "Enrolled users view capstones" on capstones
+  for select using (
+    exists (select 1 from enrollments where user_id = auth.uid() and course_id = capstones.course_id)
+  );
+
+-- Capstone submissions: users manage own; admins manage all
+create policy "Users manage own capstone submissions" on capstone_submissions
+  for all using (auth.uid() = user_id);
+
+create policy "Admins manage all capstone submissions" on capstone_submissions
+  for all using (
+    exists (select 1 from profiles where id = auth.uid() and role = 'admin')
+  );
+
+
+-- ============================================================
 -- DISCUSSIONS (PLC — Professional Learning Community)
 -- ============================================================
 

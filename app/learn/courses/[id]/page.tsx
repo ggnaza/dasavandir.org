@@ -8,10 +8,11 @@ export default async function LearnCoursePage({ params }: { params: { id: string
   const admin = createAdminClient();
   const { data: { user } } = await supabase.auth.getUser();
 
-  const [{ data: course }, { data: lessons }, { data: progress }] = await Promise.all([
+  const [{ data: course }, { data: lessons }, { data: progress }, { data: capstone }] = await Promise.all([
     admin.from("courses").select("*").eq("id", params.id).eq("published", true).single(),
     admin.from("lessons").select("id, title, order").eq("course_id", params.id).order("order"),
     admin.from("progress").select("lesson_id").eq("user_id", user!.id),
+    admin.from("capstones").select("id").eq("course_id", params.id).single(),
   ]);
 
   if (!course) notFound();
@@ -64,13 +65,21 @@ export default async function LearnCoursePage({ params }: { params: { id: string
         </div>
       )}
 
-      <div className="mb-6">
+      <div className="mb-6 flex gap-3">
         <Link
           href={`/learn/courses/${course.id}/discussions`}
           className="inline-flex items-center gap-2 text-sm border rounded-lg px-4 py-2 hover:bg-gray-50 text-gray-600"
         >
           <span>💬</span> Discussions
         </Link>
+        {capstone && (
+          <Link
+            href={`/learn/courses/${course.id}/capstone`}
+            className="inline-flex items-center gap-2 text-sm border border-purple-300 text-purple-600 rounded-lg px-4 py-2 hover:bg-purple-50"
+          >
+            <span>🎓</span> Capstone project
+          </Link>
+        )}
       </div>
 
       <div className="space-y-2">

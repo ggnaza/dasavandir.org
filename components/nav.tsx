@@ -25,6 +25,7 @@ export function Nav({ role, userName }: NavProps) {
           { href: "/admin/courses", label: "Courses" },
           { href: "/admin/ai-builder", label: "✦ AI Builder" },
           { href: "/admin/submissions", label: "Submissions" },
+          { href: "/admin/capstone-submissions", label: "Capstones" },
           { href: "/admin/analytics", label: "Analytics" },
         ]
       : [
