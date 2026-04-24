@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import Link from "next/link";
+import { DeleteCourseButton } from "./delete-course-button";
 
 export const dynamic = "force-dynamic";
 
@@ -64,12 +65,15 @@ export default async function CoursesPage() {
                 <p className="text-sm text-gray-500 mt-0.5 truncate">{course.description}</p>
               )}
             </div>
-            <Link
-              href={`/admin/courses/${course.id}`}
-              className="text-sm text-brand-600 hover:underline ml-4 shrink-0"
-            >
-              Edit →
-            </Link>
+            <div className="flex items-center ml-4 shrink-0">
+              <Link
+                href={`/admin/courses/${course.id}`}
+                className="text-sm text-brand-600 hover:underline"
+              >
+                Edit →
+              </Link>
+              <DeleteCourseButton courseId={course.id} />
+            </div>
           </div>
         ))}
       </div>

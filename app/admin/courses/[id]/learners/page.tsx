@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { LearnerRows } from "./learner-rows";
 
+
 export const dynamic = "force-dynamic";
 
 export default async function CourseLearnerPage({ params }: { params: { id: string } }) {
@@ -37,7 +38,9 @@ export default async function CourseLearnerPage({ params }: { params: { id: stri
   const totalLessons = lessonList.length;
 
   const learners = (enrollments ?? []).map((e) => {
-    const profile = profileMap[e.user_id] ?? { full_name: "Unknown", email: "" };
+    const profile = profileMap[e.user_id];
+    const name = profile?.full_name || profile?.email || "Unknown";
+    const email = profile?.email ?? "";
     const completedIds = new Set(
       (allProgress ?? []).filter((p) => p.user_id === e.user_id).map((p) => p.lesson_id)
     );
@@ -46,8 +49,8 @@ export default async function CourseLearnerPage({ params }: { params: { id: stri
 
     return {
       userId: e.user_id,
-      name: profile.full_name ?? "Unknown",
-      email: profile.email ?? "",
+      name,
+      email,
       enrolledAt: e.enrolled_at,
       completedCount,
       totalLessons,

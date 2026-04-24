@@ -7,6 +7,7 @@ import { AiCoach } from "./ai-coach";
 import { LessonHtmlRenderer } from "@/components/lesson-html-renderer";
 import { LessonFiles } from "./lesson-files";
 import { SessionTracker } from "./session-tracker";
+import { VideoTracker } from "./video-tracker";
 
 function getSlidesEmbedUrl(url: string): string | null {
   try {
@@ -112,14 +113,13 @@ export default async function LessonPage({
         <h1 className="text-2xl font-bold mt-2 mb-6">{lesson.title}</h1>
 
         {embedUrl && (
-          <div className="aspect-video mb-6 rounded-xl overflow-hidden bg-black">
-            <iframe
-              src={embedUrl}
-              className="w-full h-full"
-              allowFullScreen
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-            />
-          </div>
+          <VideoTracker
+            embedUrl={embedUrl}
+            isYouTube={!!(lesson.video_url && (lesson.video_url.includes("youtube.com") || lesson.video_url.includes("youtu.be")))}
+            lessonId={params.lessonId}
+            userId={user!.id}
+            isCompleted={isCompleted}
+          />
         )}
 
         {slidesEmbedUrl && (

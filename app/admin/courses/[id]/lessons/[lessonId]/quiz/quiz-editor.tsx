@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
 type Question = {
@@ -11,12 +12,14 @@ type Question = {
 type Quiz = { id: string; questions: Question[] };
 
 export function QuizEditor({ lessonId, existing }: { lessonId: string; existing: Quiz | null }) {
+  const router = useRouter();
   const [questions, setQuestions] = useState<Question[]>(existing?.questions ?? []);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [genError, setGenError] = useState("");
   const [genCount, setGenCount] = useState(5);
+  const [deleting, setDeleting] = useState(false);
 
   async function handleGenerate() {
     setGenerating(true);
@@ -57,6 +60,14 @@ export function QuizEditor({ lessonId, existing }: { lessonId: string; existing:
     setQuestions(updated);
   }
 
+  async function handleDelete() {
+    if (!existing || !confirm("Delete this quiz? This cannot be undone.")) return;
+    setDeleting(true);
+    const supabase = createClient();
+    await supabase.from("quizzes").delete().eq("id", existing.id);
+    router.refresh();
+  }
+
   async function handleSave() {
     setSaving(true);
     const supabase = createClient();
@@ -83,7 +94,7 @@ export function QuizEditor({ lessonId, existing }: { lessonId: string; existing:
               {questions.length > 0 && " Generated questions are added to existing ones."}
             </p>
           </div>
-          <div className="flex items-center gap-3 shrink-0">
+          <div className="flex items-center gap-3 shrink-0 flex-wrap justify-end">
             <div className="flex items-center gap-2">
               <label className="text-xs text-brand-700 font-medium">Questions:</label>
               <select
@@ -162,9 +173,20 @@ export function QuizEditor({ lessonId, existing }: { lessonId: string; existing:
       ))}
 
       <div className="flex items-center justify-between">
-        <button onClick={addQuestion} className="text-sm border rounded-lg px-4 py-2 hover:bg-gray-50">
-          + Add question manually
-        </button>
+        <div className="flex items-center gap-3">
+          <button onClick={addQuestion} className="text-sm border rounded-lg px-4 py-2 hover:bg-gray-50">
+            + Add question manually
+          </button>
+          {existing && (
+            <button
+              onClick={handleDelete}
+              disabled={deleting}
+              className="text-sm text-red-400 hover:text-red-600 disabled:opacity-50"
+            >
+              {deleting ? "Deleting…" : "Delete quiz"}
+            </button>
+          )}
+        </div>
         <button
           onClick={handleSave}
           disabled={saving || questions.length === 0}
