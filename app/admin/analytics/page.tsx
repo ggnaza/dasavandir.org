@@ -18,6 +18,7 @@ export default async function AnalyticsPage() {
     { data: quizResponses },
     { data: sessions },
     { data: submissions },
+    { data: enrollments },
   ] = await Promise.all([
     admin.from("courses").select("id, title, published"),
     admin.from("lessons").select("id, course_id, title"),
@@ -26,6 +27,7 @@ export default async function AnalyticsPage() {
     admin.from("quiz_responses").select("user_id, quiz_id, score, submitted_at"),
     admin.from("lesson_sessions").select("user_id, lesson_id, duration_seconds"),
     admin.from("submissions").select("user_id, status, ai_total_score"),
+    admin.from("enrollments").select("user_id, course_id, enrolled_at"),
   ]);
 
   const totalLearners = learners?.length ?? 0;
@@ -35,6 +37,7 @@ export default async function AnalyticsPage() {
     : null;
   const activeLearners = new Set(progress?.map((p) => p.user_id)).size;
   const totalTimeSeconds = (sessions ?? []).reduce((s, r) => s + (r.duration_seconds ?? 0), 0);
+  const totalEnrollments = enrollments?.length ?? 0;
   const pendingReviews = (submissions ?? []).filter((s) => s.status === "ai_reviewed").length;
 
   // Per-course stats
@@ -42,6 +45,7 @@ export default async function AnalyticsPage() {
     const courseLessons = lessons?.filter((l) => l.course_id === course.id) ?? [];
     const lessonIds = new Set(courseLessons.map((l) => l.id));
     const courseProgress = progress?.filter((p) => lessonIds.has(p.lesson_id)) ?? [];
+    const courseEnrollments = (enrollments ?? []).filter((e) => e.course_id === course.id).length;
     const learnersStarted = new Set(courseProgress.map((p) => p.user_id)).size;
 
     const completionsByUser: Record<string, number> = {};
@@ -70,6 +74,7 @@ export default async function AnalyticsPage() {
       fullCompletions,
       lessonStats,
       totalTime: totalCourseTime,
+      enrollmentCount: courseEnrollments,
     };
   });
 
@@ -102,6 +107,7 @@ export default async function AnalyticsPage() {
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-10">
         {[
           { label: "Total learners", value: totalLearners },
+          { label: "Enrollments", value: totalEnrollments },
           { label: "Active learners", value: activeLearners },
           { label: "Lesson completions", value: totalCompletions },
           { label: "Avg quiz score", value: avgQuizScore !== null ? `${avgQuizScore}%` : "—" },
@@ -139,6 +145,8 @@ export default async function AnalyticsPage() {
                 </span>
               </div>
               <div className="text-sm text-gray-500 text-right space-x-3">
+                <span>{course.enrollmentCount} enrolled</span>
+                <span>·</span>
                 <span>{course.learnersStarted} started</span>
                 <span>·</span>
                 <span>{course.fullCompletions} finished</span>

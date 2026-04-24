@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { MarkCompleteButton } from "./mark-complete-button";
 import { AiCoach } from "./ai-coach";
@@ -46,6 +46,27 @@ export default async function LessonPage({
   ]);
 
   if (!lesson) notFound();
+
+  // Enrollment gate
+  const { data: enrollment } = await admin
+    .from("enrollments")
+    .select("id")
+    .eq("user_id", user!.id)
+    .eq("course_id", params.id)
+    .single();
+
+  if (!enrollment) {
+    // Auto-enroll if user already has progress (migration compat)
+    const hasProgress = (allProgress ?? []).length > 0;
+    if (hasProgress) {
+      await admin.from("enrollments").upsert(
+        { user_id: user!.id, course_id: params.id },
+        { onConflict: "user_id,course_id" }
+      );
+    } else {
+      redirect(`/courses/${params.id}`);
+    }
+  }
 
   const completedIds = new Set((allProgress ?? []).map((p) => p.lesson_id));
   const isCompleted = completedIds.has(params.lessonId);
