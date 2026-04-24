@@ -8,6 +8,21 @@ import { LessonHtmlRenderer } from "@/components/lesson-html-renderer";
 import { LessonFiles } from "./lesson-files";
 import { SessionTracker } from "./session-tracker";
 
+function getSlidesEmbedUrl(url: string): string | null {
+  try {
+    const u = new URL(url);
+    // Google Slides share/edit link → embed
+    if (u.hostname.includes("docs.google.com")) {
+      const match = u.pathname.match(/\/presentation\/d\/([^/]+)/);
+      if (match) return `https://docs.google.com/presentation/d/${match[1]}/embed?start=false&loop=false&delayms=3000`;
+    }
+    // Already an embed URL or Canva/other — use as-is
+    return url;
+  } catch {
+    return null;
+  }
+}
+
 function getEmbedUrl(url: string): string | null {
   try {
     const u = new URL(url);
@@ -76,6 +91,7 @@ export default async function LessonPage({
   const completedIds = new Set((allProgress ?? []).map((p) => p.lesson_id));
   const isCompleted = completedIds.has(params.lessonId);
   const embedUrl = lesson.video_url ? getEmbedUrl(lesson.video_url) : null;
+  const slidesEmbedUrl = lesson.slides_url ? getSlidesEmbedUrl(lesson.slides_url) : null;
 
   const currentIndex = lessons?.findIndex((l) => l.id === params.lessonId) ?? 0;
   const prevLesson = lessons?.[currentIndex - 1];
@@ -102,6 +118,27 @@ export default async function LessonPage({
               className="w-full h-full"
               allowFullScreen
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            />
+          </div>
+        )}
+
+        {slidesEmbedUrl && (
+          <div className="mb-6 rounded-xl overflow-hidden border" style={{ aspectRatio: "16/9" }}>
+            <iframe
+              src={slidesEmbedUrl}
+              className="w-full h-full"
+              allowFullScreen
+              allow="autoplay"
+            />
+          </div>
+        )}
+
+        {lesson.document_url && (
+          <div className="mb-6 rounded-xl overflow-hidden border bg-gray-50" style={{ height: "600px" }}>
+            <iframe
+              src={`https://docs.google.com/viewer?url=${encodeURIComponent(lesson.document_url)}&embedded=true`}
+              className="w-full h-full"
+              title="Document viewer"
             />
           </div>
         )}

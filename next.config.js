@@ -26,7 +26,7 @@ const nextConfig = {
               "img-src 'self' data: blob: *.supabase.co",
               "media-src 'self' blob: *.supabase.co",
               "font-src 'self'",
-              "frame-src 'self' https://www.youtube.com https://player.vimeo.com https://drive.google.com",
+              "frame-src 'self' https://www.youtube.com https://player.vimeo.com https://drive.google.com https://docs.google.com",
               "connect-src 'self' *.supabase.co wss://*.supabase.co https://api.openai.com",
             ].join("; "),
           },
