@@ -3,6 +3,17 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 
+async function getPublishedCourses() {
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("courses")
+    .select("id, title, description, cover_image_url, is_paid, price_amd")
+    .eq("published", true)
+    .order("created_at", { ascending: false })
+    .limit(6);
+  return data ?? [];
+}
+
 export default async function Home() {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -12,6 +23,8 @@ export default async function Home() {
     const { data: profile } = await admin.from("profiles").select("role").eq("id", user.id).single();
     redirect(profile?.role === "admin" ? "/admin" : "/learn");
   }
+
+  const courses = await getPublishedCourses();
 
   return (
     <div className="min-h-screen bg-white font-sans">
@@ -24,6 +37,9 @@ export default async function Home() {
             <span className="text-xs text-gray-400 mt-1">.org</span>
           </div>
           <div className="flex items-center gap-3">
+            <Link href="/courses" className="text-sm text-gray-600 hover:text-gray-900 font-medium">
+              Courses
+            </Link>
             <Link href="/auth/login" className="text-sm text-gray-600 hover:text-gray-900 font-medium">
               Sign in
             </Link>
@@ -149,6 +165,54 @@ export default async function Home() {
           </div>
         </div>
       </section>
+
+      {/* Courses section */}
+      {courses.length > 0 && (
+        <section className="py-20 bg-white">
+          <div className="max-w-6xl mx-auto px-6">
+            <div className="flex items-center justify-between mb-2">
+              <h2 className="text-3xl font-bold" style={{ color: "#323131" }}>Explore Courses</h2>
+              <Link href="/courses" className="text-sm font-semibold hover:underline" style={{ color: "#EC5328" }}>
+                See all →
+              </Link>
+            </div>
+            <p className="text-gray-500 text-sm mb-10">Start learning with courses designed by Armenian educators.</p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {courses.map((course) => (
+                <Link
+                  key={course.id}
+                  href={`/courses/${course.id}`}
+                  className="border rounded-2xl overflow-hidden hover:shadow-md transition flex flex-col bg-white"
+                >
+                  {course.cover_image_url ? (
+                    <img src={course.cover_image_url} alt={course.title} className="w-full h-36 object-cover" />
+                  ) : (
+                    <div className="w-full h-36 flex items-center justify-center text-4xl" style={{ backgroundColor: "#323131" }}>
+                      🎓
+                    </div>
+                  )}
+                  <div className="p-5 flex flex-col flex-1">
+                    <div className="flex items-start justify-between gap-2 mb-1">
+                      <h3 className="font-bold text-gray-900 text-sm leading-snug">{course.title}</h3>
+                      {course.is_paid ? (
+                        <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 shrink-0">
+                          {course.price_amd ? `${course.price_amd.toLocaleString()} ֏` : "Paid"}
+                        </span>
+                      ) : (
+                        <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-green-100 text-green-700 shrink-0">Free</span>
+                      )}
+                    </div>
+                    {course.description && (
+                      <p className="text-xs text-gray-500 line-clamp-2">{course.description}</p>
+                    )}
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* CTA section */}
       <section className="py-20 relative overflow-hidden" style={{ backgroundColor: "#EC5328" }}>
