@@ -12,6 +12,9 @@ type Course = {
   is_paid: boolean | null;
   price_amd: number | null;
   language: string | null;
+  category: string | null;
+  hours_to_complete: number | null;
+  outcomes: string[] | null;
 };
 
 export function CourseEditor({ course }: { course: Course }) {
@@ -23,6 +26,9 @@ export function CourseEditor({ course }: { course: Course }) {
   const [isPaid, setIsPaid] = useState(course.is_paid ?? false);
   const [priceAmd, setPriceAmd] = useState(course.price_amd?.toString() ?? "");
   const [language, setLanguage] = useState<"en" | "hy">(course.language === "en" ? "en" : "hy");
+  const [category, setCategory] = useState(course.category ?? "");
+  const [hours, setHours] = useState(course.hours_to_complete?.toString() ?? "");
+  const [outcomes, setOutcomes] = useState<string[]>(course.outcomes ?? [""]);
   const [coverUrl, setCoverUrl] = useState(course.cover_image_url ?? "");
   const [uploadingImage, setUploadingImage] = useState(false);
   const [imageError, setImageError] = useState("");
@@ -67,6 +73,9 @@ export function CourseEditor({ course }: { course: Course }) {
         is_paid: isPaid,
         price_amd: isPaid && priceAmd ? parseInt(priceAmd) : null,
         language,
+        category: category.trim() || null,
+        hours_to_complete: hours ? parseInt(hours) : null,
+        outcomes: outcomes.filter((o) => o.trim()),
       })
       .eq("id", course.id);
     setSaving(false);
@@ -143,6 +152,64 @@ export function CourseEditor({ course }: { course: Course }) {
           rows={3}
           className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-500"
         />
+      </div>
+
+      {/* Category & Hours */}
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium mb-1">Category</label>
+          <input
+            type="text"
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+            placeholder="e.g. Leadership, Technology"
+            className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium mb-1">Hours to complete</label>
+          <input
+            type="number"
+            min={1}
+            value={hours}
+            onChange={(e) => setHours(e.target.value)}
+            placeholder="e.g. 6"
+            className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+          />
+        </div>
+      </div>
+
+      {/* Outcomes */}
+      <div>
+        <label className="block text-sm font-medium mb-2">What learners will achieve <span className="text-gray-400 font-normal">(outcomes)</span></label>
+        <div className="space-y-2">
+          {outcomes.map((outcome, i) => (
+            <div key={i} className="flex items-center gap-2">
+              <span className="text-gray-400 text-sm">✓</span>
+              <input
+                type="text"
+                value={outcome}
+                onChange={(e) => {
+                  const next = [...outcomes];
+                  next[i] = e.target.value;
+                  setOutcomes(next);
+                }}
+                placeholder={`Outcome ${i + 1}`}
+                className="flex-1 border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+              />
+              {outcomes.length > 1 && (
+                <button type="button" onClick={() => setOutcomes(outcomes.filter((_, idx) => idx !== i))} className="text-gray-400 hover:text-red-500 text-lg leading-none">×</button>
+              )}
+            </div>
+          ))}
+          <button
+            type="button"
+            onClick={() => setOutcomes([...outcomes, ""])}
+            className="text-sm text-brand-600 hover:underline mt-1"
+          >
+            + Add outcome
+          </button>
+        </div>
       </div>
 
       {/* Language */}

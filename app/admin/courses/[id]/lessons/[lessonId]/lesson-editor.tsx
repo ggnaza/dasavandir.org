@@ -10,6 +10,8 @@ type Lesson = {
   content: string | null;
   video_url: string | null;
   audio_url: string | null;
+  what_you_learn: string | null;
+  skills: string[] | null;
   order: number;
 };
 
@@ -19,6 +21,8 @@ export function LessonEditor({ lesson, courseId }: { lesson: Lesson; courseId: s
   const [content, setContent] = useState(lesson.content ?? "");
   const [videoUrl, setVideoUrl] = useState(lesson.video_url ?? "");
   const [audioUrl, setAudioUrl] = useState(lesson.audio_url ?? "");
+  const [whatYouLearn, setWhatYouLearn] = useState(lesson.what_you_learn ?? "");
+  const [skills, setSkills] = useState<string[]>(lesson.skills ?? [""]);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [generatingAudio, setGeneratingAudio] = useState(false);
@@ -49,7 +53,13 @@ export function LessonEditor({ lesson, courseId }: { lesson: Lesson; courseId: s
     const supabase = createClient();
     await supabase
       .from("lessons")
-      .update({ title, content, video_url: videoUrl || null })
+      .update({
+        title,
+        content,
+        video_url: videoUrl || null,
+        what_you_learn: whatYouLearn.trim() || null,
+        skills: skills.filter((s) => s.trim()),
+      })
       .eq("id", lesson.id);
     setSaving(false);
     setSaved(true);
@@ -89,6 +99,51 @@ export function LessonEditor({ lesson, courseId }: { lesson: Lesson; courseId: s
           className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-500"
         />
         {videoUrl && <p className="text-xs text-gray-500 mt-1">Video will be embedded for learners.</p>}
+      </div>
+
+      {/* Module preview info */}
+      <div className="border rounded-xl p-4 space-y-4 bg-gray-50">
+        <p className="text-sm font-semibold">Module preview <span className="text-gray-400 font-normal">(shown on course page)</span></p>
+        <div>
+          <label className="block text-xs font-medium mb-1 text-gray-600">What learners will learn in this module</label>
+          <textarea
+            value={whatYouLearn}
+            onChange={(e) => setWhatYouLearn(e.target.value)}
+            rows={2}
+            placeholder="Brief description of what this module covers…"
+            className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-medium mb-2 text-gray-600">Skills gained</label>
+          <div className="space-y-2">
+            {skills.map((skill, i) => (
+              <div key={i} className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={skill}
+                  onChange={(e) => {
+                    const next = [...skills];
+                    next[i] = e.target.value;
+                    setSkills(next);
+                  }}
+                  placeholder={`Skill ${i + 1}`}
+                  className="flex-1 border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                />
+                {skills.length > 1 && (
+                  <button type="button" onClick={() => setSkills(skills.filter((_, idx) => idx !== i))} className="text-gray-400 hover:text-red-500 text-lg leading-none">×</button>
+                )}
+              </div>
+            ))}
+            <button
+              type="button"
+              onClick={() => setSkills([...skills, ""])}
+              className="text-xs text-brand-600 hover:underline"
+            >
+              + Add skill
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* Audio narration */}
