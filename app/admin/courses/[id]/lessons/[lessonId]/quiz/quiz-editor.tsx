@@ -11,11 +11,31 @@ type Question = {
 type Quiz = { id: string; questions: Question[] };
 
 export function QuizEditor({ lessonId, existing }: { lessonId: string; existing: Quiz | null }) {
-  const [questions, setQuestions] = useState<Question[]>(
-    existing?.questions ?? []
-  );
+  const [questions, setQuestions] = useState<Question[]>(existing?.questions ?? []);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [generating, setGenerating] = useState(false);
+  const [genError, setGenError] = useState("");
+  const [genCount, setGenCount] = useState(5);
+
+  async function handleGenerate() {
+    setGenerating(true);
+    setGenError("");
+    const res = await fetch("/api/ai-builder/quiz", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ lessonId, count: genCount }),
+    });
+    if (!res.ok) {
+      setGenError(await res.text());
+      setGenerating(false);
+      return;
+    }
+    const { questions: generated } = await res.json();
+    // Append generated questions to any existing ones
+    setQuestions((prev) => [...prev, ...generated]);
+    setGenerating(false);
+  }
 
   function addQuestion() {
     setQuestions([...questions, { question: "", options: ["", "", "", ""], correct: 0 }]);
@@ -52,9 +72,47 @@ export function QuizEditor({ lessonId, existing }: { lessonId: string; existing:
 
   return (
     <div className="space-y-6">
+
+      {/* AI generate panel */}
+      <div className="bg-brand-50 border border-brand-200 rounded-xl p-5">
+        <div className="flex items-start justify-between gap-4 flex-wrap">
+          <div>
+            <p className="font-semibold text-brand-900 text-sm">✦ Generate with AI</p>
+            <p className="text-xs text-brand-700 mt-0.5">
+              AI reads this lesson's content and creates quiz questions automatically.
+              {questions.length > 0 && " Generated questions are added to existing ones."}
+            </p>
+          </div>
+          <div className="flex items-center gap-3 shrink-0">
+            <div className="flex items-center gap-2">
+              <label className="text-xs text-brand-700 font-medium">Questions:</label>
+              <select
+                value={genCount}
+                onChange={(e) => setGenCount(Number(e.target.value))}
+                className="border border-brand-300 rounded-lg px-2 py-1 text-sm bg-white"
+              >
+                {[3, 5, 7, 10].map((n) => <option key={n} value={n}>{n}</option>)}
+              </select>
+            </div>
+            <button
+              onClick={handleGenerate}
+              disabled={generating}
+              className="bg-brand-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-brand-700 disabled:opacity-50"
+            >
+              {generating ? "Generating…" : "Generate"}
+            </button>
+          </div>
+        </div>
+        {genError && <p className="text-red-600 text-xs mt-3">{genError}</p>}
+        {generating && (
+          <p className="text-xs text-brand-600 mt-3 animate-pulse">Creating questions from lesson content…</p>
+        )}
+      </div>
+
+      {/* Question list */}
       {questions.length === 0 && (
         <div className="bg-white border rounded-xl p-8 text-center text-gray-500 text-sm">
-          No questions yet. Add your first question below.
+          No questions yet. Generate with AI or add manually below.
         </div>
       )}
 
@@ -80,7 +138,7 @@ export function QuizEditor({ lessonId, existing }: { lessonId: string; existing:
           </div>
 
           <div className="space-y-2">
-            <label className="block text-xs font-medium text-gray-500">Options (select the correct answer)</label>
+            <label className="block text-xs font-medium text-gray-500">Options — select the correct answer</label>
             {q.options.map((opt, oi) => (
               <div key={oi} className="flex items-center gap-2">
                 <input
@@ -104,11 +162,8 @@ export function QuizEditor({ lessonId, existing }: { lessonId: string; existing:
       ))}
 
       <div className="flex items-center justify-between">
-        <button
-          onClick={addQuestion}
-          className="text-sm border rounded-lg px-4 py-2 hover:bg-gray-50"
-        >
-          + Add question
+        <button onClick={addQuestion} className="text-sm border rounded-lg px-4 py-2 hover:bg-gray-50">
+          + Add question manually
         </button>
         <button
           onClick={handleSave}
