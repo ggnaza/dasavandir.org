@@ -10,6 +10,17 @@ export default async function CoursesPage() {
     .select("id, title, description, published, created_at")
     .order("created_at", { ascending: false });
 
+  const enrollmentCounts: Record<string, number> = {};
+  if (courses?.length) {
+    const { data: enrollments } = await admin
+      .from("enrollments")
+      .select("course_id")
+      .in("course_id", courses.map((c) => c.id));
+    for (const e of enrollments ?? []) {
+      enrollmentCounts[e.course_id] = (enrollmentCounts[e.course_id] ?? 0) + 1;
+    }
+  }
+
   return (
     <div>
       <div className="flex items-center justify-between mb-8">
@@ -34,15 +45,23 @@ export default async function CoursesPage() {
       <div className="space-y-3">
         {courses?.map((course) => (
           <div key={course.id} className="bg-white border rounded-xl p-5 flex items-center justify-between">
-            <div>
-              <div className="flex items-center gap-2">
-                <h2 className="font-semibold">{course.title}</h2>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <Link
+                  href={`/admin/courses/${course.id}/learners`}
+                  className="font-semibold hover:text-brand-600 hover:underline"
+                >
+                  {course.title}
+                </Link>
                 <span className={`text-xs px-2 py-0.5 rounded-full ${course.published ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
                   {course.published ? "Published" : "Draft"}
                 </span>
+                <span className="text-xs text-gray-400">
+                  {enrollmentCounts[course.id] ?? 0} enrolled
+                </span>
               </div>
               {course.description && (
-                <p className="text-sm text-gray-500 mt-0.5">{course.description}</p>
+                <p className="text-sm text-gray-500 mt-0.5 truncate">{course.description}</p>
               )}
             </div>
             <Link
