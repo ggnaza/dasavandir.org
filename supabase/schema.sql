@@ -93,6 +93,47 @@ create table if not exists progress (
 );
 
 
+-- ASSIGNMENTS (one per lesson, rubric stored as JSON)
+create table if not exists assignments (
+  id uuid primary key default gen_random_uuid(),
+  lesson_id uuid not null references lessons(id) on delete cascade,
+  title text not null,
+  instructions text,
+  rubric jsonb not null default '[]',
+  created_at timestamptz default now()
+);
+
+
+-- SUBMISSIONS (learner assignment submissions)
+create table if not exists submissions (
+  id uuid primary key default gen_random_uuid(),
+  assignment_id uuid not null references assignments(id) on delete cascade,
+  user_id uuid not null references profiles(id) on delete cascade,
+  content text,
+  file_path text,
+  file_name text,
+  link_url text,
+  status text not null default 'submitted' check (status in ('submitted', 'ai_reviewed', 'approved', 'returned')),
+  ai_feedback jsonb,
+  ai_total_score integer,
+  final_score integer,
+  instructor_note text,
+  final_feedback text,
+  submitted_at timestamptz default now(),
+  reviewed_at timestamptz
+);
+
+
+-- LESSON SESSIONS (time-on-lesson tracking)
+create table if not exists lesson_sessions (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references profiles(id) on delete cascade,
+  lesson_id uuid not null references lessons(id) on delete cascade,
+  duration_seconds integer not null check (duration_seconds > 0),
+  recorded_at timestamptz default now()
+);
+
+
 -- ============================================================
 -- ROW LEVEL SECURITY
 -- ============================================================
@@ -181,6 +222,44 @@ create policy "Users manage own progress" on progress
   for all using (auth.uid() = user_id);
 
 create policy "Admins view all progress" on progress
+  for select using (
+    exists (select 1 from profiles where id = auth.uid() and role = 'admin')
+  );
+
+
+alter table assignments enable row level security;
+alter table submissions enable row level security;
+alter table lesson_sessions enable row level security;
+
+-- Assignments
+create policy "Admins manage assignments" on assignments
+  for all using (
+    exists (select 1 from profiles where id = auth.uid() and role = 'admin')
+  );
+
+create policy "Learners view assignments" on assignments
+  for select using (
+    exists (
+      select 1 from lessons l
+      join courses c on c.id = l.course_id
+      where l.id = assignments.lesson_id and c.published = true
+    )
+  );
+
+-- Submissions: users manage own; admins see all
+create policy "Users manage own submissions" on submissions
+  for all using (auth.uid() = user_id);
+
+create policy "Admins manage all submissions" on submissions
+  for all using (
+    exists (select 1 from profiles where id = auth.uid() and role = 'admin')
+  );
+
+-- Lesson sessions: users manage own; admins see all
+create policy "Users manage own sessions" on lesson_sessions
+  for all using (auth.uid() = user_id);
+
+create policy "Admins view all sessions" on lesson_sessions
   for select using (
     exists (select 1 from profiles where id = auth.uid() and role = 'admin')
   );

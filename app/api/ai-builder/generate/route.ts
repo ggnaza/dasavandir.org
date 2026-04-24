@@ -1,10 +1,9 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import OpenAI from "openai";
 
 export const runtime = "nodejs";
-
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 async function extractText(file: File): Promise<string> {
   const buffer = Buffer.from(await file.arrayBuffer());
@@ -27,6 +26,10 @@ export async function POST(req: Request) {
   const admin = createAdminClient();
   const { data: profile } = await admin.from("profiles").select("role").eq("id", user.id).single();
   if (profile?.role !== "admin") return new Response("Forbidden", { status: 403 });
+
+  // 5 generations per hour per admin
+  const { allowed } = checkRateLimit(`ai-builder:${user.id}`, 5, 60 * 60_000);
+  if (!allowed) return rateLimitResponse();
 
   let sourceText = "";
 
@@ -85,6 +88,7 @@ Source material:
 ${truncated}
 ---`;
 
+  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
   const completion = await openai.chat.completions.create({
     model: "gpt-4o",
     messages: [{ role: "user", content: prompt }],

@@ -1,14 +1,17 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import OpenAI from "openai";
-
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 export async function POST(req: Request) {
   // Verify user is authenticated
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return new Response("Unauthorized", { status: 401 });
+
+  // 20 messages per minute per user
+  const { allowed } = checkRateLimit(`chat:${user.id}`, 20, 60_000);
+  if (!allowed) return rateLimitResponse();
 
   const { messages, lessonId } = await req.json();
 
@@ -49,6 +52,7 @@ Your role:
 - If asked about something outside this lesson/course, politely redirect to the lesson material
 - Keep responses concise and focused`;
 
+  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
   const stream = await openai.chat.completions.create({
     model: "gpt-4o-mini",
     stream: true,
