@@ -23,6 +23,7 @@ export function AssignmentEditor({
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
   const [generating, setGenerating] = useState(false);
+  const [genWarnings, setGenWarnings] = useState<string[]>([]);
 
   function addCriterion() {
     setRubric([...rubric, { criterion: "", description: "", max_points: 10 }]);
@@ -43,6 +44,7 @@ export function AssignmentEditor({
   async function handleGenerate() {
     setGenerating(true);
     setError("");
+    setGenWarnings([]);
     const res = await fetch("/api/assignments/generate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -57,6 +59,7 @@ export function AssignmentEditor({
     if (data.title) setTitle(data.title);
     if (data.instructions) setInstructions(data.instructions);
     if (Array.isArray(data.rubric) && data.rubric.length > 0) setRubric(data.rubric);
+    if (data.warnings?.length) setGenWarnings(data.warnings);
     setGenerating(false);
   }
 
@@ -117,6 +120,18 @@ export function AssignmentEditor({
             )}
           </button>
         </div>
+
+        {generating && (
+          <p className="text-xs text-purple-600 animate-pulse">Reading lesson content, slides, and documents…</p>
+        )}
+        {genWarnings.length > 0 && (
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 space-y-1">
+            <p className="text-xs font-medium text-amber-800">⚠ Some content sources could not be read:</p>
+            {genWarnings.map((w, i) => (
+              <p key={i} className="text-xs text-amber-700">• {w}</p>
+            ))}
+          </div>
+        )}
 
         <div>
           <label className="block text-sm font-medium mb-1">Assignment title</label>

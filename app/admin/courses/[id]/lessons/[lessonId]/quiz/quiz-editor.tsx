@@ -18,12 +18,14 @@ export function QuizEditor({ lessonId, existing }: { lessonId: string; existing:
   const [saved, setSaved] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [genError, setGenError] = useState("");
+  const [genWarnings, setGenWarnings] = useState<string[]>([]);
   const [genCount, setGenCount] = useState(5);
   const [deleting, setDeleting] = useState(false);
 
   async function handleGenerate() {
     setGenerating(true);
     setGenError("");
+    setGenWarnings([]);
     const res = await fetch("/api/ai-builder/quiz", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -34,9 +36,9 @@ export function QuizEditor({ lessonId, existing }: { lessonId: string; existing:
       setGenerating(false);
       return;
     }
-    const { questions: generated } = await res.json();
-    // Append generated questions to any existing ones
+    const { questions: generated, warnings } = await res.json();
     setQuestions((prev) => [...prev, ...generated]);
+    if (warnings?.length) setGenWarnings(warnings);
     setGenerating(false);
   }
 
@@ -116,7 +118,15 @@ export function QuizEditor({ lessonId, existing }: { lessonId: string; existing:
         </div>
         {genError && <p className="text-red-600 text-xs mt-3">{genError}</p>}
         {generating && (
-          <p className="text-xs text-brand-600 mt-3 animate-pulse">Creating questions from lesson content…</p>
+          <p className="text-xs text-brand-600 mt-3 animate-pulse">Reading lesson content, slides, and documents…</p>
+        )}
+        {genWarnings.length > 0 && (
+          <div className="mt-3 bg-amber-50 border border-amber-200 rounded-lg p-3 space-y-1">
+            <p className="text-xs font-medium text-amber-800">⚠ Some content sources could not be read:</p>
+            {genWarnings.map((w, i) => (
+              <p key={i} className="text-xs text-amber-700">• {w}</p>
+            ))}
+          </div>
         )}
       </div>
 
