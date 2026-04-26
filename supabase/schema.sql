@@ -7,7 +7,7 @@
 create table if not exists profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   full_name text,
-  role text not null default 'learner' check (role in ('admin', 'learner')),
+  role text not null default 'learner' check (role in ('admin', 'course_creator', 'learner')),
   created_at timestamptz default now()
 );
 
@@ -159,10 +159,11 @@ create policy "Admins can view all profiles" on profiles
 create policy "Users can update own profile" on profiles
   for update using (auth.uid() = id);
 
--- Courses: admins manage; learners see published
-create policy "Admins manage courses" on courses
+-- Courses: admins + course creators manage own; learners see published
+create policy "Admins and creators manage courses" on courses
   for all using (
-    exists (select 1 from profiles where id = auth.uid() and role = 'admin')
+    exists (select 1 from profiles where id = auth.uid() and role in ('admin', 'course_creator'))
+    or (created_by = auth.uid() and exists (select 1 from profiles where id = auth.uid() and role = 'course_creator'))
   );
 
 create policy "Learners view published courses" on courses
@@ -288,6 +289,31 @@ create policy "Users manage own notifications" on notifications
 
 create policy "Admins insert notifications" on notifications
   for insert with check (
+    exists (select 1 from profiles where id = auth.uid() and role = 'admin')
+  );
+
+
+-- ============================================================
+-- AUDIT LOGS (admin activity tracking)
+-- ============================================================
+
+create table if not exists audit_logs (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references profiles(id) on delete cascade,
+  action text not null,
+  entity_type text not null,
+  entity_id uuid,
+  details jsonb,
+  created_at timestamptz default now()
+);
+
+create index if not exists audit_logs_user_id_idx on audit_logs(user_id);
+create index if not exists audit_logs_created_at_idx on audit_logs(created_at);
+
+alter table audit_logs enable row level security;
+
+create policy "Only admins view audit logs" on audit_logs
+  for select using (
     exists (select 1 from profiles where id = auth.uid() and role = 'admin')
   );
 

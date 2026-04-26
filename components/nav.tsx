@@ -6,7 +6,7 @@ import type { Lang } from "@/lib/i18n";
 import { translations } from "@/lib/i18n";
 
 type NavProps = {
-  role: "admin" | "learner";
+  role: "admin" | "learner" | "creator";
   userName?: string;
   unreadNotifications?: number;
   lang?: Lang;
@@ -31,6 +31,13 @@ export function Nav({ role, userName, unreadNotifications = 0, lang = "en" }: Na
           { href: "/admin/submissions", label: "Submissions" },
           { href: "/admin/capstone-submissions", label: "Capstones" },
           { href: "/admin/analytics", label: "Analytics" },
+          { href: "/admin/users", label: "Users" },
+        ]
+      : role === "creator"
+      ? [
+          { href: "/learn", label: "My Courses" },
+          { href: "/learn/progress", label: "Progress" },
+          { href: "/courses", label: "Browse" },
         ]
       : [
           { href: "/learn", label: T.myCourses },
