@@ -10,7 +10,7 @@ export async function POST(req: Request) {
   if (!user) return new Response("Unauthorized", { status: 401 });
 
   // 20 messages per minute per user
-  const { allowed } = checkRateLimit(`chat:${user.id}`, 20, 60_000);
+  const { allowed } = await checkRateLimit(`chat:${user.id}`, 20, 60_000);
   if (!allowed) return rateLimitResponse();
 
   const { messages, lessonId } = await req.json();

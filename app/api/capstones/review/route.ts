@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createNotification } from "@/lib/notifications";
+import { assertCourseOwner } from "@/lib/assert-course-owner";
 
 export async function POST(req: Request) {
   const supabase = createClient();
@@ -13,6 +14,19 @@ export async function POST(req: Request) {
 
   const { submission_id, action, final_score, instructor_note, final_feedback } = await req.json();
   if (!["approve", "return"].includes(action)) return new Response("Invalid action", { status: 400 });
+
+  // Verify this admin owns the course this capstone belongs to
+  const { data: capstoneCourse } = await admin
+    .from("capstone_submissions")
+    .select("capstones(course_id)")
+    .eq("id", submission_id)
+    .single();
+
+  const courseId = (capstoneCourse?.capstones as any)?.course_id;
+  if (!courseId) return new Response("Course not found", { status: 404 });
+
+  const ownerErr = await assertCourseOwner(courseId, user.id);
+  if (ownerErr) return ownerErr;
 
   const status = action === "approve" ? "approved" : "returned";
 

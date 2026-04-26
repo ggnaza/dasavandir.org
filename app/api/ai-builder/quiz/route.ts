@@ -15,16 +15,22 @@ function htmlToText(html: string): string {
     .trim();
 }
 
-function extractGoogleSlidesId(url: string): string | null {
+function isValidGoogleSlidesUrl(url: string): boolean {
   try {
-    const match = url.match(/\/presentation\/d\/([a-zA-Z0-9_-]+)/);
-    return match?.[1] ?? null;
+    const u = new URL(url);
+    return u.hostname === "docs.google.com" && u.pathname.includes("/presentation/d/");
   } catch {
-    return null;
+    return false;
   }
 }
 
+function extractGoogleSlidesId(url: string): string | null {
+  const match = url.match(/\/presentation\/d\/([a-zA-Z0-9_-]+)/);
+  return match?.[1] ?? null;
+}
+
 async function fetchGoogleSlidesText(url: string): Promise<string | null> {
+  if (!isValidGoogleSlidesUrl(url)) return null;
   const id = extractGoogleSlidesId(url);
   if (!id) return null;
   try {

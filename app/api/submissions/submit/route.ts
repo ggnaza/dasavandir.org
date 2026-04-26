@@ -11,7 +11,7 @@ export async function POST(req: Request) {
   if (!user) return new Response("Unauthorized", { status: 401 });
 
   // 10 submissions per hour per user
-  const { allowed } = checkRateLimit(`submit:${user.id}`, 10, 60 * 60_000);
+  const { allowed } = await checkRateLimit(`submit:${user.id}`, 10, 60 * 60_000);
   if (!allowed) return rateLimitResponse();
 
   const { assignment_id, content, file_path, file_name, link_url } = await req.json();
