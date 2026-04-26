@@ -5,9 +5,10 @@ import { useState } from "react";
 type UserRoleToggleProps = {
   userId: string;
   currentRole: string;
+  onUpdate?: () => void;
 };
 
-export function UserRoleToggle({ userId, currentRole }: UserRoleToggleProps) {
+export function UserRoleToggle({ userId, currentRole, onUpdate }: UserRoleToggleProps) {
   const [role, setRole] = useState(currentRole);
   const [loading, setLoading] = useState(false);
 
@@ -16,7 +17,7 @@ export function UserRoleToggle({ userId, currentRole }: UserRoleToggleProps) {
   const handleRoleChange = async (newRole: string) => {
     setLoading(true);
     try {
-      const res = await fetch("/api/admin/users/update-role", {
+      const res = await fetch("/api/admin/users", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userId, role: newRole }),
@@ -24,6 +25,7 @@ export function UserRoleToggle({ userId, currentRole }: UserRoleToggleProps) {
 
       if (res.ok) {
         setRole(newRole);
+        onUpdate?.();
       } else {
         alert("Failed to update role");
       }

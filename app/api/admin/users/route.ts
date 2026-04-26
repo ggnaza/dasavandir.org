@@ -1,33 +1,54 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
-export async function POST(req: Request) {
+async function checkAdmin() {
   const supabase = createClient();
-  const admin = createAdminClient();
-
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return new Response("Unauthorized", { status: 401 });
+  if (!user) throw new Error("Unauthorized");
 
   const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single();
-  if (profile?.role !== "admin") return new Response("Forbidden", { status: 403 });
+  if (profile?.role !== "admin") throw new Error("Forbidden");
 
-  const { userId, role } = await req.json();
+  return { user, admin: createAdminClient() };
+}
 
-  if (!["admin", "course_creator", "learner"].includes(role)) {
-    return new Response("Invalid role", { status: 400 });
+export async function POST(req: Request) {
+  try {
+    const { user, admin } = await checkAdmin();
+    const { userId, role } = await req.json();
+
+    if (!["admin", "course_creator", "learner"].includes(role)) {
+      return new Response(JSON.stringify({ error: "Invalid role" }), { status: 400 });
+    }
+
+    const { error } = await admin.from("profiles").update({ role }).eq("id", userId);
+    if (error) return new Response(JSON.stringify({ error: error.message }), { status: 400 });
+
+    await admin.from("audit_logs").insert({
+      user_id: user.id,
+      action: "update_role",
+      entity_type: "user",
+      entity_id: userId,
+      details: { new_role: role },
+    });
+
+    return new Response(JSON.stringify({ success: true }), { status: 200 });
+  } catch (err: any) {
+    return new Response(JSON.stringify({ error: err.message }), { status: 401 });
   }
+}
 
-  const { error } = await admin.from("profiles").update({ role }).eq("id", userId);
+export async function GET() {
+  try {
+    const { admin } = await checkAdmin();
+    const { data: users, error } = await admin
+      .from("profiles")
+      .select("id, full_name, role, created_at")
+      .order("created_at", { ascending: false });
 
-  if (error) return new Response(error.message, { status: 400 });
-
-  await admin.from("audit_logs").insert({
-    user_id: user.id,
-    action: "update_role",
-    entity_type: "user",
-    entity_id: userId,
-    details: { new_role: role },
-  });
-
-  return new Response(JSON.stringify({ success: true }), { status: 200 });
+    if (error) return new Response(JSON.stringify({ error: error.message }), { status: 400 });
+    return new Response(JSON.stringify({ users }), { status: 200 });
+  } catch (err: any) {
+    return new Response(JSON.stringify({ error: err.message }), { status: 401 });
+  }
 }
