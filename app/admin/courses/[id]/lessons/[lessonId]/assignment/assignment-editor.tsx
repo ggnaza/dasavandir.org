@@ -9,13 +9,9 @@ type Assignment = { id: string; title: string; instructions: string; rubric: Rub
 export function AssignmentEditor({
   lessonId,
   existing,
-  lessonTitle,
-  lessonContent,
 }: {
   lessonId: string;
   existing: Assignment;
-  lessonTitle: string;
-  lessonContent: string;
 }) {
   const router = useRouter();
   const [title, setTitle] = useState(existing?.title ?? "");
@@ -50,7 +46,7 @@ export function AssignmentEditor({
     const res = await fetch("/api/assignments/generate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ lessonTitle, lessonContent }),
+      body: JSON.stringify({ lessonId }),
     });
     if (!res.ok) {
       setError("AI generation failed. Try again.");
