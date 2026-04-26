@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
-import { getOAuthClient, tokenFromCookie } from "@/lib/google-drive";
+import { getOAuthClient } from "@/lib/google-drive";
+import { getDriveTokens } from "@/lib/drive-session";
 import { google } from "googleapis";
 import { cookies } from "next/headers";
 
@@ -10,7 +11,10 @@ export async function GET(req: Request) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return new Response("Unauthorized", { status: 401 });
 
-  const token = tokenFromCookie(cookies().get("google_drive_token")?.value);
+  const sessionId = cookies().get("drive_session")?.value;
+  if (!sessionId) return new Response("Not connected", { status: 401 });
+
+  const token = await getDriveTokens(sessionId, user.id);
   if (!token) return new Response("Not connected", { status: 401 });
 
   const folderId = new URL(req.url).searchParams.get("folderId") ?? "root";

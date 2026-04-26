@@ -10,7 +10,7 @@ export async function POST(req: Request) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return new Response("Unauthorized", { status: 401 });
 
-  const { allowed } = checkRateLimit(`capstone-submit:${user.id}`, 5, 60 * 60_000);
+  const { allowed } = await checkRateLimit(`capstone-submit:${user.id}`, 5, 60 * 60_000);
   if (!allowed) return rateLimitResponse();
 
   const { capstone_id, content, file_path, file_name, link_url } = await req.json();

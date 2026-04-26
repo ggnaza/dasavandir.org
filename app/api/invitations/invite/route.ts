@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { assertCourseOwner } from "@/lib/assert-course-owner";
 
 export async function POST(req: Request) {
   const supabase = createClient();
@@ -14,6 +15,9 @@ export async function POST(req: Request) {
   if (!courseId || !Array.isArray(emails) || emails.length === 0) {
     return new Response("Missing courseId or emails", { status: 400 });
   }
+
+  const ownerErr = await assertCourseOwner(courseId, user.id);
+  if (ownerErr) return ownerErr;
 
   const clean = emails
     .map((e: string) => e.trim().toLowerCase())
@@ -44,6 +48,18 @@ export async function DELETE(req: Request) {
   if (profile?.role !== "admin") return new Response("Forbidden", { status: 403 });
 
   const { id } = await req.json();
+
+  const { data: invitation } = await admin
+    .from("invitations")
+    .select("course_id")
+    .eq("id", id)
+    .single();
+
+  if (!invitation) return new Response("Not found", { status: 404 });
+
+  const ownerErr = await assertCourseOwner(invitation.course_id, user.id);
+  if (ownerErr) return ownerErr;
+
   await admin.from("invitations").delete().eq("id", id);
   return new Response("ok");
 }

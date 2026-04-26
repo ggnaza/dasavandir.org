@@ -435,3 +435,24 @@ create policy "Users delete own replies" on discussion_replies
 -- UPDATE profiles SET role = 'admin' WHERE id = '<your-user-id>';
 -- Find your user ID in Supabase → Authentication → Users
 -- ============================================================
+
+
+-- DRIVE SESSIONS (encrypted Google OAuth tokens, replaces plaintext cookie)
+-- Run: CREATE EXTENSION IF NOT EXISTS pgcrypto; if gen_random_uuid() isn't available
+create table if not exists drive_sessions (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references profiles(id) on delete cascade,
+  tokens_json text not null,
+  iv text not null,
+  auth_tag text not null,
+  created_at timestamptz default now(),
+  expires_at timestamptz not null
+);
+
+create index if not exists drive_sessions_user_id_idx on drive_sessions(user_id);
+
+-- Only the owning user can read/delete their own sessions (admin client bypasses RLS)
+alter table drive_sessions enable row level security;
+
+create policy "Users manage own drive sessions" on drive_sessions
+  for all using (auth.uid() = user_id);

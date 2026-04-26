@@ -28,7 +28,7 @@ export async function POST(req: Request) {
   if (profile?.role !== "admin") return new Response("Forbidden", { status: 403 });
 
   // 5 generations per hour per admin
-  const { allowed } = checkRateLimit(`ai-builder:${user.id}`, 5, 60 * 60_000);
+  const { allowed } = await checkRateLimit(`ai-builder:${user.id}`, 5, 60 * 60_000);
   if (!allowed) return rateLimitResponse();
 
   let sourceText = "";

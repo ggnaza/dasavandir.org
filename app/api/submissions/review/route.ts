@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createNotification } from "@/lib/notifications";
+import { assertCourseOwner } from "@/lib/assert-course-owner";
 
 export async function POST(req: Request) {
   const supabase = createClient();
@@ -12,6 +13,19 @@ export async function POST(req: Request) {
   if (profile?.role !== "admin") return new Response("Forbidden", { status: 403 });
 
   const { submission_id, action, final_score, instructor_note, final_feedback } = await req.json();
+
+  // Verify this admin owns the course this submission belongs to
+  const { data: subCourse } = await admin
+    .from("submissions")
+    .select("assignments(lessons(course_id))")
+    .eq("id", submission_id)
+    .single();
+
+  const courseId = (subCourse?.assignments as any)?.lessons?.course_id;
+  if (!courseId) return new Response("Course not found", { status: 404 });
+
+  const ownerErr = await assertCourseOwner(courseId, user.id);
+  if (ownerErr) return ownerErr;
 
   const status = action === "approve" ? "approved" : "returned";
 
@@ -32,13 +46,13 @@ export async function POST(req: Request) {
 
   if (submission) {
     const assignment = submission.assignments as any;
-    const courseId = assignment?.lessons?.course_id;
+    const submissionCourseId = assignment?.lessons?.course_id;
     await createNotification({
       user_id: submission.user_id,
       type: status,
       title: status === "approved" ? "Submission approved" : "Submission returned",
       body: `Your submission for "${assignment?.title}" has been ${status === "approved" ? "approved" : "returned with feedback"}.`,
-      link: courseId ? `/learn/courses/${courseId}/lessons/${assignment?.lesson_id}/assignment` : "/learn",
+      link: submissionCourseId ? `/learn/courses/${submissionCourseId}/lessons/${assignment?.lesson_id}/assignment` : "/learn",
     });
   }
 

@@ -1,7 +1,31 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
+// Reject cross-origin mutation requests (CSRF protection).
+function csrfGuard(request: NextRequest): NextResponse | null {
+  const method = request.method;
+  if (!["POST", "PUT", "PATCH", "DELETE"].includes(method)) return null;
+  if (!request.nextUrl.pathname.startsWith("/api/")) return null;
+
+  const origin = request.headers.get("origin");
+  if (!origin) return null; // server-to-server or direct calls — allow
+
+  const host = request.headers.get("host");
+  try {
+    const originHost = new URL(origin).host;
+    if (host && originHost !== host) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+  } catch {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+  return null;
+}
+
 export async function middleware(request: NextRequest) {
+  const csrf = csrfGuard(request);
+  if (csrf) return csrf;
+
   let supabaseResponse = NextResponse.next({ request });
 
   const supabase = createServerClient(
@@ -42,5 +66,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/admin/:path*", "/learn/:path*", "/auth/:path*"],
+  matcher: ["/admin/:path*", "/learn/:path*", "/auth/:path*", "/api/:path*"],
 };

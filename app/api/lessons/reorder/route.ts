@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { assertCourseOwner } from "@/lib/assert-course-owner";
 
 export async function POST(req: Request) {
   const supabase = createClient();
@@ -11,6 +12,9 @@ export async function POST(req: Request) {
   if (profile?.role !== "admin") return new Response("Forbidden", { status: 403 });
 
   const { lessonId, direction, courseId } = await req.json();
+
+  const ownerErr = await assertCourseOwner(courseId, user.id);
+  if (ownerErr) return ownerErr;
 
   const { data: lessons } = await admin
     .from("lessons")
