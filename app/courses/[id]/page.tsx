@@ -17,7 +17,7 @@ export default async function CourseDetailPage({ params }: { params: { id: strin
     admin.from("courses").select("*").eq("id", params.id).eq("published", true).single(),
     admin
       .from("lessons")
-      .select("id, title, order, what_you_learn, skills")
+      .select("id, title, order, what_you_learn, skills, duration_seconds")
       .eq("course_id", params.id)
       .order("order"),
   ]);
@@ -37,6 +37,17 @@ export default async function CourseDetailPage({ params }: { params: { id: strin
 
   const lessonCount = lessons?.length ?? 0;
   const outcomes: string[] = course.outcomes ?? [];
+
+  const displayHours = (() => {
+    if (course.hours_to_complete) return `${course.hours_to_complete} hr`;
+    const totalSeconds = (lessons ?? []).reduce((sum, l) => sum + (l.duration_seconds ?? 0), 0);
+    if (!totalSeconds) return null;
+    const h = Math.floor(totalSeconds / 3600);
+    const m = Math.round((totalSeconds % 3600) / 60);
+    if (h === 0) return `${m} min`;
+    if (m === 0) return `${h} hr`;
+    return `${h} hr ${m} min`;
+  })();
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -98,9 +109,9 @@ export default async function CourseDetailPage({ params }: { params: { id: strin
                     <span>📚</span> {lessonCount} module{lessonCount !== 1 ? "s" : ""}
                   </span>
                 )}
-                {course.hours_to_complete && (
+                {displayHours && (
                   <span className="flex items-center gap-1.5">
-                    <span>⏱</span> {course.hours_to_complete} hour{course.hours_to_complete !== 1 ? "s" : ""} to complete
+                    <span>⏱</span> {displayHours} to complete
                   </span>
                 )}
               </div>
@@ -178,9 +189,9 @@ export default async function CourseDetailPage({ params }: { params: { id: strin
                   <span>📚</span> <span>{lessonCount} module{lessonCount !== 1 ? "s" : ""}</span>
                 </div>
               )}
-              {course.hours_to_complete && (
+              {displayHours && (
                 <div className="flex items-center gap-2">
-                  <span>⏱</span> <span>{course.hours_to_complete}h to complete</span>
+                  <span>⏱</span> <span>{displayHours} to complete</span>
                 </div>
               )}
               {course.language && (
