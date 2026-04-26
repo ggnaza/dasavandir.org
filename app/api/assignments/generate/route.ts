@@ -1,47 +1,9 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { buildLessonContext } from "@/lib/lesson-ai-context";
 import OpenAI from "openai";
 
 export const runtime = "nodejs";
-
-function htmlToText(html: string): string {
-  return html
-    .replace(/<[^>]+>/g, " ")
-    .replace(/&nbsp;/g, " ")
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-function extractGoogleSlidesId(url: string): string | null {
-  const match = url.match(/\/presentation\/d\/([a-zA-Z0-9_-]+)/);
-  return match?.[1] ?? null;
-}
-
-async function fetchGoogleSlidesText(url: string): Promise<string | null> {
-  try {
-    const u = new URL(url);
-    if (u.hostname !== "docs.google.com" || !u.pathname.includes("/presentation/d/")) return null;
-  } catch {
-    return null;
-  }
-  const id = extractGoogleSlidesId(url);
-  if (!id) return null;
-  try {
-    const exportUrl = `https://docs.google.com/presentation/d/${id}/export/txt`;
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 8_000);
-    const res = await fetch(exportUrl, { cache: "no-store", signal: controller.signal });
-    clearTimeout(timer);
-    if (!res.ok) return null;
-    const text = await res.text();
-    return text.slice(0, 6000).trim() || null;
-  } catch {
-    return null;
-  }
-}
 
 export async function POST(req: Request) {
   const supabase = createClient();
@@ -72,29 +34,7 @@ export async function POST(req: Request) {
   const languageMap: Record<string, string> = { hy: "Armenian", en: "English" };
   const language = languageMap[course?.language ?? ""] ?? null;
 
-  const parts: string[] = [];
-  parts.push(`Lesson title: ${lesson.title}`);
-
-  if (lesson.content) {
-    parts.push(`Lesson content:\n${htmlToText(lesson.content).slice(0, 4000)}`);
-  }
-
-  if (lesson.slides_url) {
-    const slidesText = await fetchGoogleSlidesText(lesson.slides_url);
-    if (slidesText) {
-      parts.push(`Presentation slides text:\n${slidesText}`);
-    } else {
-      parts.push(`This lesson includes a presentation: ${lesson.slides_url}`);
-    }
-  }
-
-  if (lesson.video_url) {
-    parts.push(`This lesson also includes a video (note its existence but you cannot read it): ${lesson.video_url}`);
-  }
-
-  if (lesson.document_url) {
-    parts.push(`This lesson includes an uploaded PDF document.`);
-  }
+  const { parts, warnings } = await buildLessonContext(lesson);
 
   const hasContent = lesson.content || lesson.slides_url || lesson.video_url || lesson.document_url;
   if (!hasContent) {
@@ -132,7 +72,7 @@ ${language ? `- Write everything in ${language}` : "- Match the language of the 
 
   const raw = completion.choices[0].message.content ?? "{}";
   try {
-    return Response.json(JSON.parse(raw));
+    return Response.json({ ...JSON.parse(raw), warnings });
   } catch {
     return new Response("AI returned invalid JSON", { status: 500 });
   }
