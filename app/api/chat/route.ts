@@ -52,7 +52,7 @@ Your role:
 - If asked about something outside this lesson/course, politely redirect to the lesson material
 - Keep responses concise and focused`;
 
-  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY, timeout: 15_000 });
   const stream = await openai.chat.completions.create({
     model: "gpt-4o-mini",
     stream: true,

@@ -1,20 +1,31 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
+import { z } from "zod";
 import OpenAI from "openai";
 
 export const runtime = "nodejs";
+
+const schema = z.object({
+  assignment_id: z.string().uuid(),
+  content: z.string().max(10_000).optional(),
+  file_path: z.string().max(500).optional(),
+  file_name: z.string().max(255).optional(),
+  link_url: z.string().url().max(2000).optional(),
+});
 
 export async function POST(req: Request) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return new Response("Unauthorized", { status: 401 });
 
-  // 10 submissions per hour per user
   const { allowed } = await checkRateLimit(`submit:${user.id}`, 10, 60 * 60_000);
   if (!allowed) return rateLimitResponse();
 
-  const { assignment_id, content, file_path, file_name, link_url } = await req.json();
+  const parsed = schema.safeParse(await req.json());
+  if (!parsed.success) return new Response("Invalid input", { status: 400 });
+
+  const { assignment_id, content, file_path, file_name, link_url } = parsed.data;
 
   if (!content && !file_path && !link_url) {
     return new Response("Submission is empty", { status: 400 });
@@ -80,7 +91,7 @@ Return ONLY valid JSON:
 If only a file or link was submitted without text, note that manual review may be needed for full evaluation. Be fair and constructive.`;
 
   try {
-    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY, timeout: 20_000 });
     const completion = await openai.chat.completions.create({
       model: "gpt-4o",
       messages: [{ role: "user", content: prompt }],
