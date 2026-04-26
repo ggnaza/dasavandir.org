@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { CourseEditor } from "./course-editor";
 import { LessonReorderButtons } from "./lesson-reorder-buttons";
+import { BackfillDurationsButton } from "./backfill-durations-button";
 
 export default async function CoursePage({ params }: { params: { id: string } }) {
   const admin = createAdminClient();
@@ -37,6 +38,8 @@ export default async function CoursePage({ params }: { params: { id: string } })
           Capstone project
         </Link>
       </div>
+
+      <BackfillDurationsButton courseId={course.id} />
 
       <div className="mt-8">
         <div className="flex items-center justify-between mb-4">
