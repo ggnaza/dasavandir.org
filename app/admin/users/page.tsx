@@ -48,18 +48,6 @@ export default function UsersPage() {
     learner: "Learner",
   };
 
-  const roleColors: Record<string, string> = {
-    admin: "bg-red-100 text-red-800",
-    course_creator: "bg-blue-100 text-blue-800",
-    learner: "bg-gray-100 text-gray-800",
-  };
-
-  const roleLabels: Record<string, string> = {
-    admin: "Admin",
-    course_creator: "Course Creator",
-    learner: "Learner",
-  };
-
   return (
     <div>
       <div className="flex items-center justify-between mb-8">
