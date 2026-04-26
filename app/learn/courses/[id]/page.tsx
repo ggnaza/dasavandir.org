@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
+import { ModuleAccordion } from "./module-accordion";
 
 export default async function LearnCoursePage({ params }: { params: { id: string } }) {
   const supabase = createClient();
@@ -10,7 +11,7 @@ export default async function LearnCoursePage({ params }: { params: { id: string
 
   const [{ data: course }, { data: lessons }, { data: progress }, { data: capstone }] = await Promise.all([
     admin.from("courses").select("*").eq("id", params.id).eq("published", true).single(),
-    admin.from("lessons").select("id, title, order").eq("course_id", params.id).order("order"),
+    admin.from("lessons").select("id, title, order, what_you_learn, skills").eq("course_id", params.id).order("order"),
     admin.from("progress").select("lesson_id").eq("user_id", user!.id),
     admin.from("capstones").select("id").eq("course_id", params.id).single(),
   ]);
@@ -30,7 +31,6 @@ export default async function LearnCoursePage({ params }: { params: { id: string
       (lessons ?? []).some((l) => l.id === p.lesson_id)
     );
     if (hasProgress) {
-      // Auto-enroll legacy users who already have progress
       await admin.from("enrollments").upsert(
         { user_id: user!.id, course_id: params.id },
         { onConflict: "user_id,course_id" }
@@ -43,17 +43,37 @@ export default async function LearnCoursePage({ params }: { params: { id: string
   const completedIds = new Set((progress ?? []).map((p) => p.lesson_id));
   const total = lessons?.length ?? 0;
   const completed = lessons?.filter((l) => completedIds.has(l.id)).length ?? 0;
+  const outcomes: string[] = course.outcomes ?? [];
 
   return (
     <div className="max-w-2xl">
       <Link href="/learn" className="text-sm text-gray-500 hover:text-gray-700">← My Courses</Link>
-      <h1 className="text-2xl font-bold mt-2 mb-1">{course.title}</h1>
-      {course.description && <p className="text-gray-500 mb-4">{course.description}</p>}
 
+      <h1 className="text-2xl font-bold mt-2 mb-1">{course.title}</h1>
+
+      {/* Meta */}
+      <div className="flex flex-wrap gap-4 text-sm text-gray-500 mb-3">
+        {total > 0 && (
+          <span className="flex items-center gap-1.5">
+            <span>📚</span> {total} module{total !== 1 ? "s" : ""}
+          </span>
+        )}
+        {course.hours_to_complete && (
+          <span className="flex items-center gap-1.5">
+            <span>⏱</span> {course.hours_to_complete} hour{course.hours_to_complete !== 1 ? "s" : ""} to complete
+          </span>
+        )}
+      </div>
+
+      {course.description && (
+        <p className="text-gray-500 mb-5 leading-relaxed">{course.description}</p>
+      )}
+
+      {/* Progress bar */}
       {total > 0 && (
         <div className="mb-6">
           <div className="flex justify-between text-sm text-gray-500 mb-1">
-            <span>{completed} of {total} lessons completed</span>
+            <span>{completed} of {total} modules completed</span>
             <span>{Math.round((completed / total) * 100)}%</span>
           </div>
           <div className="h-2 bg-gray-200 rounded-full">
@@ -65,6 +85,7 @@ export default async function LearnCoursePage({ params }: { params: { id: string
         </div>
       )}
 
+      {/* Action buttons */}
       <div className="mb-6 flex gap-3">
         <Link
           href={`/learn/courses/${course.id}/discussions`}
@@ -82,23 +103,34 @@ export default async function LearnCoursePage({ params }: { params: { id: string
         )}
       </div>
 
-      <div className="space-y-2">
-        {lessons?.map((lesson, i) => {
-          const done = completedIds.has(lesson.id);
-          return (
-            <Link
-              key={lesson.id}
-              href={`/learn/courses/${course.id}/lessons/${lesson.id}`}
-              className="flex items-center gap-3 bg-white border rounded-lg px-4 py-3 hover:shadow-sm transition"
-            >
-              <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium shrink-0 ${done ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
-                {done ? "✓" : i + 1}
-              </span>
-              <span className="text-sm font-medium">{lesson.title}</span>
-            </Link>
-          );
-        })}
-      </div>
+      {/* Outcomes */}
+      {outcomes.length > 0 && (
+        <div className="bg-white border rounded-xl p-5 mb-5">
+          <h2 className="font-semibold text-gray-900 mb-3">What you'll achieve</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            {outcomes.map((outcome, i) => (
+              <div key={i} className="flex items-start gap-2">
+                <span className="text-green-500 font-bold text-sm mt-0.5 shrink-0">✓</span>
+                <span className="text-sm text-gray-700">{outcome}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Modules */}
+      {lessons && lessons.length > 0 && (
+        <div className="bg-white border rounded-xl overflow-hidden">
+          <div className="px-4 py-3 border-b">
+            <h2 className="font-semibold text-gray-900">Course modules</h2>
+          </div>
+          <ModuleAccordion
+            lessons={lessons}
+            courseId={course.id}
+            completedIds={completedIds}
+          />
+        </div>
+      )}
     </div>
   );
 }
