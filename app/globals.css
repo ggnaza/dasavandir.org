@@ -21,6 +21,10 @@
 .tiptap code { @apply bg-gray-100 px-1 rounded text-sm font-mono; }
 .tiptap pre  { @apply bg-gray-100 p-3 rounded-lg overflow-x-auto my-2; }
 .tiptap a    { @apply text-blue-600 underline; }
+.tiptap table { @apply border-collapse w-full my-3; }
+.tiptap th { @apply border border-gray-300 bg-gray-100 px-3 py-1.5 text-left text-sm font-semibold; }
+.tiptap td { @apply border border-gray-300 px-3 py-1.5 text-sm; }
+.tiptap .selectedCell { @apply bg-blue-50; }
 .tiptap p.is-editor-empty:first-child::before {
   content: attr(data-placeholder);
   @apply text-gray-400 pointer-events-none float-left h-0;
