@@ -1,7 +1,6 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
 
 type Question = { question: string; options: string[]; correct: number };
 type Chapter = { id: string; title: string; start: number; end: number; questions: Question[] };
@@ -108,11 +107,14 @@ export function ChaptersEditor({ lessonId, initial }: { lessonId: string; initia
   async function save() {
     setSaving(true);
     setSaveError("");
-    const supabase = createClient();
-    const { error } = await supabase.from("lessons").update({ chapters }).eq("id", lessonId);
+    const res = await fetch("/api/lessons/chapters", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ lessonId, chapters }),
+    });
     setSaving(false);
-    if (error) {
-      setSaveError(`Save failed: ${error.message}`);
+    if (!res.ok) {
+      setSaveError(`Save failed: ${await res.text()}`);
       return;
     }
     setSaved(true);
