@@ -35,7 +35,10 @@ async function fetchGoogleSlidesText(url: string): Promise<string | null> {
   if (!id) return null;
   try {
     const exportUrl = `https://docs.google.com/presentation/d/${id}/export/txt`;
-    const res = await fetch(exportUrl, { cache: "no-store" });
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 8_000);
+    const res = await fetch(exportUrl, { cache: "no-store", signal: controller.signal });
+    clearTimeout(timer);
     if (!res.ok) return null;
     const text = await res.text();
     return text.slice(0, 6000).trim() || null;
@@ -52,7 +55,8 @@ export async function POST(req: Request) {
 
   const admin = createAdminClient();
   const { data: profile } = await admin.from("profiles").select("role").eq("id", user.id).single();
-  if (profile?.role !== "admin") return new Response("Forbidden", { status: 403 });
+  if (!profile) return new Response("Unauthorized", { status: 401 });
+  if (profile.role !== "admin") return new Response("Forbidden", { status: 403 });
 
   const { lessonId, count = 5, chapterTitle, chapterStart, chapterEnd } = await req.json();
   if (!lessonId) return new Response("Missing lessonId", { status: 400 });
@@ -108,7 +112,7 @@ export async function POST(req: Request) {
     return new Response("Lesson has no content to generate questions from", { status: 400 });
   }
 
-  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY, timeout: 20_000 });
 
   const completion = await openai.chat.completions.create({
     model: "gpt-4o",

@@ -2,6 +2,16 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createNotification } from "@/lib/notifications";
 import { assertCourseOwner } from "@/lib/assert-course-owner";
+import { logAudit } from "@/lib/audit-log";
+import { z } from "zod";
+
+const schema = z.object({
+  submission_id: z.string().uuid(),
+  action: z.enum(["approve", "return"]),
+  final_score: z.number().min(0).max(100).nullable().optional(),
+  instructor_note: z.string().max(2000).nullable().optional(),
+  final_feedback: z.string().max(5000).nullable().optional(),
+});
 
 export async function POST(req: Request) {
   const supabase = createClient();
@@ -10,11 +20,13 @@ export async function POST(req: Request) {
 
   const admin = createAdminClient();
   const { data: profile } = await admin.from("profiles").select("role").eq("id", user.id).single();
-  if (profile?.role !== "admin") return new Response("Forbidden", { status: 403 });
+  if (!profile) return new Response("Unauthorized", { status: 401 });
+  if (profile.role !== "admin") return new Response("Forbidden", { status: 403 });
 
-  const { submission_id, action, final_score, instructor_note, final_feedback } = await req.json();
+  const parsed = schema.safeParse(await req.json());
+  if (!parsed.success) return new Response("Invalid input", { status: 400 });
+  const { submission_id, action, final_score, instructor_note, final_feedback } = parsed.data;
 
-  // Verify this admin owns the course this submission belongs to
   const { data: subCourse } = await admin
     .from("submissions")
     .select("assignments(lessons(course_id))")
@@ -43,6 +55,8 @@ export async function POST(req: Request) {
     .single();
 
   if (error) return new Response(error.message, { status: 500 });
+
+  await logAudit("review_submission", user.id, req, { submission_id, action, course_id: courseId });
 
   if (submission) {
     const assignment = submission.assignments as any;

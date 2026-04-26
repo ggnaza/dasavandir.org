@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { logAudit } from "@/lib/audit-log";
 
 function escapeCsv(val: string | number | null | undefined): string {
   if (val === null || val === undefined) return "";
@@ -14,15 +15,15 @@ function row(cells: (string | number | null | undefined)[]): string {
   return cells.map(escapeCsv).join(",");
 }
 
-export async function GET() {
-  // Verify admin
+export async function GET(req: Request) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return new Response("Unauthorized", { status: 401 });
 
   const admin = createAdminClient();
   const { data: profile } = await admin.from("profiles").select("role").eq("id", user.id).single();
-  if (profile?.role !== "admin") return new Response("Forbidden", { status: 403 });
+  if (!profile) return new Response("Unauthorized", { status: 401 });
+  if (profile.role !== "admin") return new Response("Forbidden", { status: 403 });
 
   const [
     { data: learners },
@@ -64,6 +65,8 @@ export async function GET() {
       timeMin,
     ]));
   }
+
+  await logAudit("export_learners", user.id, req);
 
   const csv = lines.join("\n");
   const date = new Date().toISOString().slice(0, 10);

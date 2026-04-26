@@ -2,7 +2,6 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/client";
 
 export default function SignupPage() {
   const router = useRouter();
@@ -14,27 +13,27 @@ export default function SignupPage() {
 
   async function handleSignup(e: React.FormEvent) {
     e.preventDefault();
+    if (password.length < 8) {
+      setError("Password must be at least 8 characters.");
+      return;
+    }
     setLoading(true);
     setError("");
-    const supabase = createClient();
 
-    const { data, error: signupError } = await supabase.auth.signUp({
-      email,
-      password,
-      options: { data: { full_name: name } },
+    const res = await fetch("/api/auth/signup", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password, full_name: name }),
     });
 
-    if (signupError) {
-      setError(signupError.message);
+    if (!res.ok) {
+      setError(await res.text());
       setLoading(false);
       return;
     }
 
-    if (data.user) {
-      // Profile is created automatically via DB trigger
-      router.push("/learn");
-      router.refresh();
-    }
+    router.push("/learn");
+    router.refresh();
   }
 
   return (

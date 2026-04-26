@@ -2,6 +2,16 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createNotification } from "@/lib/notifications";
 import { assertCourseOwner } from "@/lib/assert-course-owner";
+import { logAudit } from "@/lib/audit-log";
+import { z } from "zod";
+
+const schema = z.object({
+  submission_id: z.string().uuid(),
+  action: z.enum(["approve", "return"]),
+  final_score: z.number().min(0).max(100).optional(),
+  instructor_note: z.string().max(2000).optional(),
+  final_feedback: z.string().max(5000).optional(),
+});
 
 export async function POST(req: Request) {
   const supabase = createClient();
@@ -10,12 +20,13 @@ export async function POST(req: Request) {
 
   const admin = createAdminClient();
   const { data: profile } = await admin.from("profiles").select("role").eq("id", user.id).single();
-  if (profile?.role !== "admin") return new Response("Forbidden", { status: 403 });
+  if (!profile) return new Response("Unauthorized", { status: 401 });
+  if (profile.role !== "admin") return new Response("Forbidden", { status: 403 });
 
-  const { submission_id, action, final_score, instructor_note, final_feedback } = await req.json();
-  if (!["approve", "return"].includes(action)) return new Response("Invalid action", { status: 400 });
+  const parsed = schema.safeParse(await req.json());
+  if (!parsed.success) return new Response("Invalid input", { status: 400 });
+  const { submission_id, action, final_score, instructor_note, final_feedback } = parsed.data;
 
-  // Verify this admin owns the course this capstone belongs to
   const { data: capstoneCourse } = await admin
     .from("capstone_submissions")
     .select("capstones(course_id)")
@@ -36,6 +47,8 @@ export async function POST(req: Request) {
     .eq("id", submission_id)
     .select("user_id, capstone_id, capstones(title, course_id)")
     .single();
+
+  await logAudit("review_capstone", user.id, req, { submission_id, action, course_id: courseId });
 
   if (submission) {
     const capstone = submission.capstones as any;
