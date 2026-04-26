@@ -5,6 +5,10 @@ import Underline from "@tiptap/extension-underline";
 import { TextStyle } from "@tiptap/extension-text-style";
 import { Color } from "@tiptap/extension-color";
 import TextAlign from "@tiptap/extension-text-align";
+import { Table } from "@tiptap/extension-table";
+import { TableRow } from "@tiptap/extension-table-row";
+import { TableCell } from "@tiptap/extension-table-cell";
+import { TableHeader } from "@tiptap/extension-table-header";
 import { useEffect, useRef, useState } from "react";
 
 const COLORS = [
@@ -27,6 +31,10 @@ export function LessonContentEditor({ value, onChange }: Props) {
       TextStyle,
       Color,
       TextAlign.configure({ types: ["heading", "paragraph"] }),
+      Table.configure({ resizable: true }),
+      TableRow,
+      TableCell,
+      TableHeader,
     ],
     content: value,
     immediatelyRender: false,
@@ -127,6 +135,19 @@ export function LessonContentEditor({ value, onChange }: Props) {
 
           {/* Horizontal rule */}
           <button type="button" title="Divider line" onClick={() => editor.chain().focus().setHorizontalRule().run()} className={btn(false)}>―</button>
+
+          {/* Table */}
+          {editor.isActive("table") ? (
+            <>
+              <button type="button" title="Add column after" onClick={() => editor.chain().focus().addColumnAfter().run()} className={btn(false)}>+col</button>
+              <button type="button" title="Add row after" onClick={() => editor.chain().focus().addRowAfter().run()} className={btn(false)}>+row</button>
+              <button type="button" title="Delete column" onClick={() => editor.chain().focus().deleteColumn().run()} className={btn(false)}>-col</button>
+              <button type="button" title="Delete row" onClick={() => editor.chain().focus().deleteRow().run()} className={btn(false)}>-row</button>
+              <button type="button" title="Delete table" onClick={() => editor.chain().focus().deleteTable().run()} className={btn(false) + " text-red-500"}>✕tbl</button>
+            </>
+          ) : (
+            <button type="button" title="Insert table" onClick={() => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()} className={btn(false)}>⊞ Table</button>
+          )}
 
           <div className="w-px h-5 bg-gray-300 mx-1" />
 

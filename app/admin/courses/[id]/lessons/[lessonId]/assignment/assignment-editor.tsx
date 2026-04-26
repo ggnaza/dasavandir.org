@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { LessonContentEditor } from "@/components/lesson-content-editor";
 
 type RubricItem = { criterion: string; description: string; max_points: number };
 type Assignment = { id: string; title: string; instructions: string; rubric: RubricItem[] } | null;
@@ -8,9 +9,13 @@ type Assignment = { id: string; title: string; instructions: string; rubric: Rub
 export function AssignmentEditor({
   lessonId,
   existing,
+  lessonTitle,
+  lessonContent,
 }: {
   lessonId: string;
   existing: Assignment;
+  lessonTitle: string;
+  lessonContent: string;
 }) {
   const router = useRouter();
   const [title, setTitle] = useState(existing?.title ?? "");
@@ -21,6 +26,7 @@ export function AssignmentEditor({
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
+  const [generating, setGenerating] = useState(false);
 
   function addCriterion() {
     setRubric([...rubric, { criterion: "", description: "", max_points: 10 }]);
@@ -37,6 +43,26 @@ export function AssignmentEditor({
   }
 
   const totalPoints = rubric.reduce((s, r) => s + Number(r.max_points), 0);
+
+  async function handleGenerate() {
+    setGenerating(true);
+    setError("");
+    const res = await fetch("/api/assignments/generate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ lessonTitle, lessonContent }),
+    });
+    if (!res.ok) {
+      setError("AI generation failed. Try again.");
+      setGenerating(false);
+      return;
+    }
+    const data = await res.json();
+    if (data.title) setTitle(data.title);
+    if (data.instructions) setInstructions(data.instructions);
+    if (Array.isArray(data.rubric) && data.rubric.length > 0) setRubric(data.rubric);
+    setGenerating(false);
+  }
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
@@ -78,6 +104,24 @@ export function AssignmentEditor({
   return (
     <form onSubmit={handleSave} className="space-y-5">
       <div className="bg-white border rounded-xl p-5 space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="font-medium text-sm text-gray-700">Assignment details</h3>
+          <button
+            type="button"
+            onClick={handleGenerate}
+            disabled={generating}
+            className="flex items-center gap-1.5 text-sm border border-purple-300 text-purple-700 px-3 py-1.5 rounded-lg hover:bg-purple-50 disabled:opacity-50 font-medium"
+          >
+            {generating ? (
+              <>
+                <span className="animate-spin text-base">⟳</span> Generating…
+              </>
+            ) : (
+              <>✦ Generate with AI</>
+            )}
+          </button>
+        </div>
+
         <div>
           <label className="block text-sm font-medium mb-1">Assignment title</label>
           <input
@@ -88,15 +132,10 @@ export function AssignmentEditor({
             className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
           />
         </div>
+
         <div>
           <label className="block text-sm font-medium mb-1">Instructions for learner</label>
-          <textarea
-            value={instructions}
-            onChange={(e) => setInstructions(e.target.value)}
-            rows={4}
-            placeholder="Describe what the learner should write or submit…"
-            className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
-          />
+          <LessonContentEditor value={instructions} onChange={setInstructions} />
         </div>
       </div>
 

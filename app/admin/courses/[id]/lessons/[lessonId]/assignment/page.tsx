@@ -9,7 +9,7 @@ export default async function AssignmentPage({
 }) {
   const admin = createAdminClient();
   const [{ data: lesson }, { data: assignment }] = await Promise.all([
-    admin.from("lessons").select("id, title").eq("id", params.lessonId).single(),
+    admin.from("lessons").select("id, title, content").eq("id", params.lessonId).single(),
     admin.from("assignments").select("*").eq("lesson_id", params.lessonId).single(),
   ]);
 
@@ -26,7 +26,12 @@ export default async function AssignmentPage({
           Learners submit written responses. AI evaluates against your rubric. You review before releasing feedback.
         </p>
       </div>
-      <AssignmentEditor lessonId={params.lessonId} existing={assignment} />
+      <AssignmentEditor
+        lessonId={params.lessonId}
+        existing={assignment}
+        lessonTitle={lesson?.title ?? ""}
+        lessonContent={lesson?.content ?? ""}
+      />
     </div>
   );
 }
