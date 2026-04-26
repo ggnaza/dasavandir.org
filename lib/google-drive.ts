@@ -1,7 +1,7 @@
 import { google } from "googleapis";
 
 const REDIRECT_URI =
-  process.env.GOOGLE_REDIRECT_URI ??
+  process.env.GOOGLE_REDIRECT_URI ||
   `https://dasavandir-org-h82a.vercel.app/api/drive/callback`;
 
 export function getOAuthClient() {
@@ -16,10 +16,9 @@ export function getAuthUrl() {
   const client = getOAuthClient();
   return client.generateAuthUrl({
     access_type: "offline",
-    scope: [
-      "https://www.googleapis.com/auth/drive.readonly",
-    ],
+    scope: ["https://www.googleapis.com/auth/drive.readonly"],
     prompt: "consent",
+    redirect_uri: REDIRECT_URI,
   });
 }
 
