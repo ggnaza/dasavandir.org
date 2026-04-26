@@ -8,17 +8,22 @@ export default async function CoursesPage() {
   const admin = createAdminClient();
   const { data: courses } = await admin
     .from("courses")
-    .select("id, title, description, published, created_at")
+    .select("id, title, description, published, created_at, created_by")
     .order("created_at", { ascending: false });
 
   const enrollmentCounts: Record<string, number> = {};
+  const creatorNames: Record<string, string> = {};
+
   if (courses?.length) {
-    const { data: enrollments } = await admin
-      .from("enrollments")
-      .select("course_id")
-      .in("course_id", courses.map((c) => c.id));
+    const [{ data: enrollments }, { data: profiles }] = await Promise.all([
+      admin.from("enrollments").select("course_id").in("course_id", courses.map((c) => c.id)),
+      admin.from("profiles").select("id, full_name").in("id", courses.map((c) => c.created_by).filter(Boolean)),
+    ]);
     for (const e of enrollments ?? []) {
       enrollmentCounts[e.course_id] = (enrollmentCounts[e.course_id] ?? 0) + 1;
+    }
+    for (const p of profiles ?? []) {
+      creatorNames[p.id] = p.full_name;
     }
   }
 
@@ -63,6 +68,9 @@ export default async function CoursesPage() {
               </div>
               {course.description && (
                 <p className="text-sm text-gray-500 mt-0.5 truncate">{course.description}</p>
+              )}
+              {creatorNames[course.created_by] && (
+                <p className="text-xs text-gray-400 mt-0.5">by {creatorNames[course.created_by]}</p>
               )}
             </div>
             <div className="flex items-center ml-4 shrink-0">

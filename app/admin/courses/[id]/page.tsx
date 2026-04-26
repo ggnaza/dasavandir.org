@@ -9,19 +9,23 @@ export default async function CoursePage({ params }: { params: { id: string } })
   const admin = createAdminClient();
 
   const [{ data: course }, { data: lessons }] = await Promise.all([
-    admin.from("courses").select("*, profiles(full_name)").eq("id", params.id).single(),
+    admin.from("courses").select("*").eq("id", params.id).single(),
     admin.from("lessons").select("id, title, order").eq("course_id", params.id).order("order"),
   ]);
 
   if (!course) notFound();
+
+  const { data: creator } = course.created_by
+    ? await admin.from("profiles").select("full_name").eq("id", course.created_by).single()
+    : { data: null };
 
   return (
     <div className="max-w-2xl">
       <div className="mb-6">
         <Link href="/admin/courses" className="text-sm text-gray-500 hover:text-gray-700">← Back to courses</Link>
         <h1 className="text-2xl font-bold mt-2">{course.title}</h1>
-        {course.profiles?.full_name && (
-          <p className="text-sm text-gray-500 mt-1">Created by <span className="font-medium text-gray-700">{course.profiles.full_name}</span></p>
+        {creator?.full_name && (
+          <p className="text-sm text-gray-500 mt-1">Created by <span className="font-medium text-gray-700">{creator.full_name}</span></p>
         )}
       </div>
 
