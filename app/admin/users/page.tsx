@@ -9,9 +9,14 @@ export default async function UsersPage() {
   const supabase = createClient();
   const admin = createAdminClient();
 
-  const { data: profile } = await supabase.auth.getUser().then(({ data }) => ({
-    data: data.user ? await supabase.from("profiles").select("role").eq("id", data.user.id).single() : null,
-  }));
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return <div>Unauthorized</div>;
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single();
 
   if (!profile || profile.role !== "admin") {
     return <div>Unauthorized</div>;
