@@ -11,7 +11,7 @@ const schema = z.object({
 export async function POST(req: Request) {
   const ip = req.headers.get("x-forwarded-for") ?? req.headers.get("x-real-ip") ?? "unknown";
   const { allowed } = await checkRateLimit(`auth:signup:${ip}`, 5, 60 * 60_000);
-  if (!allowed) return rateLimitResponse();
+  if (!allowed) return rateLimitResponse({ limit: 5, windowSecs: 3600 });
 
   const parsed = schema.safeParse(await req.json());
   if (!parsed.success) return new Response("Invalid input", { status: 400 });

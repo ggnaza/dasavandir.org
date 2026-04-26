@@ -52,9 +52,16 @@ export async function checkRateLimit(
   return memCheck(key, limit, windowMs);
 }
 
-export function rateLimitResponse(): Response {
+export function rateLimitResponse(info?: { limit: number; windowSecs: number }): Response {
+  const windowSecs = info?.windowSecs ?? 60;
+  const reset = Math.floor(Date.now() / 1000) + windowSecs;
   return new Response("Too many requests. Please slow down.", {
     status: 429,
-    headers: { "Retry-After": "60" },
+    headers: {
+      "Retry-After": String(windowSecs),
+      "RateLimit-Limit": String(info?.limit ?? 0),
+      "RateLimit-Remaining": "0",
+      "RateLimit-Reset": String(reset),
+    },
   });
 }

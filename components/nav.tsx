@@ -1,7 +1,6 @@
 "use client";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
 import { LanguageToggle } from "@/components/language-toggle";
 import type { Lang } from "@/lib/i18n";
 import { translations } from "@/lib/i18n";
@@ -18,8 +17,7 @@ export function Nav({ role, userName, unreadNotifications = 0, lang = "en" }: Na
   const T = translations[lang];
 
   async function handleSignOut() {
-    const supabase = createClient();
-    await supabase.auth.signOut();
+    await fetch("/api/auth/logout", { method: "POST" });
     router.push("/");
     router.refresh();
   }

@@ -29,7 +29,7 @@ export async function POST(req: Request) {
 
   // 5 generations per hour per admin
   const { allowed } = await checkRateLimit(`ai-builder:${user.id}`, 5, 60 * 60_000);
-  if (!allowed) return rateLimitResponse();
+  if (!allowed) return rateLimitResponse({ limit: 5, windowSecs: 3600 });
 
   let sourceText = "";
 
