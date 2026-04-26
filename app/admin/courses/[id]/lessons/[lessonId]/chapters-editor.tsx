@@ -26,6 +26,7 @@ export function ChaptersEditor({ lessonId, initial }: { lessonId: string; initia
   const [chapters, setChapters] = useState<Chapter[]>(initial);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState("");
   const [openQuiz, setOpenQuiz] = useState<string | null>(null);
   const [generating, setGenerating] = useState<string | null>(null);
 
@@ -106,9 +107,14 @@ export function ChaptersEditor({ lessonId, initial }: { lessonId: string; initia
 
   async function save() {
     setSaving(true);
+    setSaveError("");
     const supabase = createClient();
-    await supabase.from("lessons").update({ chapters }).eq("id", lessonId);
+    const { error } = await supabase.from("lessons").update({ chapters }).eq("id", lessonId);
     setSaving(false);
+    if (error) {
+      setSaveError(`Save failed: ${error.message}`);
+      return;
+    }
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
     router.refresh();
@@ -126,6 +132,7 @@ export function ChaptersEditor({ lessonId, initial }: { lessonId: string; initia
           {saving ? "Saving…" : saved ? "Saved ✓" : "Save chapters"}
         </button>
       </div>
+      {saveError && <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{saveError}</p>}
 
       {chapters.map((ch, i) => (
         <div key={ch.id} className="bg-white border rounded-xl p-4 space-y-3">
