@@ -1,10 +1,14 @@
 import { google } from "googleapis";
 
+const REDIRECT_URI =
+  process.env.GOOGLE_REDIRECT_URI ??
+  `https://dasavandir-org-h82a.vercel.app/api/drive/callback`;
+
 export function getOAuthClient() {
   return new google.auth.OAuth2(
     process.env.GOOGLE_CLIENT_ID,
     process.env.GOOGLE_CLIENT_SECRET,
-    process.env.GOOGLE_REDIRECT_URI
+    REDIRECT_URI
   );
 }
 
