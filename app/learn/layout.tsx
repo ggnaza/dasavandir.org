@@ -21,9 +21,11 @@ export default async function LearnLayout({ children }: { children: React.ReactN
 
   const lang = getLang(cookies().get("lang")?.value);
 
+  const navRole = profile?.role === "course_creator" ? "creator" : "learner";
+
   return (
     <div className="min-h-screen">
-      <Nav role="learner" userName={profile?.full_name} unreadNotifications={unreadCount ?? 0} lang={lang} />
+      <Nav role={navRole as "learner" | "admin" | "creator"} userName={profile?.full_name} unreadNotifications={unreadCount ?? 0} lang={lang} />
       <main className="max-w-5xl mx-auto px-4 py-8">{children}</main>
     </div>
   );

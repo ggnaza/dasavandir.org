@@ -64,6 +64,7 @@ export default async function AdminDashboard() {
         <h2 className="font-semibold mb-2">Quick links</h2>
         <ul className="space-y-2 text-sm text-brand-600">
           <li><Link href="/admin/courses" className="hover:underline">→ Manage courses</Link></li>
+          <li><Link href="/admin/users" className="hover:underline">→ Manage users & roles</Link></li>
           <li><Link href="/admin/analytics" className="hover:underline">→ View analytics</Link></li>
         </ul>
       </div>
