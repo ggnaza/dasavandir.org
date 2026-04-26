@@ -72,6 +72,20 @@ export function LessonEditor({ lesson, courseId }: { lesson: Lesson; courseId: s
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
+
+    let duration_seconds: number | null = null;
+    if (videoUrl && videoUrl.includes("drive.google.com")) {
+      const res = await fetch("/api/lessons/video-duration", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ videoUrl }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        duration_seconds = data.duration_seconds ?? null;
+      }
+    }
+
     const supabase = createClient();
     await supabase
       .from("lessons")
@@ -83,6 +97,7 @@ export function LessonEditor({ lesson, courseId }: { lesson: Lesson; courseId: s
         document_url: documentUrl || null,
         what_you_learn: whatYouLearn.trim() || null,
         skills: skills.filter((s) => s.trim()),
+        ...(duration_seconds !== null ? { duration_seconds } : {}),
       })
       .eq("id", lesson.id);
     setSaving(false);

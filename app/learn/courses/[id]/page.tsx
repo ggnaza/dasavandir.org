@@ -11,7 +11,7 @@ export default async function LearnCoursePage({ params }: { params: { id: string
 
   const [{ data: course }, { data: lessons }, { data: progress }, { data: capstone }] = await Promise.all([
     admin.from("courses").select("*").eq("id", params.id).eq("published", true).single(),
-    admin.from("lessons").select("id, title, order, what_you_learn, skills").eq("course_id", params.id).order("order"),
+    admin.from("lessons").select("id, title, order, what_you_learn, skills, duration_seconds").eq("course_id", params.id).order("order"),
     admin.from("progress").select("lesson_id").eq("user_id", user!.id),
     admin.from("capstones").select("id").eq("course_id", params.id).single(),
   ]);
@@ -45,6 +45,17 @@ export default async function LearnCoursePage({ params }: { params: { id: string
   const completed = lessons?.filter((l) => completedIds.has(l.id)).length ?? 0;
   const outcomes: string[] = course.outcomes ?? [];
 
+  const displayHours = (() => {
+    if (course.hours_to_complete) return `${course.hours_to_complete} hr`;
+    const totalSeconds = (lessons ?? []).reduce((sum, l) => sum + (l.duration_seconds ?? 0), 0);
+    if (!totalSeconds) return null;
+    const h = Math.floor(totalSeconds / 3600);
+    const m = Math.round((totalSeconds % 3600) / 60);
+    if (h === 0) return `${m} min`;
+    if (m === 0) return `${h} hr`;
+    return `${h} hr ${m} min`;
+  })();
+
   return (
     <div className="max-w-2xl">
       <Link href="/learn" className="text-sm text-gray-500 hover:text-gray-700">← My Courses</Link>
@@ -58,9 +69,9 @@ export default async function LearnCoursePage({ params }: { params: { id: string
             <span>📚</span> {total} module{total !== 1 ? "s" : ""}
           </span>
         )}
-        {course.hours_to_complete && (
+        {displayHours && (
           <span className="flex items-center gap-1.5">
-            <span>⏱</span> {course.hours_to_complete} hour{course.hours_to_complete !== 1 ? "s" : ""} to complete
+            <span>⏱</span> {displayHours} to complete
           </span>
         )}
       </div>
