@@ -1,11 +1,13 @@
 import { createClient } from "@/lib/supabase/server";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
+import { verifyTurnstile } from "@/lib/captcha";
 import { z } from "zod";
 
 const schema = z.object({
   email: z.string().email().max(254),
   password: z.string().min(8).max(128),
   full_name: z.string().min(1).max(200),
+  captcha_token: z.string().min(1),
 });
 
 export async function POST(req: Request) {
@@ -16,7 +18,10 @@ export async function POST(req: Request) {
   const parsed = schema.safeParse(await req.json());
   if (!parsed.success) return new Response("Invalid input", { status: 400 });
 
-  const { email, password, full_name } = parsed.data;
+  const { email, password, full_name, captcha_token } = parsed.data;
+
+  const captchaOk = await verifyTurnstile(captcha_token, ip === "unknown" ? undefined : ip);
+  if (!captchaOk) return new Response("CAPTCHA verification failed", { status: 400 });
 
   const supabase = createClient();
   const { data, error } = await supabase.auth.signUp({
