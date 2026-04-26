@@ -1,6 +1,17 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
+const MAX_BODY_BYTES = 1_048_576; // 1 MB
+
+function bodySizeGuard(request: NextRequest): NextResponse | null {
+  if (!["POST", "PUT", "PATCH"].includes(request.method)) return null;
+  const contentLength = parseInt(request.headers.get("content-length") ?? "0", 10);
+  if (contentLength > MAX_BODY_BYTES) {
+    return new NextResponse("Payload too large", { status: 413 });
+  }
+  return null;
+}
+
 // Reject cross-origin mutation requests (CSRF protection).
 function csrfGuard(request: NextRequest): NextResponse | null {
   const method = request.method;
@@ -23,6 +34,9 @@ function csrfGuard(request: NextRequest): NextResponse | null {
 }
 
 export async function middleware(request: NextRequest) {
+  const size = bodySizeGuard(request);
+  if (size) return size;
+
   const csrf = csrfGuard(request);
   if (csrf) return csrf;
 

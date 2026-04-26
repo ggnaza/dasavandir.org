@@ -20,7 +20,7 @@ export async function POST(req: Request) {
   if (!user) return new Response("Unauthorized", { status: 401 });
 
   const { allowed } = await checkRateLimit(`submit:${user.id}`, 10, 60 * 60_000);
-  if (!allowed) return rateLimitResponse();
+  if (!allowed) return rateLimitResponse({ limit: 10, windowSecs: 3600 });
 
   const parsed = schema.safeParse(await req.json());
   if (!parsed.success) return new Response("Invalid input", { status: 400 });
@@ -106,8 +106,8 @@ If only a file or link was submitted without text, note that manual review may b
       ai_total_score: aiFeedback.total_score ?? 0,
       status: "ai_reviewed",
     }).eq("id", submission.id);
-  } catch {
-    // Don't fail the submission if AI evaluation fails
+  } catch (err) {
+    console.error("[submission/ai-eval]", err);
     await admin.from("submissions").update({ status: "submitted" }).eq("id", submission.id);
   }
 

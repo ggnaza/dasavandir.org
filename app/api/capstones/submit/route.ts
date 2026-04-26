@@ -11,7 +11,7 @@ export async function POST(req: Request) {
   if (!user) return new Response("Unauthorized", { status: 401 });
 
   const { allowed } = await checkRateLimit(`capstone-submit:${user.id}`, 5, 60 * 60_000);
-  if (!allowed) return rateLimitResponse();
+  if (!allowed) return rateLimitResponse({ limit: 5, windowSecs: 3600 });
 
   const { capstone_id, content, file_path, file_name, link_url } = await req.json();
   if (!content && !file_path && !link_url)
