@@ -6,10 +6,11 @@ async function checkAdmin() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Unauthorized");
 
-  const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single();
+  const admin = createAdminClient();
+  const { data: profile } = await admin.from("profiles").select("role").eq("id", user.id).single();
   if (profile?.role !== "admin") throw new Error("Forbidden");
 
-  return { user, admin: createAdminClient() };
+  return { user, admin };
 }
 
 export async function POST(req: Request) {
