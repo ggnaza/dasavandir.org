@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
+import { BackfillMaterialsButton } from "./backfill-materials-button";
 
 export const dynamic = "force-dynamic";
 
@@ -67,6 +68,12 @@ export default async function AdminDashboard() {
           <li><Link href="/admin/users" className="hover:underline">→ Manage users & roles</Link></li>
           <li><Link href="/admin/analytics" className="hover:underline">→ View analytics</Link></li>
         </ul>
+      </div>
+
+      <div className="bg-white border rounded-xl p-6 mt-4">
+        <h2 className="font-semibold mb-1">AI Coach materials</h2>
+        <p className="text-xs text-gray-500 mb-3">First-time setup or after adding new slides/PDFs to existing lessons.</p>
+        <BackfillMaterialsButton />
       </div>
     </div>
   );
