@@ -19,7 +19,7 @@ export async function POST(req: Request) {
   const admin = createAdminClient();
   const { data: lesson } = await admin
     .from("lessons")
-    .select("title, content, courses(title, description)")
+    .select("title, content, slides_url, document_url, video_url, courses(title, description)")
     .eq("id", lessonId)
     .single();
 
@@ -31,25 +31,36 @@ export async function POST(req: Request) {
     .replace(/<[^>]+>/g, " ")
     .replace(/\s+/g, " ")
     .trim()
-    .slice(0, 3000); // guard against very long lessons
+    .slice(0, 3000);
+
+  const hasSlides = !!(lesson as any)?.slides_url;
+  const hasDoc = !!(lesson as any)?.document_url;
+  const hasVideo = !!(lesson as any)?.video_url;
+
+  const mediaNote = [
+    hasSlides && "Google Slides presentation",
+    hasDoc && "document",
+    hasVideo && "video",
+  ].filter(Boolean).join(", ");
 
   const systemPrompt = `You are an AI learning coach for an online course called "${courseTitle}".
 ${courseDesc ? `Course description: ${courseDesc}` : ""}
 
 The learner is currently studying this lesson: "${lesson?.title ?? ""}".
+${mediaNote ? `This lesson includes: ${mediaNote}. You cannot see these directly, but use your knowledge of the topic to help.` : ""}
 
-Lesson content:
+Lesson text content:
 ---
-${plainContent || "(No content provided)"}
+${plainContent || "(This lesson uses visual materials like slides or video — no plain text available)"}
 ---
 
 Your role:
-- Answer questions about this lesson and course only
+- Help the learner understand the lesson topic using the content above and your general knowledge of the subject
+- Even if lesson text is empty, answer questions related to the lesson title and course topic
 - Explain concepts clearly and simply
 - Quiz the learner when they ask
 - Summarize key points on request
 - Encourage and guide without being condescending
-- If asked about something outside this lesson/course, politely redirect to the lesson material
 - Keep responses concise and focused
 - Always respond in the same language the learner writes in (Armenian, English, or any other language)`;
 
