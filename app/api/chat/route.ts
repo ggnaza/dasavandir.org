@@ -50,7 +50,8 @@ Your role:
 - Summarize key points on request
 - Encourage and guide without being condescending
 - If asked about something outside this lesson/course, politely redirect to the lesson material
-- Keep responses concise and focused`;
+- Keep responses concise and focused
+- Always respond in the same language the learner writes in (Armenian, English, or any other language)`;
 
   const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY, timeout: 15_000 });
   const stream = await openai.chat.completions.create({
