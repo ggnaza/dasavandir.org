@@ -35,8 +35,6 @@ export function LessonEditor({ lesson, courseId }: { lesson: Lesson; courseId: s
   const [saved, setSaved] = useState(false);
   const [generatingAudio, setGeneratingAudio] = useState(false);
   const [audioError, setAudioError] = useState("");
-  const [extracting, setExtracting] = useState(false);
-  const [extractStatus, setExtractStatus] = useState("");
 
   async function handleDocumentUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -54,23 +52,6 @@ export function LessonEditor({ lesson, courseId }: { lesson: Lesson; courseId: s
     await supabase.from("lessons").update({ document_url: data.publicUrl }).eq("id", lesson.id);
     setUploadingDoc(false);
     router.refresh();
-  }
-
-  async function handleExtractSlides() {
-    if (!slidesUrl) return;
-    setExtracting(true);
-    setExtractStatus("");
-    const res = await fetch("/api/admin/extract-slides", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ slidesUrl, lessonId: lesson.id }),
-    });
-    if (!res.ok) {
-      setExtractStatus("❌ " + await res.text());
-    } else {
-      setExtractStatus("✓ Slides text saved — AI coach can now read this lesson");
-    }
-    setExtracting(false);
   }
 
   async function handleGenerateAudio() {
@@ -119,6 +100,16 @@ export function LessonEditor({ lesson, courseId }: { lesson: Lesson; courseId: s
         ...(duration_seconds !== null ? { duration_seconds } : {}),
       })
       .eq("id", lesson.id);
+
+    // Auto-extract slides text for AI coach if slides URL is a Google Slides link
+    if (slidesUrl && slidesUrl.includes("docs.google.com/presentation")) {
+      fetch("/api/admin/extract-slides", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ slidesUrl, lessonId: lesson.id }),
+      }).catch(() => {}); // silent — Drive may not be connected
+    }
+
     setSaving(false);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
@@ -175,18 +166,8 @@ export function LessonEditor({ lesson, courseId }: { lesson: Lesson; courseId: s
         <p className="text-xs text-gray-400 mt-1">
           Google Slides: File → Share → Publish to web → Embed → paste the link here
         </p>
-        {slidesUrl && (
-          <div className="mt-2 flex items-center gap-3">
-            <button
-              type="button"
-              onClick={handleExtractSlides}
-              disabled={extracting}
-              className="text-xs bg-brand-600 text-white px-3 py-1.5 rounded-lg hover:bg-brand-700 disabled:opacity-50 font-medium"
-            >
-              {extracting ? "Extracting…" : "Extract slides text for AI coach"}
-            </button>
-            {extractStatus && <span className="text-xs text-gray-600">{extractStatus}</span>}
-          </div>
+        {slidesUrl && slidesUrl.includes("docs.google.com/presentation") && (
+          <p className="text-xs text-green-600 mt-1">✓ AI coach will read this presentation on save</p>
         )}
       </div>
 
