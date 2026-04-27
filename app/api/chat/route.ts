@@ -71,7 +71,9 @@ Your role:
 - Summarize key points on request
 - Encourage and guide without being condescending
 - Keep responses concise and focused
-- Always respond in the same language the learner writes in (Armenian, English, or any other language)`;
+- Always respond in the same language the learner writes in (Armenian, English, or any other language)
+- When relevant, suggest additional ways to learn: YouTube searches, book titles, key terms to Google, or well-known free resources — based on your own knowledge, not from course materials
+- Label these clearly as "Additional resources" so learners know they are outside the course`;
 
   const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY, timeout: 15_000 });
   const stream = await openai.chat.completions.create({
