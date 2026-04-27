@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { UserRoleToggle } from "./user-role-toggle";
 import { AddUserModal } from "./add-user-modal";
 import { DeleteUserDialog } from "./delete-user-dialog";
+import { AssignCoursesModal } from "./assign-courses-modal";
 import Link from "next/link";
 
 type User = {
@@ -19,6 +20,8 @@ export default function UsersPage() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [deleteUserId, setDeleteUserId] = useState<string | null>(null);
   const [deleteUserName, setDeleteUserName] = useState("");
+  const [assignCreatorId, setAssignCreatorId] = useState<string | null>(null);
+  const [assignCreatorName, setAssignCreatorName] = useState("");
 
   useEffect(() => {
     fetchUsers();
@@ -94,6 +97,17 @@ export default function UsersPage() {
                       >
                         Activity
                       </Link>
+                      {user.role === "course_creator" && (
+                        <button
+                          onClick={() => {
+                            setAssignCreatorId(user.id);
+                            setAssignCreatorName(user.full_name || "User");
+                          }}
+                          className="text-blue-600 hover:underline text-sm"
+                        >
+                          Courses
+                        </button>
+                      )}
                       <button
                         onClick={() => {
                           setDeleteUserId(user.id);
@@ -113,6 +127,12 @@ export default function UsersPage() {
       )}
 
       <AddUserModal isOpen={showAddModal} onClose={() => setShowAddModal(false)} onSuccess={fetchUsers} />
+      <AssignCoursesModal
+        creatorId={assignCreatorId || ""}
+        creatorName={assignCreatorName}
+        isOpen={!!assignCreatorId}
+        onClose={() => setAssignCreatorId(null)}
+      />
       <DeleteUserDialog
         userId={deleteUserId || ""}
         userName={deleteUserName}
