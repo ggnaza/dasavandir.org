@@ -19,7 +19,7 @@ export async function POST(req: Request) {
   const admin = createAdminClient();
   const { data: lesson } = await admin
     .from("lessons")
-    .select("title, content, slides_url, slides_text, document_url, video_url, course_id, courses(title, description)")
+    .select("title, content, slides_text, document_text, video_url, course_id, courses(title, description)")
     .eq("id", lessonId)
     .single();
 
@@ -29,21 +29,23 @@ export async function POST(req: Request) {
   // Load all other lessons in the course for full context
   const { data: allLessons } = await admin
     .from("lessons")
-    .select("title, content, slides_text")
+    .select("title, content, slides_text, document_text")
     .eq("course_id", lesson?.course_id)
     .neq("id", lessonId)
     .order("order");
 
-  function lessonToText(l: { title: string; content: string | null; slides_text: string | null }) {
+  function lessonToText(l: { title: string; content: string | null; slides_text: string | null; document_text: string | null }) {
     const text = (l.content ?? "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
     const slides = (l.slides_text ?? "").trim();
-    const combined = [text, slides].filter(Boolean).join("\n").slice(0, 1500);
+    const doc = (l.document_text ?? "").trim();
+    const combined = [text, slides, doc].filter(Boolean).join("\n").slice(0, 1500);
     return combined ? `### ${l.title}\n${combined}` : `### ${l.title}\n(visual/video content)`;
   }
 
   const currentText = (lesson?.content ?? "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
   const currentSlides = (lesson as any)?.slides_text ?? "";
-  const currentCombined = [currentText, currentSlides].filter(Boolean).join("\n").slice(0, 4000);
+  const currentDoc = (lesson as any)?.document_text ?? "";
+  const currentCombined = [currentText, currentSlides, currentDoc].filter(Boolean).join("\n").slice(0, 4000);
 
   const otherLessonsText = (allLessons ?? []).map(lessonToText).join("\n\n").slice(0, 4000);
 

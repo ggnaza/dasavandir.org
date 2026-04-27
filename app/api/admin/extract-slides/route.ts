@@ -9,13 +9,9 @@ export const runtime = "nodejs";
 
 function extractFileId(url: string): string | null {
   try {
-    const u = new URL(url);
-    // https://docs.google.com/presentation/d/FILE_ID/...
-    const match = u.pathname.match(/\/d\/([a-zA-Z0-9_-]+)/);
+    const match = new URL(url).pathname.match(/\/d\/([a-zA-Z0-9_-]+)/);
     return match?.[1] ?? null;
-  } catch {
-    return null;
-  }
+  } catch { return null; }
 }
 
 export async function POST(req: Request) {
@@ -27,7 +23,7 @@ export async function POST(req: Request) {
   if (!slidesUrl || !lessonId) return new Response("Missing fields", { status: 400 });
 
   const fileId = extractFileId(slidesUrl);
-  if (!fileId) return new Response("Could not parse Google Slides URL", { status: 400 });
+  if (!fileId) return new Response("Could not parse Google URL", { status: 400 });
 
   const sessionId = cookies().get("drive_session")?.value;
   if (!sessionId) return new Response("Not connected to Google Drive", { status: 401 });
@@ -47,10 +43,10 @@ export async function POST(req: Request) {
     );
     text = (res.data as string).trim();
   } catch {
-    return new Response("Could not extract slides — make sure you are connected to Drive and the file is accessible", { status: 400 });
+    return new Response("Could not extract — make sure you are connected to Drive and the file is shared", { status: 400 });
   }
 
-  if (!text) return new Response("No text found in slides", { status: 400 });
+  if (!text) return new Response("No text found", { status: 400 });
 
   const admin = createAdminClient();
   await admin.from("lessons").update({ slides_text: text }).eq("id", lessonId);

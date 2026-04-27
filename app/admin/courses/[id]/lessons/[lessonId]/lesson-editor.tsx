@@ -48,8 +48,13 @@ export function LessonEditor({ lesson, courseId }: { lesson: Lesson; courseId: s
     if (error) { setDocError(error.message); setUploadingDoc(false); return; }
     const { data } = supabase.storage.from("lesson-documents").getPublicUrl(path);
     setDocumentUrl(data.publicUrl);
-    // Auto-save the document URL
     await supabase.from("lessons").update({ document_url: data.publicUrl }).eq("id", lesson.id);
+    // Auto-extract PDF text for AI coach
+    fetch("/api/admin/extract-document", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ documentUrl: data.publicUrl, lessonId: lesson.id }),
+    }).catch(() => {});
     setUploadingDoc(false);
     router.refresh();
   }
@@ -101,13 +106,22 @@ export function LessonEditor({ lesson, courseId }: { lesson: Lesson; courseId: s
       })
       .eq("id", lesson.id);
 
-    // Auto-extract slides text for AI coach if slides URL is a Google Slides link
-    if (slidesUrl && slidesUrl.includes("docs.google.com/presentation")) {
+    // Auto-extract Google Slides/Docs/Sheets text for AI coach
+    if (slidesUrl && slidesUrl.includes("docs.google.com")) {
       fetch("/api/admin/extract-slides", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ slidesUrl, lessonId: lesson.id }),
-      }).catch(() => {}); // silent — Drive may not be connected
+      }).catch(() => {});
+    }
+
+    // Auto-extract PDF text for AI coach
+    if (documentUrl) {
+      fetch("/api/admin/extract-document", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ documentUrl, lessonId: lesson.id }),
+      }).catch(() => {});
     }
 
     setSaving(false);
