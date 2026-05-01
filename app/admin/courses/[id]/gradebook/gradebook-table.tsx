@@ -5,7 +5,11 @@ type LessonScore = {
   lessonId: string;
   lessonTitle: string;
   completed: boolean;
+  hasQuiz: boolean;
+  quizAttempted: boolean;
   quizScore: number | null;
+  quizAttempts: number[];
+  hasAssignment: boolean;
   assignmentScore: number | null;
   maxScore: number | null;
   submissionStatus: string | null;
@@ -77,19 +81,36 @@ export function GradebookTable({ students }: { students: Student[] }) {
                     <span className="text-xs text-gray-400 w-5 text-right">{i + 1}.</span>
                     <span className="text-sm text-gray-700 flex-1 min-w-0 truncate">{ls.lessonTitle}</span>
                     <div className="flex items-center gap-6 shrink-0">
-                      <div className="text-center w-20">
+                      <div className="text-center w-28">
                         <p className="text-xs text-gray-400 mb-0.5">Quiz</p>
-                        <ScoreBadge score={ls.quizScore} />
+                        {!ls.hasQuiz ? (
+                          <span className="text-gray-300 text-xs">none</span>
+                        ) : ls.quizAttempts.length === 0 ? (
+                          <span className="text-gray-400 text-xs italic">not taken</span>
+                        ) : (
+                          <div className="flex flex-col items-center gap-0.5">
+                            {ls.quizAttempts.map((s, i) => (
+                              <div key={i} className="flex items-center gap-1">
+                                <ScoreBadge score={s} />
+                                {i === 0 && ls.quizAttempts.length > 1 && (
+                                  <span className="text-xs text-gray-400">latest</span>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
                       <div className="text-center w-24">
                         <p className="text-xs text-gray-400 mb-0.5">Assignment</p>
-                        {ls.assignmentScore !== null ? (
+                        {!ls.hasAssignment ? (
+                          <span className="text-gray-300 text-xs">none</span>
+                        ) : ls.assignmentScore !== null ? (
                           <span className="text-xs">
                             <ScoreBadge score={assignPct} />
                             <span className="text-gray-400 ml-1">({ls.assignmentScore}/{ls.maxScore})</span>
                           </span>
                         ) : (
-                          <span className="text-gray-300 text-xs">—</span>
+                          <span className="text-gray-400 text-xs italic">not submitted</span>
                         )}
                       </div>
                       <div className="text-center w-20">
