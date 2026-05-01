@@ -21,14 +21,17 @@ export default async function LearnAssignmentPage({
 
   if (!assignment) notFound();
 
-  const { data: submission } = await admin
-    .from("submissions")
-    .select("*")
-    .eq("assignment_id", assignment.id)
-    .eq("user_id", user!.id)
-    .order("submitted_at", { ascending: false })
-    .limit(1)
-    .single();
+  const [{ data: submission }, { data: course }] = await Promise.all([
+    admin
+      .from("submissions")
+      .select("*")
+      .eq("assignment_id", assignment.id)
+      .eq("user_id", user!.id)
+      .order("submitted_at", { ascending: false })
+      .limit(1)
+      .single(),
+    admin.from("courses").select("pre_submission_ai").eq("id", params.id).single(),
+  ]);
 
   return (
     <div className="max-w-2xl">
@@ -48,6 +51,7 @@ export default async function LearnAssignmentPage({
         existingSubmission={submission}
         courseId={params.id}
         lessonId={params.lessonId}
+        preSubmissionAiEnabled={course?.pre_submission_ai ?? false}
       />
     </div>
   );

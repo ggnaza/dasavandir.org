@@ -8,14 +8,20 @@ type Props = {
   userId: string;
   isCompleted: boolean;
   courseId: string;
+  hasQuiz: boolean;
+  quizPassed: boolean;  // true if no quiz OR score >= 80
 };
 
-export function MarkCompleteButton({ lessonId, userId, isCompleted, courseId }: Props) {
+export function MarkCompleteButton({ lessonId, userId, isCompleted, courseId, hasQuiz, quizPassed }: Props) {
   const router = useRouter();
   const [done, setDone] = useState(isCompleted);
   const [loading, setLoading] = useState(false);
 
+  // If quiz exists and not passed, block completion
+  const isBlocked = hasQuiz && !quizPassed && !done;
+
   async function toggle() {
+    if (isBlocked) return;
     setLoading(true);
     const supabase = createClient();
     if (done) {
@@ -27,6 +33,20 @@ export function MarkCompleteButton({ lessonId, userId, isCompleted, courseId }: 
     }
     setLoading(false);
     router.refresh();
+  }
+
+  if (isBlocked) {
+    return (
+      <div className="flex flex-col items-end gap-1">
+        <button
+          disabled
+          className="text-sm px-4 py-2 rounded-lg font-medium bg-gray-100 text-gray-400 cursor-not-allowed"
+        >
+          Take quiz to complete
+        </button>
+        <p className="text-xs text-orange-600">Quiz score of 80% required</p>
+      </div>
+    );
   }
 
   return (

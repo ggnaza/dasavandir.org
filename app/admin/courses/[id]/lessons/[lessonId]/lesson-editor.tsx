@@ -17,6 +17,8 @@ type Lesson = {
   skills: string[] | null;
   order: number;
   chapters: any[] | null;
+  deadline_days: number | null;
+  deadline_date: string | null;
 };
 
 export function LessonEditor({ lesson, courseId }: { lesson: Lesson; courseId: string }) {
@@ -31,6 +33,11 @@ export function LessonEditor({ lesson, courseId }: { lesson: Lesson; courseId: s
   const [docError, setDocError] = useState("");
   const [whatYouLearn, setWhatYouLearn] = useState(lesson.what_you_learn ?? "");
   const [skills, setSkills] = useState<string[]>(lesson.skills ?? [""]);
+  const [deadlineDays, setDeadlineDays] = useState(lesson.deadline_days?.toString() ?? "");
+  const [deadlineDate, setDeadlineDate] = useState(lesson.deadline_date ?? "");
+  const [deadlineMode, setDeadlineMode] = useState<"none" | "days" | "date">(
+    lesson.deadline_date ? "date" : lesson.deadline_days ? "days" : "none"
+  );
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [generatingAudio, setGeneratingAudio] = useState(false);
@@ -102,6 +109,8 @@ export function LessonEditor({ lesson, courseId }: { lesson: Lesson; courseId: s
         document_url: documentUrl || null,
         what_you_learn: whatYouLearn.trim() || null,
         skills: skills.filter((s) => s.trim()),
+        deadline_days: deadlineMode === "days" && deadlineDays ? parseInt(deadlineDays) : null,
+        deadline_date: deadlineMode === "date" && deadlineDate ? deadlineDate : null,
         ...(duration_seconds !== null ? { duration_seconds } : {}),
       })
       .eq("id", lesson.id);
@@ -265,6 +274,48 @@ export function LessonEditor({ lesson, courseId }: { lesson: Lesson; courseId: s
 
       {/* Video chapters */}
       <ChaptersEditor lessonId={lesson.id} initial={lesson.chapters ?? []} />
+
+      {/* Lesson deadline */}
+      <div className="border rounded-xl p-4 space-y-3 bg-gray-50">
+        <div>
+          <p className="text-sm font-medium">Completion deadline <span className="text-gray-400 font-normal">(optional)</span></p>
+          <p className="text-xs text-gray-400">Learners see an overdue badge if they miss this deadline.</p>
+        </div>
+        <div className="flex gap-2 flex-wrap">
+          {(["none", "days", "date"] as const).map((m) => (
+            <button
+              key={m}
+              type="button"
+              onClick={() => setDeadlineMode(m)}
+              className={`text-xs px-3 py-1.5 rounded-full border ${deadlineMode === m ? "bg-brand-600 text-white border-brand-600" : "text-gray-600 border-gray-300 hover:bg-gray-50"}`}
+            >
+              {m === "none" ? "No deadline" : m === "days" ? "Days after enrollment" : "Exact date"}
+            </button>
+          ))}
+        </div>
+        {deadlineMode === "days" && (
+          <div className="flex items-center gap-2">
+            <input
+              type="number"
+              min="1"
+              max="365"
+              value={deadlineDays}
+              onChange={(e) => setDeadlineDays(e.target.value)}
+              placeholder="e.g. 7"
+              className="w-24 border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+            />
+            <span className="text-sm text-gray-500">days after enrollment</span>
+          </div>
+        )}
+        {deadlineMode === "date" && (
+          <input
+            type="date"
+            value={deadlineDate}
+            onChange={(e) => setDeadlineDate(e.target.value)}
+            className="border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+          />
+        )}
+      </div>
 
       {/* Audio narration */}
       <div className="border rounded-xl p-4 space-y-3 bg-gray-50">

@@ -13,9 +13,9 @@ type Submission = {
 };
 
 export function AssignmentSubmitter({
-  assignment, existingSubmission, courseId, lessonId,
+  assignment, existingSubmission, courseId, lessonId, preSubmissionAiEnabled,
 }: {
-  assignment: any; existingSubmission: Submission | null; courseId: string; lessonId: string;
+  assignment: any; existingSubmission: Submission | null; courseId: string; lessonId: string; preSubmissionAiEnabled?: boolean;
 }) {
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -24,8 +24,27 @@ export function AssignmentSubmitter({
   const [linkUrl, setLinkUrl] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [aiFeedback, setAiFeedback] = useState("");
+  const [loadingAiFeedback, setLoadingAiFeedback] = useState(false);
+  const [aiFeedbackError, setAiFeedbackError] = useState("");
 
   const hasAnything = content.trim() || file || linkUrl.trim();
+
+  async function handleAiFeedback() {
+    if (!content.trim()) { setAiFeedbackError("Write your response first, then get AI feedback."); return; }
+    setLoadingAiFeedback(true);
+    setAiFeedbackError("");
+    setAiFeedback("");
+    const res = await fetch("/api/assignments/prefeedback", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ assignment_id: assignment.id, draft: content }),
+    });
+    if (!res.ok) { setAiFeedbackError(await res.text()); setLoadingAiFeedback(false); return; }
+    const { feedback } = await res.json();
+    setAiFeedback(feedback);
+    setLoadingAiFeedback(false);
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -207,6 +226,33 @@ export function AssignmentSubmitter({
           <p className="text-xs text-gray-400 mt-2">
             Total: {assignment.rubric.reduce((s: number, r: any) => s + r.max_points, 0)} points
           </p>
+        </div>
+      )}
+
+      {/* Pre-submission AI feedback */}
+      {preSubmissionAiEnabled && (
+        <div className="bg-brand-50 border border-brand-200 rounded-xl p-4 space-y-3">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <div>
+              <p className="text-sm font-semibold text-brand-900">✦ Get AI feedback before submitting</p>
+              <p className="text-xs text-brand-700">AI reviews your draft and suggests improvements. You can revise before final submission.</p>
+            </div>
+            <button
+              type="button"
+              onClick={handleAiFeedback}
+              disabled={loadingAiFeedback || !content.trim()}
+              className="text-sm bg-brand-600 text-white px-4 py-2 rounded-lg hover:bg-brand-700 disabled:opacity-50 font-medium shrink-0"
+            >
+              {loadingAiFeedback ? "Reviewing…" : "Review my draft"}
+            </button>
+          </div>
+          {aiFeedbackError && <p className="text-red-600 text-xs">{aiFeedbackError}</p>}
+          {aiFeedback && (
+            <div className="bg-white rounded-lg p-4 text-sm text-gray-700 whitespace-pre-wrap border">
+              <p className="text-xs font-semibold text-brand-700 mb-2">AI suggestions (not your final grade):</p>
+              {aiFeedback}
+            </div>
+          )}
         </div>
       )}
 

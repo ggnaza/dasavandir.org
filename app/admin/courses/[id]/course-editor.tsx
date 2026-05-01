@@ -15,6 +15,7 @@ type Course = {
   category: string | null;
   hours_to_complete: number | null;
   outcomes: string[] | null;
+  pre_submission_ai: boolean | null;
 };
 
 export function CourseEditor({ course }: { course: Course }) {
@@ -32,6 +33,7 @@ export function CourseEditor({ course }: { course: Course }) {
   const [coverUrl, setCoverUrl] = useState(course.cover_image_url ?? "");
   const [uploadingImage, setUploadingImage] = useState(false);
   const [imageError, setImageError] = useState("");
+  const [preSubmissionAi, setPreSubmissionAi] = useState(course.pre_submission_ai ?? false);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
@@ -76,6 +78,7 @@ export function CourseEditor({ course }: { course: Course }) {
         category: category.trim() || null,
         hours_to_complete: hours ? parseInt(hours) : null,
         outcomes: outcomes.filter((o) => o.trim()),
+        pre_submission_ai: preSubmissionAi,
       })
       .eq("id", course.id);
     setSaving(false);
@@ -269,16 +272,27 @@ export function CourseEditor({ course }: { course: Course }) {
 
       {/* Published */}
       <div className="flex items-center gap-2">
+        <input type="checkbox" id="published" checked={published} onChange={(e) => setPublished(e.target.checked)} className="w-4 h-4" />
+        <label htmlFor="published" className="text-sm font-medium">Published (visible to learners)</label>
+      </div>
+
+      {/* Pre-submission AI feedback */}
+      <div className="flex items-start gap-3 bg-brand-50 border border-brand-200 rounded-xl p-4">
         <input
           type="checkbox"
-          id="published"
-          checked={published}
-          onChange={(e) => setPublished(e.target.checked)}
-          className="w-4 h-4"
+          id="pre_submission_ai"
+          checked={preSubmissionAi}
+          onChange={(e) => setPreSubmissionAi(e.target.checked)}
+          className="w-4 h-4 mt-0.5"
         />
-        <label htmlFor="published" className="text-sm font-medium">
-          Published (visible to learners)
-        </label>
+        <div>
+          <label htmlFor="pre_submission_ai" className="text-sm font-semibold text-brand-900 cursor-pointer">
+            ✦ Enable AI pre-submission feedback
+          </label>
+          <p className="text-xs text-brand-700 mt-0.5">
+            Learners can ask AI to review their draft before submitting. Helps improve submission quality.
+          </p>
+        </div>
       </div>
 
       <div className="flex items-center justify-between pt-2">

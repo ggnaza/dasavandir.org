@@ -58,12 +58,18 @@ export function QuizTaker({
   if (submitted && score !== null) {
     return (
       <div className="bg-white border rounded-xl p-8 text-center">
-        <div className={`text-5xl font-bold mb-2 ${score >= 70 ? "text-green-600" : "text-orange-500"}`}>
+        <div className={`text-5xl font-bold mb-2 ${score >= 80 ? "text-green-600" : "text-orange-500"}`}>
           {score}%
         </div>
-        <p className="text-gray-500 mb-6">
-          {score >= 70 ? "Great job! You passed." : "Keep studying and try again."}
+        <p className="text-gray-500 mb-1">
+          {score >= 80 ? "Great job! You passed." : "You need 80% to complete this lesson."}
         </p>
+        {score >= 80 && (
+          <p className="text-sm text-green-600 mb-5">✓ You can now mark this lesson as complete.</p>
+        )}
+        {score < 80 && (
+          <p className="text-sm text-orange-600 mb-5">Score: {score}% — try again to reach 80%.</p>
+        )}
         <div className="space-y-3 text-left mb-6">
           {quiz.questions.map((q, i) => {
             const chosen = answers[i];

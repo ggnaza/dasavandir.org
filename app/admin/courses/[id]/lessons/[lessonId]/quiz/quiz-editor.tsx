@@ -9,11 +9,18 @@ type Question = {
   correct: number;
 };
 
-type Quiz = { id: string; questions: Question[] };
+type Quiz = { id: string; questions: Question[]; use_bank?: boolean; bank_count?: number };
 
-export function QuizEditor({ lessonId, existing }: { lessonId: string; existing: Quiz | null }) {
+export function QuizEditor({ lessonId, courseId, existing, bankQuestionCount }: {
+  lessonId: string;
+  courseId: string;
+  existing: Quiz | null;
+  bankQuestionCount: number;
+}) {
   const router = useRouter();
   const [questions, setQuestions] = useState<Question[]>(existing?.questions ?? []);
+  const [useBank, setUseBank] = useState(existing?.use_bank ?? false);
+  const [bankCount, setBankCount] = useState(existing?.bank_count ?? 5);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [generating, setGenerating] = useState(false);
@@ -73,10 +80,11 @@ export function QuizEditor({ lessonId, existing }: { lessonId: string; existing:
   async function handleSave() {
     setSaving(true);
     const supabase = createClient();
+    const payload = { questions, use_bank: useBank, bank_count: bankCount };
     if (existing) {
-      await supabase.from("quizzes").update({ questions }).eq("id", existing.id);
+      await supabase.from("quizzes").update(payload).eq("id", existing.id);
     } else {
-      await supabase.from("quizzes").insert({ lesson_id: lessonId, questions });
+      await supabase.from("quizzes").insert({ lesson_id: lessonId, ...payload });
     }
     setSaving(false);
     setSaved(true);
@@ -130,8 +138,44 @@ export function QuizEditor({ lessonId, existing }: { lessonId: string; existing:
         )}
       </div>
 
+      {/* Question bank toggle */}
+      <div className="bg-gray-50 border rounded-xl p-4 space-y-3">
+        <div className="flex items-start gap-3">
+          <input
+            type="checkbox"
+            id="use_bank"
+            checked={useBank}
+            onChange={(e) => setUseBank(e.target.checked)}
+            className="w-4 h-4 mt-0.5"
+          />
+          <div>
+            <label htmlFor="use_bank" className="text-sm font-medium cursor-pointer">
+              Draw questions from question bank
+            </label>
+            <p className="text-xs text-gray-500 mt-0.5">
+              {bankQuestionCount > 0
+                ? `${bankQuestionCount} questions in the course bank. Each learner gets a random set.`
+                : "No questions in the course bank yet. Add them in the Question Bank tab."}
+            </p>
+          </div>
+        </div>
+        {useBank && (
+          <div className="flex items-center gap-3 ml-7">
+            <label className="text-sm text-gray-600">Questions per quiz:</label>
+            <select
+              value={bankCount}
+              onChange={(e) => setBankCount(Number(e.target.value))}
+              className="border rounded-lg px-2 py-1 text-sm"
+            >
+              {[3, 5, 7, 10, 15, 20].map((n) => <option key={n} value={n}>{n}</option>)}
+            </select>
+            <span className="text-xs text-gray-400">randomly selected each time</span>
+          </div>
+        )}
+      </div>
+
       {/* Question list */}
-      {questions.length === 0 && (
+      {questions.length === 0 && !useBank && (
         <div className="bg-white border rounded-xl p-8 text-center text-gray-500 text-sm">
           No questions yet. Generate with AI or add manually below.
         </div>

@@ -4,19 +4,18 @@ import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import OpenAI from "openai";
 
 export async function POST(req: Request) {
-  // Verify user is authenticated
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return new Response("Unauthorized", { status: 401 });
 
-  // 20 messages per minute per user
   const { allowed } = await checkRateLimit(`chat:${user.id}`, 20, 60_000);
   if (!allowed) return rateLimitResponse({ limit: 20, windowSecs: 60 });
 
-  const { messages, lessonId } = await req.json();
+  const { messages, lessonId, courseId, userId } = await req.json();
 
-  // Load current lesson + all lessons in the course
   const admin = createAdminClient();
+
+  // Load lesson + course context
   const { data: lesson } = await admin
     .from("lessons")
     .select("title, content, slides_text, document_text, video_url, course_id, courses(title, description)")
@@ -25,14 +24,29 @@ export async function POST(req: Request) {
 
   const courseTitle = (lesson?.courses as any)?.title ?? "";
   const courseDesc = (lesson?.courses as any)?.description ?? "";
+  const effectiveCourseId = courseId ?? lesson?.course_id;
 
-  // Load all other lessons in the course for full context
+  // Load all other lessons for context
   const { data: allLessons } = await admin
     .from("lessons")
     .select("title, content, slides_text, document_text")
     .eq("course_id", lesson?.course_id)
     .neq("id", lessonId)
     .order("order");
+
+  // Load AI memory for this user+course
+  let memoryContext = "";
+  if (effectiveCourseId && userId) {
+    const { data: memory } = await admin
+      .from("ai_coach_memory")
+      .select("summary")
+      .eq("user_id", userId)
+      .eq("course_id", effectiveCourseId)
+      .single();
+    if (memory?.summary) {
+      memoryContext = memory.summary;
+    }
+  }
 
   function lessonToText(l: { title: string; content: string | null; slides_text: string | null; document_text: string | null }) {
     const text = (l.content ?? "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
@@ -63,6 +77,7 @@ Other lessons in this course (for broader context):
 ---
 ${otherLessonsText || "(no other lessons yet)"}
 ---
+${memoryContext ? `\nWhat you know about this learner from previous sessions:\n---\n${memoryContext}\n---` : ""}
 
 Your role:
 - Help the learner using the course materials above and your general knowledge of the subject
@@ -72,10 +87,11 @@ Your role:
 - Encourage and guide without being condescending
 - Keep responses concise and focused
 - Always respond in the same language the learner writes in (Armenian, English, or any other language)
-- When relevant, suggest additional ways to learn: YouTube searches, book titles, key terms to Google, or well-known free resources — based on your own knowledge, not from course materials
-- Always add a disclaimer after any external suggestion. In English: "* These resources are not reviewed or confirmed by the Teach For Armenia team." In Armenian: "* Այս նյութերը չեն ստուգվել կամ հաստատվել Դասավանդի՛ր Հայաստան թիմի կողմից։" Match the language of the learner's message.`;
+- When relevant, suggest additional ways to learn: YouTube searches, book titles, key terms to Google, or well-known free resources
+- Always add a disclaimer after any external suggestion. In English: "* These resources are not reviewed or confirmed by the Teach For Armenia team." In Armenian: "* Այս նյութերը չեն ստուգվել կամ հաստատվել Դասավանդի՛ր Հայաստան թիմի կողմից։"`;
 
   const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY, timeout: 15_000 });
+
   const stream = await openai.chat.completions.create({
     model: "gpt-4o-mini",
     stream: true,
@@ -86,18 +102,72 @@ Your role:
     max_tokens: 600,
   });
 
+  // Stream response
   const encoder = new TextEncoder();
+  let fullReply = "";
+
   const readable = new ReadableStream({
     async start(controller) {
       for await (const chunk of stream) {
         const text = chunk.choices[0]?.delta?.content ?? "";
-        if (text) controller.enqueue(encoder.encode(text));
+        if (text) {
+          fullReply += text;
+          controller.enqueue(encoder.encode(text));
+        }
       }
       controller.close();
+
+      // After stream ends, async update memory (fire-and-forget)
+      if (effectiveCourseId && userId && fullReply) {
+        updateMemory(admin, userId, effectiveCourseId, messages, fullReply, memoryContext, openai).catch(() => {});
+      }
     },
   });
 
   return new Response(readable, {
     headers: { "Content-Type": "text/plain; charset=utf-8" },
   });
+}
+
+async function updateMemory(
+  admin: any,
+  userId: string,
+  courseId: string,
+  messages: any[],
+  latestReply: string,
+  existingMemory: string,
+  openai: OpenAI
+) {
+  // Only update every 4 messages to avoid too many calls
+  if (messages.length % 4 !== 0) return;
+
+  const recentExchange = messages.slice(-4).map((m: any) => `${m.role}: ${m.content}`).join("\n");
+  const prompt = `You are summarizing what a learner has discussed with an AI tutor.
+
+${existingMemory ? `Existing memory:\n${existingMemory}\n\n` : ""}Recent conversation:
+${recentExchange}
+AI: ${latestReply}
+
+Update the memory summary (max 300 words). Include:
+- Topics they struggled with or found confusing
+- Concepts they already understand well
+- Questions they asked
+- Their learning style or language preference
+
+Be concise. Write as bullet points. This summary will be shown to the AI tutor in future sessions.`;
+
+  try {
+    const res = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [{ role: "user", content: prompt }],
+      max_tokens: 400,
+    });
+    const newMemory = res.choices[0]?.message?.content ?? "";
+    if (newMemory) {
+      await admin.from("ai_coach_memory").upsert(
+        { user_id: userId, course_id: courseId, summary: newMemory, updated_at: new Date().toISOString() },
+        { onConflict: "user_id,course_id" }
+      );
+    }
+  } catch { /* silent fail */ }
 }
