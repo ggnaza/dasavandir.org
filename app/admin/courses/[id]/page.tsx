@@ -53,27 +53,6 @@ export default async function CoursePage({ params }: { params: { id: string } })
 
       <CourseEditor course={course} />
 
-      <div className="mt-6 flex gap-3">
-        <Link
-          href={`/admin/courses/${course.id}/learners`}
-          className="text-sm border border-gray-300 text-gray-600 px-4 py-2 rounded-lg hover:bg-gray-50 font-medium"
-        >
-          Students
-        </Link>
-        <Link
-          href={`/admin/courses/${course.id}/invitations`}
-          className="text-sm border border-gray-300 text-gray-600 px-4 py-2 rounded-lg hover:bg-gray-50 font-medium"
-        >
-          Invitations
-        </Link>
-        <Link
-          href={`/admin/courses/${course.id}/capstone`}
-          className="text-sm border border-purple-300 text-purple-600 px-4 py-2 rounded-lg hover:bg-purple-50 font-medium"
-        >
-          Capstone
-        </Link>
-      </div>
-
       <BackfillDurationsButton courseId={course.id} />
 
       <div className="mt-8">
