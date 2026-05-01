@@ -43,7 +43,7 @@ export default async function GradebookPage({ params }: { params: { id: string }
   ] = await Promise.all([
     admin.from("profiles").select("id, full_name, email").in("id", userIds),
     admin.from("quizzes").select("id, lesson_id").in("lesson_id", lessonIds),
-    admin.from("quiz_responses").select("quiz_id, user_id, score").in("user_id", userIds),
+    admin.from("quiz_responses").select("quiz_id, user_id, score").in("user_id", userIds).order("submitted_at", { ascending: false }),
     admin.from("assignments").select("id, lesson_id, max_score").in("lesson_id", lessonIds),
     admin.from("submissions").select("assignment_id, user_id, final_score, ai_total_score, status").in("user_id", userIds),
     admin.from("progress").select("user_id, lesson_id").in("user_id", userIds),
@@ -51,12 +51,16 @@ export default async function GradebookPage({ params }: { params: { id: string }
 
   // Build lookup maps
   const quizByLesson = Object.fromEntries((quizzes ?? []).map((q) => [q.lesson_id, q.id]));
+  const lessonHasQuiz = new Set((quizzes ?? []).map((q) => q.lesson_id));
   const assignmentByLesson = Object.fromEntries((assignments ?? []).map((a) => [a.lesson_id, a]));
+  const lessonHasAssignment = new Set((assignments ?? []).map((a) => a.lesson_id));
 
-  const quizScoreMap: Record<string, Record<string, number | null>> = {};
+  // All attempts per user+quiz, ordered latest first (DB query already sorted desc)
+  const quizAttemptsMap: Record<string, Record<string, number[]>> = {};
   for (const r of quizResponses ?? []) {
-    if (!quizScoreMap[r.user_id]) quizScoreMap[r.user_id] = {};
-    quizScoreMap[r.user_id][r.quiz_id] = r.score;
+    if (!quizAttemptsMap[r.user_id]) quizAttemptsMap[r.user_id] = {};
+    if (!quizAttemptsMap[r.user_id][r.quiz_id]) quizAttemptsMap[r.user_id][r.quiz_id] = [];
+    quizAttemptsMap[r.user_id][r.quiz_id].push(r.score ?? 0);
   }
 
   type Submission = NonNullable<typeof submissions>[number];
@@ -85,7 +89,12 @@ export default async function GradebookPage({ params }: { params: { id: string }
       const assignment = assignmentByLesson[lesson.id];
       const completed = completedMap[e.user_id]?.has(lesson.id) ?? false;
 
-      const quizScore = quizId ? (quizScoreMap[e.user_id]?.[quizId] ?? null) : null;
+      const hasQuiz = lessonHasQuiz.has(lesson.id);
+      const quizAttempts: number[] = quizId ? (quizAttemptsMap[e.user_id]?.[quizId] ?? []) : [];
+      const quizAttempted = quizAttempts.length > 0;
+      const quizScore = quizAttempted ? quizAttempts[0] : null; // latest first
+
+      const hasAssignment = lessonHasAssignment.has(lesson.id);
       const submission: Submission | null = assignment ? (submissionMap[e.user_id]?.[assignment.id] ?? null) : null;
       const assignmentScore = submission
         ? (submission.final_score ?? submission.ai_total_score ?? null)
@@ -96,7 +105,11 @@ export default async function GradebookPage({ params }: { params: { id: string }
         lessonId: lesson.id,
         lessonTitle: lesson.title,
         completed,
+        hasQuiz,
+        quizAttempted,
         quizScore,
+        quizAttempts,
+        hasAssignment,
         assignmentScore,
         maxScore,
         submissionStatus: submission?.status ?? null,
