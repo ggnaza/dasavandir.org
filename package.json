@@ -9,6 +9,7 @@
     "start": "next start"
   },
   "dependencies": {
+    "@mailchimp/mailchimp_transactional": "^1.4.1",
     "@marsidev/react-turnstile": "^1.5.0",
     "@supabase/ssr": "^0.5.1",
     "@supabase/supabase-js": "^2.45.0",
@@ -41,6 +42,7 @@
     "zod": "^3.25.76"
   },
   "devDependencies": {
+    "@types/mailchimp__mailchimp_transactional": "^1.0.11",
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",

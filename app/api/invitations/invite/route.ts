@@ -3,7 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { assertCourseOwner } from "@/lib/assert-course-owner";
 import { logAudit } from "@/lib/audit-log";
 import { z } from "zod";
-import { Resend } from "resend";
+import mailchimp from "@mailchimp/mailchimp_transactional";
 
 const studentSchema = z.object({
   email: z.string().email(),
@@ -13,9 +13,7 @@ const studentSchema = z.object({
 
 const inviteSchema = z.object({
   courseId: z.string().uuid(),
-  // New format: array of student objects
   students: z.array(studentSchema).min(1).max(200).optional(),
-  // Legacy format: array of emails only
   emails: z.array(z.string().email()).min(1).max(200).optional(),
 });
 
@@ -42,7 +40,6 @@ export async function POST(req: Request) {
   const ownerErr = await assertCourseOwner(courseId, user.id);
   if (ownerErr) return ownerErr;
 
-  // Normalize to student array
   const studentList = students
     ? students.map((s) => ({ ...s, email: s.email.trim().toLowerCase() }))
     : (emails ?? []).map((e) => ({ email: e.trim().toLowerCase(), firstName: "", lastName: "" }));
@@ -65,38 +62,39 @@ export async function POST(req: Request) {
     .from("invitations")
     .upsert(rows, { onConflict: "course_id,email", ignoreDuplicates: true });
 
-  // Send invitation emails if Resend is configured
-  const resendKey = process.env.RESEND_API_KEY;
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.VERCEL_URL
-    ? `https://${process.env.VERCEL_URL}`
-    : "http://localhost:3000";
-  const fromEmail = process.env.RESEND_FROM_EMAIL || "noreply@teachforarmenia.org";
+  // Send invitation emails via Mailchimp Transactional (Mandrill)
+  const mandrillKey = process.env.MANDRILL_API_KEY;
+  const fromEmail = process.env.MANDRILL_FROM_EMAIL || "info@mindxforum.am";
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 
-  if (resendKey && course) {
-    const resend = new Resend(resendKey);
+  if (mandrillKey && course) {
+    const client = mailchimp(mandrillKey);
     const signupUrl = `${siteUrl}/auth/signup`;
 
     await Promise.allSettled(
       studentList.map(({ email, firstName }) => {
         const name = firstName || "there";
-        return resend.emails.send({
-          from: fromEmail,
-          to: email,
-          subject: `You're invited to "${course.title}"`,
-          html: `
-            <div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:24px">
-              <h2 style="margin-top:0">You've been invited!</h2>
-              <p>Hi ${name},</p>
-              <p>You have been invited to enroll in <strong>${course.title}</strong>.</p>
-              <p>Click the button below to create your account and start learning.</p>
-              <a href="${signupUrl}" style="display:inline-block;background:#6d28d9;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;margin:16px 0">
-                Accept invitation
-              </a>
-              <p style="color:#6b7280;font-size:14px">
-                After signing up with this email address (${email}), you will be automatically enrolled in the course.
-              </p>
-            </div>
-          `,
+        return client.messages.send({
+          message: {
+            from_email: fromEmail,
+            from_name: "Dasavandir",
+            subject: `You're invited to "${course.title}"`,
+            html: `
+              <div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:24px">
+                <h2 style="margin-top:0">You've been invited!</h2>
+                <p>Hi ${name},</p>
+                <p>You have been invited to enroll in <strong>${course.title}</strong>.</p>
+                <p>Click the button below to create your account and start learning.</p>
+                <a href="${signupUrl}" style="display:inline-block;background:#6d28d9;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;margin:16px 0">
+                  Accept invitation
+                </a>
+                <p style="color:#6b7280;font-size:14px">
+                  After signing up with this email address (${email}), you will be automatically enrolled in the course.
+                </p>
+              </div>
+            `,
+            to: [{ email, type: "to" as const }],
+          },
         });
       })
     );
