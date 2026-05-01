@@ -67,11 +67,15 @@ export async function POST(req: Request) {
   const fromEmail = process.env.MANDRILL_FROM_EMAIL || "info@mindxforum.am";
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 
+  if (!mandrillKey) {
+    console.error("[invite] MANDRILL_API_KEY is not set");
+  }
+
   if (mandrillKey && course) {
     const client = mailchimp(mandrillKey);
     const signupUrl = `${siteUrl}/auth/signup`;
 
-    await Promise.allSettled(
+    const results = await Promise.allSettled(
       studentList.map(({ email, firstName }) => {
         const name = firstName || "there";
         return client.messages.send({
@@ -98,6 +102,7 @@ export async function POST(req: Request) {
         });
       })
     );
+    console.log("[invite] Mandrill results:", JSON.stringify(results));
   }
 
   await logAudit("invite_users", user.id, req, { course_id: courseId, count: studentList.length });
