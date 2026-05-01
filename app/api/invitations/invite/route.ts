@@ -13,9 +13,7 @@ const studentSchema = z.object({
 
 const inviteSchema = z.object({
   courseId: z.string().uuid(),
-  // New format: array of student objects
   students: z.array(studentSchema).min(1).max(200).optional(),
-  // Legacy format: array of emails only
   emails: z.array(z.string().email()).min(1).max(200).optional(),
 });
 
@@ -42,7 +40,6 @@ export async function POST(req: Request) {
   const ownerErr = await assertCourseOwner(courseId, user.id);
   if (ownerErr) return ownerErr;
 
-  // Normalize to student array
   const studentList = students
     ? students.map((s) => ({ ...s, email: s.email.trim().toLowerCase() }))
     : (emails ?? []).map((e) => ({ email: e.trim().toLowerCase(), firstName: "", lastName: "" }));
@@ -96,7 +93,7 @@ export async function POST(req: Request) {
                 </p>
               </div>
             `,
-            to: [{ email, type: "to" }],
+            to: [{ email, type: "to" as const }],
           },
         });
       })
