@@ -5,12 +5,15 @@ import { CourseEditor } from "./course-editor";
 import { LessonReorderButtons } from "./lesson-reorder-buttons";
 import { BackfillDurationsButton } from "./backfill-durations-button";
 
+export const dynamic = "force-dynamic";
+
 export default async function CoursePage({ params }: { params: { id: string } }) {
   const admin = createAdminClient();
 
-  const [{ data: course }, { data: lessons }] = await Promise.all([
+  const [{ data: course }, { data: lessons }, { data: enrollments }] = await Promise.all([
     admin.from("courses").select("*").eq("id", params.id).single(),
     admin.from("lessons").select("id, title, order").eq("course_id", params.id).order("order"),
+    admin.from("enrollments").select("user_id").eq("course_id", params.id),
   ]);
 
   if (!course) notFound();
@@ -18,6 +21,9 @@ export default async function CoursePage({ params }: { params: { id: string } })
   const { data: creator } = course.created_by
     ? await admin.from("profiles").select("full_name").eq("id", course.created_by).single()
     : { data: null };
+
+  const enrolledCount = enrollments?.length ?? 0;
+  const lessonCount = lessons?.length ?? 0;
 
   return (
     <div className="max-w-2xl">
@@ -29,20 +35,42 @@ export default async function CoursePage({ params }: { params: { id: string } })
         )}
       </div>
 
+      {/* Quick stats */}
+      <div className="grid grid-cols-3 gap-3 mb-6">
+        <div className="bg-white border rounded-xl p-4 text-center">
+          <p className="text-2xl font-bold">{enrolledCount}</p>
+          <p className="text-xs text-gray-500 mt-0.5">Students</p>
+        </div>
+        <div className="bg-white border rounded-xl p-4 text-center">
+          <p className="text-2xl font-bold">{lessonCount}</p>
+          <p className="text-xs text-gray-500 mt-0.5">Lessons</p>
+        </div>
+        <Link href={`/admin/courses/${course.id}/gradebook`} className="bg-brand-50 border border-brand-200 rounded-xl p-4 text-center hover:bg-brand-100 transition-colors">
+          <p className="text-2xl font-bold text-brand-700">→</p>
+          <p className="text-xs text-brand-600 font-medium mt-0.5">Gradebook</p>
+        </Link>
+      </div>
+
       <CourseEditor course={course} />
 
       <div className="mt-6 flex gap-3">
         <Link
+          href={`/admin/courses/${course.id}/learners`}
+          className="text-sm border border-gray-300 text-gray-600 px-4 py-2 rounded-lg hover:bg-gray-50 font-medium"
+        >
+          Students
+        </Link>
+        <Link
           href={`/admin/courses/${course.id}/invitations`}
           className="text-sm border border-gray-300 text-gray-600 px-4 py-2 rounded-lg hover:bg-gray-50 font-medium"
         >
-          Manage invitations
+          Invitations
         </Link>
         <Link
           href={`/admin/courses/${course.id}/capstone`}
           className="text-sm border border-purple-300 text-purple-600 px-4 py-2 rounded-lg hover:bg-purple-50 font-medium"
         >
-          Capstone project
+          Capstone
         </Link>
       </div>
 
