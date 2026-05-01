@@ -120,7 +120,7 @@ export default async function CourseLearnerPage({ params }: { params: { id: stri
             <span className="col-span-2 text-right">Enrolled</span>
             <span className="col-span-1" />
           </div>
-          <LearnerRows learners={learners} lessons={lessonList} />
+          <LearnerRows learners={learners} lessons={lessonList} courseId={course.id} />
 
           {/* Pending invites */}
           {pendingInvites.map((inv) => {
