@@ -43,12 +43,14 @@ export default async function CertificatePage({ params }: { params: { id: string
   const formattedDate = completedAt.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
   const learnerName = profile?.full_name ?? "Learner";
 
-  // Upsert certificate record for tracking
+  // Upsert certificate record for tracking (silent if table not yet migrated)
   const certNumber = generateCertNumber(user!.id, params.id);
-  await admin.from("certificates").upsert(
-    { user_id: user!.id, course_id: params.id, certificate_number: certNumber },
-    { onConflict: "user_id,course_id" }
-  ).catch(() => {}); // silent if table not yet migrated
+  try {
+    await admin.from("certificates").upsert(
+      { user_id: user!.id, course_id: params.id, certificate_number: certNumber },
+      { onConflict: "user_id,course_id" }
+    );
+  } catch (_) {}
 
   return (
     <div className="flex flex-col items-center px-4">
