@@ -30,6 +30,9 @@ export async function POST(req: Request) {
     options: { data: { full_name } },
   });
 
-  if (error) return new Response(error.message, { status: 400 });
+  if (error) {
+    console.error("[auth/signup]", error);
+    return new Response("Failed to create account", { status: 400 });
+  }
   return Response.json({ userId: data.user?.id });
 }

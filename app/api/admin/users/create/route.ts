@@ -1,5 +1,14 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { logAudit } from "@/lib/audit-log";
+import { z } from "zod";
+
+const schema = z.object({
+  email: z.string().email().max(254),
+  password: z.string().min(8).max(128),
+  fullName: z.string().min(1).max(200),
+  role: z.enum(["admin", "course_creator", "course_manager", "learner"]).optional().default("learner"),
+});
 
 export async function POST(req: Request) {
   try {
@@ -9,14 +18,13 @@ export async function POST(req: Request) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
 
-    const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single();
+    const { data: profile } = await admin.from("profiles").select("role").eq("id", user.id).single();
     if (profile?.role !== "admin") return new Response(JSON.stringify({ error: "Forbidden" }), { status: 403 });
 
-    const { email, password, fullName, role } = await req.json();
+    const parsed = schema.safeParse(await req.json());
+    if (!parsed.success) return new Response(JSON.stringify({ error: "Invalid input" }), { status: 400 });
 
-    if (!email || !password || !fullName) {
-      return new Response(JSON.stringify({ error: "Missing required fields" }), { status: 400 });
-    }
+    const { email, password, fullName, role } = parsed.data;
 
     const { data: authData, error: authError } = await admin.auth.admin.createUser({
       email,
@@ -26,13 +34,13 @@ export async function POST(req: Request) {
 
     if (authError) {
       console.error("[users/create auth]", authError);
-      return new Response(JSON.stringify({ error: authError.message }), { status: 400 });
+      return new Response(JSON.stringify({ error: "Failed to create user" }), { status: 400 });
     }
 
     const { error: profileError } = await admin.from("profiles").insert({
       id: authData.user.id,
       full_name: fullName,
-      role: role || "learner",
+      role,
     });
 
     if (profileError) {
@@ -40,11 +48,11 @@ export async function POST(req: Request) {
       return new Response(JSON.stringify({ error: "Failed to create user profile" }), { status: 500 });
     }
 
-    await admin.from("audit_logs").insert({
-      action: "create_user",
-      actor_id: user.id,
-      ip: null,
-      meta: { email, full_name: fullName, role: role || "learner", new_user_id: authData.user.id },
+    await logAudit("create_user", user.id, req, {
+      email,
+      full_name: fullName,
+      role,
+      new_user_id: authData.user.id,
     });
 
     return new Response(JSON.stringify({ success: true, userId: authData.user.id }), { status: 200 });
