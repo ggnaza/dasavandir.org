@@ -2,16 +2,34 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import OpenAI from "openai";
+import { z } from "zod";
+
+const chatSchema = z.object({
+  lessonId: z.string().uuid(),
+  courseId: z.string().uuid().optional(),
+  userId: z.string().uuid().optional(),
+  messages: z.array(z.object({
+    role: z.enum(["user", "assistant"]),
+    content: z.string().max(10_000),
+  })).max(100),
+});
 
 export async function POST(req: Request) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return new Response("Unauthorized", { status: 401 });
 
+  // Per-minute burst limit
   const { allowed } = await checkRateLimit(`chat:${user.id}`, 20, 60_000);
   if (!allowed) return rateLimitResponse({ limit: 20, windowSecs: 60 });
 
-  const { messages, lessonId, courseId, userId } = await req.json();
+  // Daily cap — prevents runaway AI costs
+  const { allowed: dailyOk } = await checkRateLimit(`chat-daily:${user.id}`, 200, 24 * 60 * 60_000);
+  if (!dailyOk) return rateLimitResponse({ limit: 200, windowSecs: 86400 });
+
+  const parsed = chatSchema.safeParse(await req.json());
+  if (!parsed.success) return new Response("Invalid input", { status: 400 });
+  const { messages, lessonId, courseId, userId } = parsed.data;
 
   const admin = createAdminClient();
 

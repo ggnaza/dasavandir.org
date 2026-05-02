@@ -1,10 +1,14 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 
 export async function POST(req: Request) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return new Response("Unauthorized", { status: 401 });
+
+  const { allowed } = await checkRateLimit(`enroll:${user.id}`, 20, 60 * 60_000);
+  if (!allowed) return rateLimitResponse({ limit: 20, windowSecs: 3600 });
 
   const { courseId } = await req.json();
   if (!courseId) return new Response("Missing courseId", { status: 400 });

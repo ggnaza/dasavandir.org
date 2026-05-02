@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createNotification } from "@/lib/notifications";
+import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import DOMPurify from "isomorphic-dompurify";
 import { z } from "zod";
 
@@ -17,6 +18,9 @@ export async function POST(
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return new Response("Unauthorized", { status: 401 });
+
+  const { allowed } = await checkRateLimit(`reply:${user.id}`, 20, 60 * 60_000);
+  if (!allowed) return rateLimitResponse({ limit: 20, windowSecs: 3600 });
 
   const parsed = schema.safeParse(await req.json());
   if (!parsed.success) return new Response("Invalid input", { status: 400 });
@@ -49,7 +53,10 @@ export async function POST(
     body: cleanBody,
   }).select().single();
 
-  if (error) return new Response(error.message, { status: 500 });
+  if (error) {
+    console.error("[replies/post]", error);
+    return new Response("Failed to post reply", { status: 500 });
+  }
 
   if (discussion.user_id !== user.id) {
     await createNotification({
