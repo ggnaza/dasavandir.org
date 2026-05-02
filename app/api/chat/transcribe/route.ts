@@ -1,10 +1,14 @@
 import { createClient } from "@/lib/supabase/server";
+import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import OpenAI from "openai";
 
 export async function POST(req: Request) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return new Response("Unauthorized", { status: 401 });
+
+  const { allowed } = await checkRateLimit(`transcribe:${user.id}`, 20, 60 * 60_000);
+  if (!allowed) return rateLimitResponse({ limit: 20, windowSecs: 3600 });
 
   try {
     const formData = await req.formData();
@@ -22,7 +26,7 @@ export async function POST(req: Request) {
     });
 
     return Response.json({ text: transcription.text });
-  } catch (e: any) {
-    return new Response(e.message ?? "Transcription failed", { status: 500 });
+  } catch {
+    return new Response("Transcription failed", { status: 500 });
   }
 }

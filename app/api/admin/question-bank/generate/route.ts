@@ -1,7 +1,15 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { assertCourseOwner } from "@/lib/assert-course-owner";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
+import { z } from "zod";
 import OpenAI from "openai";
+
+const schema = z.object({
+  lesson_id: z.string().uuid(),
+  course_id: z.string().uuid(),
+  count: z.number().int().min(1).max(20).optional().default(5),
+});
 
 export async function POST(req: Request) {
   const supabase = createClient();
@@ -16,14 +24,16 @@ export async function POST(req: Request) {
   const { allowed } = await checkRateLimit(`qbank-generate:${user.id}`, 10, 60_000);
   if (!allowed) return rateLimitResponse({ limit: 10, windowSecs: 60 });
 
-  const { lesson_id, course_id, count = 5 } = await req.json();
-  if (!lesson_id || !course_id) return new Response("Missing fields", { status: 400 });
+  const parsed = schema.safeParse(await req.json());
+  if (!parsed.success) return new Response("Invalid input", { status: 400 });
 
-  const safeCount = Math.min(20, Math.max(1, parseInt(count)));
+  const { lesson_id, course_id, count } = parsed.data;
+
+  const ownerErr = await assertCourseOwner(course_id, user.id);
+  if (ownerErr) return ownerErr;
 
   const admin = createAdminClient();
 
-  // Load lesson content
   const { data: lesson } = await admin
     .from("lessons")
     .select("title, content, slides_text, document_text")
@@ -51,14 +61,14 @@ export async function POST(req: Request) {
       },
       {
         role: "user",
-        content: `Generate exactly ${safeCount} multiple-choice questions based on this lesson titled "${lesson.title}".
+        content: `Generate exactly ${count} multiple-choice questions based on this lesson titled "${lesson.title}".
 
 Lesson content:
 ---
 ${text}
 ---
 
-Return a JSON array of exactly ${safeCount} objects, each with:
+Return a JSON array of exactly ${count} objects, each with:
 - "question": string
 - "options": array of exactly 4 strings
 - "correct": integer 0-3 (index of correct option)
@@ -75,9 +85,8 @@ Return ONLY the JSON array, nothing else.`,
   let generated: { question: string; options: string[]; correct: number }[] = [];
   try {
     const raw = completion.choices[0]?.message?.content ?? "{}";
-    const parsed = JSON.parse(raw);
-    // Handle both {"questions":[...]} and direct array wrapped in object
-    generated = Array.isArray(parsed) ? parsed : (parsed.questions ?? parsed.items ?? Object.values(parsed)[0] ?? []);
+    const p = JSON.parse(raw);
+    generated = Array.isArray(p) ? p : (p.questions ?? p.items ?? Object.values(p)[0] ?? []);
   } catch {
     return new Response("AI returned invalid JSON. Please try again.", { status: 500 });
   }
@@ -86,7 +95,6 @@ Return ONLY the JSON array, nothing else.`,
     return new Response("AI returned no questions. Please try again.", { status: 500 });
   }
 
-  // Insert all valid questions
   const rows = generated
     .filter((q) => q.question && Array.isArray(q.options) && q.options.length === 4 && typeof q.correct === "number")
     .map((q) => ({
@@ -100,7 +108,10 @@ Return ONLY the JSON array, nothing else.`,
   if (rows.length === 0) return new Response("AI returned invalid question format. Please try again.", { status: 500 });
 
   const { error } = await admin.from("question_bank").insert(rows);
-  if (error) return new Response(error.message, { status: 500 });
+  if (error) {
+    console.error("[question-bank/generate]", error);
+    return new Response("Failed to save questions", { status: 500 });
+  }
 
   return Response.json({ added: rows.length });
 }

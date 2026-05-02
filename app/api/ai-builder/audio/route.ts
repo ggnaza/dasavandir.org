@@ -1,8 +1,11 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import OpenAI from "openai";
 
 export const runtime = "nodejs";
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // Strip HTML tags and decode basic entities
 function htmlToText(html: string): string {
@@ -26,8 +29,11 @@ export async function POST(req: Request) {
   const { data: profile } = await admin.from("profiles").select("role").eq("id", user.id).single();
   if (profile?.role !== "admin") return new Response("Forbidden", { status: 403 });
 
+  const { allowed } = await checkRateLimit(`audio-gen:${user.id}`, 10, 60 * 60_000);
+  if (!allowed) return rateLimitResponse({ limit: 10, windowSecs: 3600 });
+
   const { lessonId } = await req.json();
-  if (!lessonId) return new Response("Missing lessonId", { status: 400 });
+  if (!lessonId || !UUID_RE.test(lessonId)) return new Response("Missing lessonId", { status: 400 });
 
   const { data: lesson } = await admin
     .from("lessons")

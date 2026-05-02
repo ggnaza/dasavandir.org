@@ -75,9 +75,15 @@ export async function POST(req: Request) {
     const client = mailchimp(mandrillKey);
     const signupUrl = `${siteUrl}/auth/signup`;
 
+    const escHtml = (s: string) =>
+      s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+
+    const safeTitle = escHtml(course.title);
+
     const results = await Promise.allSettled(
       studentList.map(({ email, firstName }) => {
-        const name = firstName || "there";
+        const name = escHtml(firstName || "there");
+        const safeEmail = escHtml(email);
         return client.messages.send({
           message: {
             from_email: fromEmail,
@@ -87,13 +93,13 @@ export async function POST(req: Request) {
               <div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:24px">
                 <h2 style="margin-top:0">You've been invited!</h2>
                 <p>Hi ${name},</p>
-                <p>You have been invited to enroll in <strong>${course.title}</strong>.</p>
+                <p>You have been invited to enroll in <strong>${safeTitle}</strong>.</p>
                 <p>Click the button below to create your account and start learning.</p>
                 <a href="${signupUrl}" style="display:inline-block;background:#6d28d9;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;margin:16px 0">
                   Accept invitation
                 </a>
                 <p style="color:#6b7280;font-size:14px">
-                  After signing up with this email address (${email}), you will be automatically enrolled in the course.
+                  After signing up with this email address (${safeEmail}), you will be automatically enrolled in the course.
                 </p>
               </div>
             `,

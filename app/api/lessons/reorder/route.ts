@@ -1,6 +1,15 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { assertCourseOwner } from "@/lib/assert-course-owner";
+import { z } from "zod";
+
+const EDITOR_ROLES = ["admin", "course_creator", "course_manager"];
+
+const schema = z.object({
+  lessonId: z.string().uuid(),
+  courseId: z.string().uuid(),
+  direction: z.enum(["up", "down"]),
+});
 
 export async function POST(req: Request) {
   const supabase = createClient();
@@ -9,9 +18,12 @@ export async function POST(req: Request) {
 
   const admin = createAdminClient();
   const { data: profile } = await admin.from("profiles").select("role").eq("id", user.id).single();
-  if (profile?.role !== "admin") return new Response("Forbidden", { status: 403 });
+  if (!EDITOR_ROLES.includes(profile?.role ?? "")) return new Response("Forbidden", { status: 403 });
 
-  const { lessonId, direction, courseId } = await req.json();
+  const parsed = schema.safeParse(await req.json());
+  if (!parsed.success) return new Response("Invalid input", { status: 400 });
+
+  const { lessonId, courseId, direction } = parsed.data;
 
   const ownerErr = await assertCourseOwner(courseId, user.id);
   if (ownerErr) return ownerErr;

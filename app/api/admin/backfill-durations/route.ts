@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { z } from "zod";
 
 function extractDriveFileId(url: string): string | null {
   const patterns = [
@@ -13,6 +14,8 @@ function extractDriveFileId(url: string): string | null {
   return null;
 }
 
+const schema = z.object({ courseId: z.string().uuid() });
+
 export async function POST(req: Request) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -22,7 +25,9 @@ export async function POST(req: Request) {
   const { data: profile } = await admin.from("profiles").select("role").eq("id", user.id).single();
   if (profile?.role !== "admin") return new Response("Forbidden", { status: 403 });
 
-  const { courseId } = await req.json();
+  const parsed = schema.safeParse(await req.json());
+  if (!parsed.success) return new Response("Invalid input", { status: 400 });
+  const { courseId } = parsed.data;
 
   const { data: lessons } = await admin
     .from("lessons")
