@@ -1,47 +1,73 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { z } from "zod";
 
-async function isAdmin() {
+async function requireAdmin() {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return false;
+  if (!user) return null;
   const { data } = await supabase.from("profiles").select("role").eq("id", user.id).single();
-  return data?.role === "admin";
+  if (data?.role !== "admin") return null;
+  return user;
 }
 
-// GET /api/admin/course-access?creator_id=xxx
+const accessSchema = z.object({
+  creator_id: z.string().uuid(),
+  course_id: z.string().uuid(),
+});
+
 export async function GET(req: Request) {
-  if (!await isAdmin()) return new Response("Forbidden", { status: 403 });
+  const user = await requireAdmin();
+  if (!user) return new Response("Forbidden", { status: 403 });
+
   const { searchParams } = new URL(req.url);
   const creator_id = searchParams.get("creator_id");
   const admin = createAdminClient();
   const query = admin.from("course_creator_access").select("*, courses(id, title)");
   if (creator_id) query.eq("creator_id", creator_id);
   const { data, error } = await query;
-  if (error) return new Response(error.message, { status: 500 });
+  if (error) {
+    console.error("[course-access/get]", error);
+    return new Response("Failed to fetch access", { status: 500 });
+  }
   return Response.json(data);
 }
 
-// POST — assign a course to a creator
 export async function POST(req: Request) {
-  if (!await isAdmin()) return new Response("Forbidden", { status: 403 });
-  const supabase = createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  const { creator_id, course_id } = await req.json();
-  if (!creator_id || !course_id) return new Response("Missing fields", { status: 400 });
+  const user = await requireAdmin();
+  if (!user) return new Response("Forbidden", { status: 403 });
+
+  const parsed = accessSchema.safeParse(await req.json());
+  if (!parsed.success) return new Response("Invalid input", { status: 400 });
+
   const admin = createAdminClient();
-  const { error } = await admin.from("course_creator_access").insert({ creator_id, course_id, granted_by: user!.id });
-  if (error) return new Response(error.message, { status: 500 });
+  const { error } = await admin.from("course_creator_access").insert({
+    creator_id: parsed.data.creator_id,
+    course_id: parsed.data.course_id,
+    granted_by: user.id,
+  });
+  if (error) {
+    console.error("[course-access/post]", error);
+    return new Response("Failed to grant access", { status: 500 });
+  }
   return new Response("OK");
 }
 
-// DELETE — remove a course from a creator
 export async function DELETE(req: Request) {
-  if (!await isAdmin()) return new Response("Forbidden", { status: 403 });
-  const { creator_id, course_id } = await req.json();
-  if (!creator_id || !course_id) return new Response("Missing fields", { status: 400 });
+  const user = await requireAdmin();
+  if (!user) return new Response("Forbidden", { status: 403 });
+
+  const parsed = accessSchema.safeParse(await req.json());
+  if (!parsed.success) return new Response("Invalid input", { status: 400 });
+
   const admin = createAdminClient();
-  const { error } = await admin.from("course_creator_access").delete().eq("creator_id", creator_id).eq("course_id", course_id);
-  if (error) return new Response(error.message, { status: 500 });
+  const { error } = await admin.from("course_creator_access")
+    .delete()
+    .eq("creator_id", parsed.data.creator_id)
+    .eq("course_id", parsed.data.course_id);
+  if (error) {
+    console.error("[course-access/delete]", error);
+    return new Response("Failed to revoke access", { status: 500 });
+  }
   return new Response("OK");
 }

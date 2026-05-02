@@ -13,8 +13,9 @@ export async function POST(req: Request) {
     return new Response("Bad request", { status: 400 });
   }
 
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   const { lessonId, duration } = body;
-  if (!lessonId || typeof duration !== "number" || duration < 5 || duration > 86400) {
+  if (!lessonId || !UUID_RE.test(lessonId) || typeof duration !== "number" || duration < 5 || duration > 86400) {
     return new Response("Invalid payload", { status: 400 });
   }
 
