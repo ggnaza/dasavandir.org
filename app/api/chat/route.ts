@@ -7,7 +7,6 @@ import { z } from "zod";
 const chatSchema = z.object({
   lessonId: z.string().uuid(),
   courseId: z.string().uuid().optional(),
-  userId: z.string().uuid().optional(),
   messages: z.array(z.object({
     role: z.enum(["user", "assistant"]),
     content: z.string().max(10_000),
@@ -29,7 +28,8 @@ export async function POST(req: Request) {
 
   const parsed = chatSchema.safeParse(await req.json());
   if (!parsed.success) return new Response("Invalid input", { status: 400 });
-  const { messages, lessonId, courseId, userId } = parsed.data;
+  const { messages, lessonId, courseId } = parsed.data;
+  const userId = user.id;
 
   const admin = createAdminClient();
 
