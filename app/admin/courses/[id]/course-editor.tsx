@@ -16,6 +16,8 @@ type Course = {
   hours_to_complete: number | null;
   outcomes: string[] | null;
   pre_submission_ai: boolean | null;
+  deadline_days: number | null;
+  deadline_date: string | null;
 };
 
 export function CourseEditor({ course }: { course: Course }) {
@@ -34,6 +36,11 @@ export function CourseEditor({ course }: { course: Course }) {
   const [uploadingImage, setUploadingImage] = useState(false);
   const [imageError, setImageError] = useState("");
   const [preSubmissionAi, setPreSubmissionAi] = useState(course.pre_submission_ai ?? false);
+  const [deadlineDays, setDeadlineDays] = useState(course.deadline_days?.toString() ?? "");
+  const [deadlineDate, setDeadlineDate] = useState(course.deadline_date ?? "");
+  const [deadlineMode, setDeadlineMode] = useState<"none" | "days" | "date">(
+    course.deadline_date ? "date" : course.deadline_days ? "days" : "none"
+  );
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
@@ -79,6 +86,8 @@ export function CourseEditor({ course }: { course: Course }) {
         hours_to_complete: hours ? parseInt(hours) : null,
         outcomes: outcomes.filter((o) => o.trim()),
         pre_submission_ai: preSubmissionAi,
+        deadline_days: deadlineMode === "days" && deadlineDays ? parseInt(deadlineDays) : null,
+        deadline_date: deadlineMode === "date" && deadlineDate ? deadlineDate : null,
       })
       .eq("id", course.id);
     setSaving(false);
@@ -274,6 +283,48 @@ export function CourseEditor({ course }: { course: Course }) {
       <div className="flex items-center gap-2">
         <input type="checkbox" id="published" checked={published} onChange={(e) => setPublished(e.target.checked)} className="w-4 h-4" />
         <label htmlFor="published" className="text-sm font-medium">Published (visible to learners)</label>
+      </div>
+
+      {/* Course completion deadline */}
+      <div className="border rounded-xl p-4 space-y-3 bg-gray-50">
+        <div>
+          <p className="text-sm font-medium">Course completion deadline <span className="text-gray-400 font-normal">(optional)</span></p>
+          <p className="text-xs text-gray-400">Learners see an overdue badge on their dashboard if they miss this. Per-lesson deadlines can be set in each lesson editor.</p>
+        </div>
+        <div className="flex gap-2 flex-wrap">
+          {(["none", "days", "date"] as const).map((m) => (
+            <button
+              key={m}
+              type="button"
+              onClick={() => setDeadlineMode(m)}
+              className={`text-xs px-3 py-1.5 rounded-full border ${deadlineMode === m ? "bg-brand-600 text-white border-brand-600" : "text-gray-600 border-gray-300 hover:bg-gray-50"}`}
+            >
+              {m === "none" ? "No deadline" : m === "days" ? "Days after enrollment" : "Exact date"}
+            </button>
+          ))}
+        </div>
+        {deadlineMode === "days" && (
+          <div className="flex items-center gap-2">
+            <input
+              type="number"
+              min="1"
+              max="730"
+              value={deadlineDays}
+              onChange={(e) => setDeadlineDays(e.target.value)}
+              placeholder="e.g. 30"
+              className="w-24 border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+            />
+            <span className="text-sm text-gray-500">days after enrollment</span>
+          </div>
+        )}
+        {deadlineMode === "date" && (
+          <input
+            type="date"
+            value={deadlineDate}
+            onChange={(e) => setDeadlineDate(e.target.value)}
+            className="border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+          />
+        )}
       </div>
 
       {/* Pre-submission AI feedback */}
