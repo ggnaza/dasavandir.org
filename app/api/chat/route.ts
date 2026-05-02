@@ -44,6 +44,16 @@ export async function POST(req: Request) {
   const courseDesc = (lesson?.courses as any)?.description ?? "";
   const effectiveCourseId = courseId ?? lesson?.course_id;
 
+  // Verify the user is enrolled in this course (or is an admin/creator)
+  if (effectiveCourseId) {
+    const [{ data: enrollment }, { data: profile }] = await Promise.all([
+      admin.from("enrollments").select("id").eq("user_id", user.id).eq("course_id", effectiveCourseId).maybeSingle(),
+      admin.from("profiles").select("role").eq("id", user.id).single(),
+    ]);
+    const isStaff = ["admin", "course_creator", "course_manager"].includes(profile?.role ?? "");
+    if (!enrollment && !isStaff) return new Response("Not enrolled in this course", { status: 403 });
+  }
+
   // Load all other lessons for context
   const { data: allLessons } = await admin
     .from("lessons")

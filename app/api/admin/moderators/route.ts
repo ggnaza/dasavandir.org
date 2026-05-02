@@ -1,112 +1,131 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { assertCourseOwner } from "@/lib/assert-course-owner";
+import { z } from "zod";
+
+const EDITOR_ROLES = ["admin", "course_creator", "course_manager"];
 
 export async function GET(req: Request) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return new Response("Unauthorized", { status: 401 });
 
+  const admin = createAdminClient();
+  const { data: profile } = await admin.from("profiles").select("role").eq("id", user.id).single();
+  if (!EDITOR_ROLES.includes(profile?.role ?? "")) return new Response("Forbidden", { status: 403 });
+
   const { searchParams } = new URL(req.url);
   const course_id = searchParams.get("course_id");
   if (!course_id) return new Response("Missing course_id", { status: 400 });
 
-  const admin = createAdminClient();
+  const ownerErr = await assertCourseOwner(course_id, user.id);
+  if (ownerErr) return ownerErr;
 
-  // Step 1: get access rows
   const { data: accessRows, error } = await admin
     .from("course_manager_access")
     .select("manager_id, created_at")
     .eq("course_id", course_id)
     .order("created_at", { ascending: false });
 
-  if (error) return new Response(error.message, { status: 500 });
+  if (error) {
+    console.error("[moderators/get]", error);
+    return new Response("Failed to fetch moderators", { status: 500 });
+  }
   if (!accessRows || accessRows.length === 0) return Response.json([]);
 
-  // Step 2: get profiles for those manager_ids
   const ids = accessRows.map((r) => r.manager_id);
-  const { data: profiles } = await admin
-    .from("profiles")
-    .select("id, full_name")
-    .in("id", ids);
-
-  // Step 3: get emails from auth
+  const { data: profiles } = await admin.from("profiles").select("id, full_name").in("id", ids);
   const { data: authData } = await admin.auth.admin.listUsers({ perPage: 1000 });
+
   const userMap = new Map(authData?.users.map((u) => [u.id, u.email]) ?? []);
   const profileMap = new Map((profiles ?? []).map((p) => [p.id, p.full_name]));
 
-  const result = accessRows.map((row) => ({
+  return Response.json(accessRows.map((row) => ({
     manager_id: row.manager_id,
     created_at: row.created_at,
     full_name: profileMap.get(row.manager_id) ?? null,
     email: userMap.get(row.manager_id) ?? null,
-  }));
-
-  return Response.json(result);
+  })));
 }
+
+const addSchema = z.object({
+  course_id: z.string().uuid(),
+  email: z.string().email(),
+});
 
 export async function POST(req: Request) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return new Response("Unauthorized", { status: 401 });
 
-  const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single();
-  if (!profile || !["admin", "course_creator"].includes(profile.role)) {
-    return new Response("Forbidden", { status: 403 });
-  }
-
-  const { action, course_id, email } = await req.json();
   const admin = createAdminClient();
+  const { data: profile } = await admin.from("profiles").select("role").eq("id", user.id).single();
+  if (!["admin", "course_creator"].includes(profile?.role ?? "")) return new Response("Forbidden", { status: 403 });
 
-  if (action === "add") {
-    // Find user by email
-    const { data: targetProfile } = await admin
-      .from("profiles")
-      .select("id, role")
-      .eq("id", (
-        await admin.auth.admin.listUsers()
-      ).data.users.find((u) => u.email?.toLowerCase() === email?.toLowerCase())?.id ?? "")
-      .single();
+  const parsed = addSchema.safeParse(await req.json());
+  if (!parsed.success) return new Response("Invalid input", { status: 400 });
 
-    if (!targetProfile) return new Response("User not found with that email", { status: 404 });
+  const { course_id, email } = parsed.data;
 
-    // Upgrade role to course_manager if they're a learner
-    if (targetProfile.role === "learner") {
-      await admin.from("profiles").update({ role: "course_manager" }).eq("id", targetProfile.id);
-    }
+  const ownerErr = await assertCourseOwner(course_id, user.id);
+  if (ownerErr) return ownerErr;
 
-    const { error } = await admin.from("course_manager_access").upsert(
-      { manager_id: targetProfile.id, course_id, granted_by: user.id },
-      { onConflict: "manager_id,course_id" }
-    );
-    if (error) return new Response(error.message, { status: 500 });
-    return Response.json({ ok: true });
+  // Find the target user by email
+  const { data: authData } = await admin.auth.admin.listUsers({ perPage: 1000 });
+  const targetAuthUser = authData?.users.find(
+    (u) => u.email?.toLowerCase() === email.toLowerCase()
+  );
+  if (!targetAuthUser) return new Response("No account found with that email", { status: 404 });
+
+  const { data: targetProfile } = await admin
+    .from("profiles")
+    .select("id, role")
+    .eq("id", targetAuthUser.id)
+    .single();
+
+  if (!targetProfile) return new Response("User profile not found", { status: 404 });
+
+  // Upgrade to course_manager if they're currently a learner
+  if (targetProfile.role === "learner") {
+    await admin.from("profiles").update({ role: "course_manager" }).eq("id", targetProfile.id);
   }
 
-  if (action === "remove") {
-    const { manager_id } = await req.json().catch(() => ({})) as any;
-    // manager_id is already parsed above via email; re-parse body separately
-    // Accept manager_id directly in this action
-    const body = await req.json().catch(() => null);
-    return new Response("Use DELETE /api/admin/moderators?manager_id=X&course_id=Y", { status: 400 });
+  const { error } = await admin.from("course_manager_access").upsert(
+    { manager_id: targetProfile.id, course_id, granted_by: user.id },
+    { onConflict: "manager_id,course_id" }
+  );
+  if (error) {
+    console.error("[moderators/add]", error);
+    return new Response("Failed to add moderator", { status: 500 });
   }
 
-  return new Response("Invalid action", { status: 400 });
+  return Response.json({ ok: true });
 }
+
+const deleteSchema = z.object({
+  manager_id: z.string().uuid(),
+  course_id: z.string().uuid(),
+});
 
 export async function DELETE(req: Request) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return new Response("Unauthorized", { status: 401 });
 
-  const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single();
-  if (!profile || !["admin", "course_creator"].includes(profile.role)) {
-    return new Response("Forbidden", { status: 403 });
-  }
-
-  const { manager_id, course_id } = await req.json();
   const admin = createAdminClient();
+  const { data: profile } = await admin.from("profiles").select("role").eq("id", user.id).single();
+  if (!["admin", "course_creator"].includes(profile?.role ?? "")) return new Response("Forbidden", { status: 403 });
 
-  await admin.from("course_manager_access").delete()
+  const parsed = deleteSchema.safeParse(await req.json());
+  if (!parsed.success) return new Response("Invalid input", { status: 400 });
+
+  const { manager_id, course_id } = parsed.data;
+
+  const ownerErr = await assertCourseOwner(course_id, user.id);
+  if (ownerErr) return ownerErr;
+
+  await admin.from("course_manager_access")
+    .delete()
     .eq("manager_id", manager_id)
     .eq("course_id", course_id);
 

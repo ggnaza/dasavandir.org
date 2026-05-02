@@ -39,11 +39,23 @@ export async function POST(req: Request) {
   const admin = createAdminClient();
   const { data: assignment } = await admin
     .from("assignments")
-    .select("title, instructions, rubric")
+    .select("title, instructions, rubric, lesson_id, lessons(course_id)")
     .eq("id", assignment_id)
     .single();
 
   if (!assignment) return new Response("Assignment not found", { status: 404 });
+
+  // Verify the student is enrolled in this course
+  const courseId = (assignment.lessons as any)?.course_id;
+  if (courseId) {
+    const { data: enrollment } = await admin
+      .from("enrollments")
+      .select("id")
+      .eq("user_id", user.id)
+      .eq("course_id", courseId)
+      .maybeSingle();
+    if (!enrollment) return new Response("Not enrolled in this course", { status: 403 });
+  }
 
   // Save submission
   const { data: submission, error: subError } = await admin

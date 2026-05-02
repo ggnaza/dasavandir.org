@@ -25,11 +25,22 @@ export async function POST(req: Request) {
   const admin = createAdminClient();
   const { data: capstone } = await admin
     .from("capstones")
-    .select("title, instructions, rubric")
+    .select("title, instructions, rubric, course_id")
     .eq("id", capstone_id)
     .single();
 
   if (!capstone) return new Response("Capstone not found", { status: 404 });
+
+  // Verify the student is enrolled in this course
+  if (capstone.course_id) {
+    const { data: enrollment } = await admin
+      .from("enrollments")
+      .select("id")
+      .eq("user_id", user.id)
+      .eq("course_id", capstone.course_id)
+      .maybeSingle();
+    if (!enrollment) return new Response("Not enrolled in this course", { status: 403 });
+  }
 
   // Upsert — one submission per user per capstone
   const { data: submission, error: subError } = await admin
