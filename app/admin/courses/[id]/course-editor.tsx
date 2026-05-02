@@ -18,6 +18,7 @@ type Course = {
   pre_submission_ai: boolean | null;
   deadline_days: number | null;
   deadline_date: string | null;
+  allow_shuffled_learning: boolean | null;
 };
 
 export function CourseEditor({ course, lessonDeadlineDates = [] }: {
@@ -39,6 +40,7 @@ export function CourseEditor({ course, lessonDeadlineDates = [] }: {
   const [uploadingImage, setUploadingImage] = useState(false);
   const [imageError, setImageError] = useState("");
   const [preSubmissionAi, setPreSubmissionAi] = useState(course.pre_submission_ai ?? false);
+  const [allowShuffled, setAllowShuffled] = useState(course.allow_shuffled_learning ?? false);
   const [deadlineDays, setDeadlineDays] = useState(course.deadline_days?.toString() ?? "");
   const [deadlineDate, setDeadlineDate] = useState(course.deadline_date ?? "");
   const [deadlineMode, setDeadlineMode] = useState<"none" | "days" | "date">(
@@ -105,6 +107,7 @@ export function CourseEditor({ course, lessonDeadlineDates = [] }: {
         hours_to_complete: hours ? parseInt(hours) : null,
         outcomes: outcomes.filter((o) => o.trim()),
         pre_submission_ai: preSubmissionAi,
+        allow_shuffled_learning: allowShuffled,
         deadline_days: deadlineMode === "days" && deadlineDays ? parseInt(deadlineDays) : null,
         deadline_date: deadlineMode === "date" && deadlineDate ? deadlineDate : null,
       })
@@ -355,6 +358,25 @@ export function CourseEditor({ course, lessonDeadlineDates = [] }: {
           </div>
         )}
         {deadlineError && <p className="text-xs text-red-500 font-medium mt-1">{deadlineError}</p>}
+      </div>
+
+      {/* Shuffled learning */}
+      <div className="flex items-start gap-3 bg-gray-50 border rounded-xl p-4">
+        <input
+          type="checkbox"
+          id="allow_shuffled"
+          checked={allowShuffled}
+          onChange={(e) => setAllowShuffled(e.target.checked)}
+          className="w-4 h-4 mt-0.5"
+        />
+        <div>
+          <label htmlFor="allow_shuffled" className="text-sm font-semibold text-gray-900 cursor-pointer">
+            Allow shuffled learning
+          </label>
+          <p className="text-xs text-gray-500 mt-0.5">
+            By default, learners must complete lessons in order. Enable this to let them jump between any lesson freely.
+          </p>
+        </div>
       </div>
 
       {/* Pre-submission AI feedback */}

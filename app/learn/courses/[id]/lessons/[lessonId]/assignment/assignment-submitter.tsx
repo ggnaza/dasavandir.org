@@ -31,15 +31,30 @@ export function AssignmentSubmitter({
   const hasAnything = content.trim() || file || linkUrl.trim();
 
   async function handleAiFeedback() {
-    if (!content.trim()) { setAiFeedbackError("Write your response first, then get AI feedback."); return; }
+    const hasPdf = file && file.type === "application/pdf";
+    if (!content.trim() && !hasPdf) {
+      setAiFeedbackError("Write a response or upload a PDF first, then get AI feedback.");
+      return;
+    }
     setLoadingAiFeedback(true);
     setAiFeedbackError("");
     setAiFeedback("");
-    const res = await fetch("/api/assignments/prefeedback", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ assignment_id: assignment.id, draft: content }),
-    });
+
+    let res: Response;
+    if (hasPdf) {
+      const form = new FormData();
+      form.append("assignment_id", assignment.id);
+      form.append("draft", content);
+      form.append("file", file);
+      res = await fetch("/api/assignments/prefeedback", { method: "POST", body: form });
+    } else {
+      res = await fetch("/api/assignments/prefeedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ assignment_id: assignment.id, draft: content }),
+      });
+    }
+
     if (!res.ok) { setAiFeedbackError(await res.text()); setLoadingAiFeedback(false); return; }
     const { feedback } = await res.json();
     setAiFeedback(feedback);
@@ -235,12 +250,12 @@ export function AssignmentSubmitter({
           <div className="flex items-center justify-between gap-2 flex-wrap">
             <div>
               <p className="text-sm font-semibold text-brand-900">✦ Get AI feedback before submitting</p>
-              <p className="text-xs text-brand-700">AI reviews your draft and suggests improvements. You can revise before final submission.</p>
+              <p className="text-xs text-brand-700">AI reviews your written response or uploaded PDF and suggests improvements. You can revise before final submission.</p>
             </div>
             <button
               type="button"
               onClick={handleAiFeedback}
-              disabled={loadingAiFeedback || !content.trim()}
+              disabled={loadingAiFeedback || (!content.trim() && !(file && file.type === "application/pdf"))}
               className="text-sm bg-brand-600 text-white px-4 py-2 rounded-lg hover:bg-brand-700 disabled:opacity-50 font-medium shrink-0"
             >
               {loadingAiFeedback ? "Reviewing…" : "Review my draft"}

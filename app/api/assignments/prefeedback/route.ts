@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import OpenAI from "openai";
+import pdfParse from "pdf-parse";
 
 export async function POST(req: Request) {
   const supabase = createClient();
@@ -11,8 +12,30 @@ export async function POST(req: Request) {
   const { allowed } = await checkRateLimit(`prefeedback:${user.id}`, 5, 60_000);
   if (!allowed) return rateLimitResponse({ limit: 5, windowSecs: 60 });
 
-  const { assignment_id, draft } = await req.json();
-  if (!assignment_id || !draft?.trim()) return new Response("Missing fields", { status: 400 });
+  // Accept both JSON and FormData (when file is attached)
+  let assignment_id: string;
+  let draft = "";
+  let pdfText = "";
+
+  const contentType = req.headers.get("content-type") ?? "";
+  if (contentType.includes("multipart/form-data")) {
+    const form = await req.formData();
+    assignment_id = form.get("assignment_id") as string;
+    draft = (form.get("draft") as string) ?? "";
+    const file = form.get("file") as File | null;
+    if (file && file.type === "application/pdf") {
+      const buffer = Buffer.from(await file.arrayBuffer());
+      const parsed = await pdfParse(buffer).catch(() => null);
+      pdfText = parsed?.text?.trim().slice(0, 4000) ?? "";
+    }
+  } else {
+    const body = await req.json();
+    assignment_id = body.assignment_id;
+    draft = body.draft ?? "";
+  }
+
+  if (!assignment_id) return new Response("Missing fields", { status: 400 });
+  if (!draft.trim() && !pdfText) return new Response("Please provide a written response or upload a PDF.", { status: 400 });
 
   const admin = createAdminClient();
 
@@ -41,6 +64,11 @@ export async function POST(req: Request) {
     ? assignment.rubric.map((r: any) => `- ${r.criterion} (${r.max_points} pts)`).join("\n")
     : "";
 
+  const draftSection = [
+    draft.trim() ? `Written response:\n${draft.slice(0, 3000)}` : "",
+    pdfText ? `Uploaded PDF content:\n${pdfText}` : "",
+  ].filter(Boolean).join("\n\n");
+
   const prompt = `You are a helpful writing coach reviewing a student's draft assignment before official submission.
 
 Assignment: ${assignment.title}
@@ -51,7 +79,7 @@ ${rubricText || "(no rubric provided)"}
 
 Student's draft:
 ---
-${draft.slice(0, 3000)}
+${draftSection}
 ---
 
 Give constructive improvement suggestions BEFORE the student submits. Do NOT grade or score. Focus on:

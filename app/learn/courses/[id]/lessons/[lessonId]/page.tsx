@@ -69,7 +69,7 @@ export default async function LessonPage({
   const admin = createAdminClient();
   const { data: { user } } = await supabase.auth.getUser();
 
-  const [{ data: lesson }, { data: lessons }, { data: allProgress }, { data: quiz }, { data: files }, { data: assignment }, { data: enrollment }] = await Promise.all([
+  const [{ data: lesson }, { data: lessons }, { data: allProgress }, { data: quiz }, { data: files }, { data: assignment }, { data: enrollment }, { data: course }] = await Promise.all([
     admin.from("lessons").select("*").eq("id", params.lessonId).single(),
     admin.from("lessons").select("id, title, order, deadline_days, deadline_date").eq("course_id", params.id).order("order"),
     admin.from("progress").select("lesson_id").eq("user_id", user!.id),
@@ -77,6 +77,7 @@ export default async function LessonPage({
     admin.from("lesson_files").select("id, file_name, storage_path").eq("lesson_id", params.lessonId).order("created_at"),
     admin.from("assignments").select("id").eq("lesson_id", params.lessonId).single(),
     admin.from("enrollments").select("id, created_at").eq("user_id", user!.id).eq("course_id", params.id).single(),
+    admin.from("courses").select("allow_shuffled_learning, pre_submission_ai").eq("id", params.id).single(),
   ]);
 
   if (!lesson) notFound();
@@ -109,12 +110,23 @@ export default async function LessonPage({
 
   const completedIds = new Set((allProgress ?? []).map((p) => p.lesson_id));
   const isCompleted = completedIds.has(params.lessonId);
-  const embedUrl = lesson.video_url ? getEmbedUrl(lesson.video_url) : null;
-  const slidesEmbedUrl = lesson.slides_url ? getSlidesEmbedUrl(lesson.slides_url) : null;
+  const allowShuffled = course?.allow_shuffled_learning ?? false;
 
   const currentIndex = lessons?.findIndex((l) => l.id === params.lessonId) ?? 0;
   const prevLesson = lessons?.[currentIndex - 1];
   const nextLesson = lessons?.[currentIndex + 1];
+
+  // Sequential gate: if not shuffled, block access if any prior lesson is incomplete
+  if (!allowShuffled && currentIndex > 0) {
+    const prevLessons = (lessons ?? []).slice(0, currentIndex);
+    const firstIncomplete = prevLessons.find((l) => !completedIds.has(l.id));
+    if (firstIncomplete) {
+      redirect(`/learn/courses/${params.id}/lessons/${firstIncomplete.id}`);
+    }
+  }
+
+  const embedUrl = lesson.video_url ? getEmbedUrl(lesson.video_url) : null;
+  const slidesEmbedUrl = lesson.slides_url ? getSlidesEmbedUrl(lesson.slides_url) : null;
 
   const totalLessons = lessons?.length ?? 0;
   const completedCount = lessons?.filter((l) => completedIds.has(l.id)).length ?? 0;
@@ -217,9 +229,15 @@ export default async function LessonPage({
               </Link>
             )}
             {nextLesson && (
-              <Link href={`/learn/courses/${params.id}/lessons/${nextLesson.id}`} className="text-sm border rounded-lg px-4 py-2 hover:bg-gray-50">
-                Next →
-              </Link>
+              allowShuffled || isCompleted ? (
+                <Link href={`/learn/courses/${params.id}/lessons/${nextLesson.id}`} className="text-sm border rounded-lg px-4 py-2 hover:bg-gray-50">
+                  Next →
+                </Link>
+              ) : (
+                <span className="text-sm border rounded-lg px-4 py-2 text-gray-400 cursor-not-allowed bg-gray-50" title="Complete this lesson first">
+                  🔒 Next
+                </span>
+              )
             )}
           </div>
           <MarkCompleteButton
@@ -267,14 +285,18 @@ export default async function LessonPage({
               const done = completedIds.has(l.id);
               const current = l.id === params.lessonId;
               const dl = deadlineLabel(l, enrolledAt);
+              // Locked if sequential AND a prior lesson is not done
+              const locked = !allowShuffled && i > 0 && !(lessons.slice(0, i).every((pl) => completedIds.has(pl.id)));
+              const Tag = locked ? "span" : Link;
+              const tagProps = locked ? {} : { href: `/learn/courses/${params.id}/lessons/${l.id}` };
               return (
-                <Link
+                <Tag
                   key={l.id}
-                  href={`/learn/courses/${params.id}/lessons/${l.id}`}
-                  className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition ${current ? "bg-brand-50 text-brand-700 font-medium" : "hover:bg-gray-50 text-gray-600"}`}
+                  {...(tagProps as any)}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition ${current ? "bg-brand-50 text-brand-700 font-medium" : locked ? "text-gray-300 cursor-not-allowed" : "hover:bg-gray-50 text-gray-600"}`}
                 >
-                  <span className={`w-5 h-5 rounded-full flex items-center justify-center text-xs shrink-0 font-medium ${done ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-400"}`}>
-                    {done ? "✓" : i + 1}
+                  <span className={`w-5 h-5 rounded-full flex items-center justify-center text-xs shrink-0 font-medium ${done ? "bg-green-100 text-green-700" : locked ? "bg-gray-50 text-gray-300" : "bg-gray-100 text-gray-400"}`}>
+                    {done ? "✓" : locked ? "🔒" : i + 1}
                   </span>
                   <span className="truncate flex-1">{l.title}</span>
                   {dl?.overdue && !done && <span className="text-red-500 text-xs shrink-0">!</span>}
