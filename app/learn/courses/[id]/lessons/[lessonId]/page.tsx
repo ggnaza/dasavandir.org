@@ -300,7 +300,7 @@ export default async function LessonPage({
                   </span>
                   <span className="truncate flex-1">{l.title}</span>
                   {dl?.overdue && !done && <span className="text-red-500 text-xs shrink-0">!</span>}
-                </Link>
+                </Tag>
               );
             })}
           </div>
