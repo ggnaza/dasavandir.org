@@ -25,6 +25,7 @@ export async function POST(req: Request) {
     });
 
     if (authError) {
+      console.error("[users/create auth]", authError);
       return new Response(JSON.stringify({ error: authError.message }), { status: 400 });
     }
 
@@ -35,19 +36,20 @@ export async function POST(req: Request) {
     });
 
     if (profileError) {
-      return new Response(JSON.stringify({ error: profileError.message }), { status: 400 });
+      console.error("[users/create profile]", profileError);
+      return new Response(JSON.stringify({ error: "Failed to create user profile" }), { status: 500 });
     }
 
     await admin.from("audit_logs").insert({
-      user_id: user.id,
       action: "create_user",
-      entity_type: "user",
-      entity_id: authData.user.id,
-      details: { email, full_name: fullName, role: role || "learner" },
+      actor_id: user.id,
+      ip: null,
+      meta: { email, full_name: fullName, role: role || "learner", new_user_id: authData.user.id },
     });
 
     return new Response(JSON.stringify({ success: true, userId: authData.user.id }), { status: 200 });
   } catch (err: any) {
-    return new Response(JSON.stringify({ error: err.message }), { status: 500 });
+    console.error("[users/create]", err);
+    return new Response(JSON.stringify({ error: "Internal server error" }), { status: 500 });
   }
 }

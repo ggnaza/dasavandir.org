@@ -23,7 +23,10 @@ export async function POST(req: Request) {
     }
 
     const { error } = await admin.from("profiles").update({ role }).eq("id", userId);
-    if (error) return new Response(JSON.stringify({ error: error.message }), { status: 400 });
+    if (error) {
+      console.error("[users/update-role]", error);
+      return new Response(JSON.stringify({ error: "Failed to update role" }), { status: 500 });
+    }
 
     await admin.from("audit_logs").insert({
       user_id: user.id,
@@ -47,9 +50,13 @@ export async function GET() {
       .select("id, full_name, role, created_at")
       .order("created_at", { ascending: false });
 
-    if (error) return new Response(JSON.stringify({ error: error.message }), { status: 400 });
+    if (error) {
+      console.error("[users/list]", error);
+      return new Response(JSON.stringify({ error: "Failed to fetch users" }), { status: 500 });
+    }
     return new Response(JSON.stringify({ users }), { status: 200 });
   } catch (err: any) {
-    return new Response(JSON.stringify({ error: err.message }), { status: 401 });
+    const isAuthError = err.message === "Unauthorized" || err.message === "Forbidden";
+    return new Response(JSON.stringify({ error: err.message }), { status: isAuthError ? 401 : 500 });
   }
 }

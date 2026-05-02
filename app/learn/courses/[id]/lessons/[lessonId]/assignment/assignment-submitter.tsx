@@ -61,6 +61,15 @@ export function AssignmentSubmitter({
     setLoadingAiFeedback(false);
   }
 
+  const ALLOWED_TYPES = new Set([
+    "application/pdf",
+    "image/jpeg", "image/png", "image/gif", "image/webp",
+    "video/mp4", "video/quicktime", "video/webm",
+    "application/msword",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  ]);
+  const MAX_FILE_BYTES = 50 * 1024 * 1024; // 50 MB
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!hasAnything) { setError("Please add a written response, file, or link."); return; }
@@ -72,6 +81,16 @@ export function AssignmentSubmitter({
 
     // Upload file to storage if provided
     if (file) {
+      if (file.size > MAX_FILE_BYTES) {
+        setError("File is too large. Maximum allowed size is 50 MB.");
+        setSubmitting(false);
+        return;
+      }
+      if (!ALLOWED_TYPES.has(file.type)) {
+        setError("File type not allowed. Please upload a PDF, image, video, or Word document.");
+        setSubmitting(false);
+        return;
+      }
       const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
       const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
@@ -79,7 +98,7 @@ export function AssignmentSubmitter({
       const { error: uploadError } = await supabase.storage
         .from("lesson-files")
         .upload(path, file);
-      if (uploadError) { setError(uploadError.message); setSubmitting(false); return; }
+      if (uploadError) { setError("Upload failed. Please try again."); setSubmitting(false); return; }
       filePath = path;
       fileName = file.name;
     }

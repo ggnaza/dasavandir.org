@@ -1,5 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
+import { logAudit } from "@/lib/audit-log";
 import { z } from "zod";
 
 const schema = z.object({
@@ -18,6 +20,11 @@ export async function POST(req: Request) {
   const supabase = createClient();
   const { error } = await supabase.auth.signInWithPassword(parsed.data);
 
-  if (error) return new Response(error.message, { status: 401 });
+  if (error) {
+    // Log failed attempt — use null actor since they're not authenticated yet
+    await logAudit("login_failed", null, req, { email: parsed.data.email });
+    return new Response("Invalid email or password", { status: 401 });
+  }
+
   return new Response("OK");
 }
