@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 
-type Moderator = { manager_id: string; profiles: { full_name: string | null }; created_at: string };
+type Moderator = { manager_id: string; full_name: string | null; email: string | null; created_at: string };
 
 export default function ModeratorsPage({ params }: { params: { id: string } }) {
   const [moderators, setModerators] = useState<Moderator[]>([]);
@@ -91,7 +91,8 @@ export default function ModeratorsPage({ params }: { params: { id: string } }) {
         {moderators.map((m) => (
           <div key={m.manager_id} className="bg-white border rounded-xl px-4 py-3 flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium">{(m.profiles as any)?.full_name ?? "—"}</p>
+              <p className="text-sm font-medium">{m.full_name ?? m.email ?? "—"}</p>
+              {m.email && m.full_name && <p className="text-xs text-gray-500">{m.email}</p>}
               <p className="text-xs text-gray-400">Added {new Date(m.created_at).toLocaleDateString()}</p>
             </div>
             <button

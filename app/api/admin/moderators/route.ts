@@ -11,14 +11,37 @@ export async function GET(req: Request) {
   if (!course_id) return new Response("Missing course_id", { status: 400 });
 
   const admin = createAdminClient();
-  const { data, error } = await admin
+
+  // Step 1: get access rows
+  const { data: accessRows, error } = await admin
     .from("course_manager_access")
-    .select("manager_id, created_at, profiles(full_name)")
+    .select("manager_id, created_at")
     .eq("course_id", course_id)
     .order("created_at", { ascending: false });
 
   if (error) return new Response(error.message, { status: 500 });
-  return Response.json(data ?? []);
+  if (!accessRows || accessRows.length === 0) return Response.json([]);
+
+  // Step 2: get profiles for those manager_ids
+  const ids = accessRows.map((r) => r.manager_id);
+  const { data: profiles } = await admin
+    .from("profiles")
+    .select("id, full_name")
+    .in("id", ids);
+
+  // Step 3: get emails from auth
+  const { data: authData } = await admin.auth.admin.listUsers({ perPage: 1000 });
+  const userMap = new Map(authData?.users.map((u) => [u.id, u.email]) ?? []);
+  const profileMap = new Map((profiles ?? []).map((p) => [p.id, p.full_name]));
+
+  const result = accessRows.map((row) => ({
+    manager_id: row.manager_id,
+    created_at: row.created_at,
+    full_name: profileMap.get(row.manager_id) ?? null,
+    email: userMap.get(row.manager_id) ?? null,
+  }));
+
+  return Response.json(result);
 }
 
 export async function POST(req: Request) {
