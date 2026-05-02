@@ -1,5 +1,12 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { logAudit } from "@/lib/audit-log";
+import { z } from "zod";
+
+const updateSchema = z.object({
+  userId: z.string().uuid(),
+  role: z.enum(["admin", "course_creator", "course_manager", "learner"]),
+});
 
 async function checkAdmin() {
   const supabase = createClient();
@@ -16,11 +23,11 @@ async function checkAdmin() {
 export async function POST(req: Request) {
   try {
     const { user, admin } = await checkAdmin();
-    const { userId, role } = await req.json();
 
-    if (!["admin", "course_creator", "learner"].includes(role)) {
-      return new Response(JSON.stringify({ error: "Invalid role" }), { status: 400 });
-    }
+    const parsed = updateSchema.safeParse(await req.json());
+    if (!parsed.success) return new Response(JSON.stringify({ error: "Invalid input" }), { status: 400 });
+
+    const { userId, role } = parsed.data;
 
     const { error } = await admin.from("profiles").update({ role }).eq("id", userId);
     if (error) {
@@ -28,17 +35,12 @@ export async function POST(req: Request) {
       return new Response(JSON.stringify({ error: "Failed to update role" }), { status: 500 });
     }
 
-    await admin.from("audit_logs").insert({
-      user_id: user.id,
-      action: "update_role",
-      entity_type: "user",
-      entity_id: userId,
-      details: { new_role: role },
-    });
+    await logAudit("update_role", user.id, req, { target_user_id: userId, new_role: role });
 
     return new Response(JSON.stringify({ success: true }), { status: 200 });
   } catch (err: any) {
-    return new Response(JSON.stringify({ error: err.message }), { status: 401 });
+    const isAuthError = err.message === "Unauthorized" || err.message === "Forbidden";
+    return new Response(JSON.stringify({ error: err.message }), { status: isAuthError ? 403 : 500 });
   }
 }
 
@@ -57,6 +59,6 @@ export async function GET() {
     return new Response(JSON.stringify({ users }), { status: 200 });
   } catch (err: any) {
     const isAuthError = err.message === "Unauthorized" || err.message === "Forbidden";
-    return new Response(JSON.stringify({ error: err.message }), { status: isAuthError ? 401 : 500 });
+    return new Response(JSON.stringify({ error: err.message }), { status: isAuthError ? 403 : 500 });
   }
 }
