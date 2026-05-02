@@ -1,6 +1,5 @@
 "use client";
 import { useState, useEffect } from "react";
-import { createClient } from "@/lib/supabase/client";
 
 type Moderator = { manager_id: string; profiles: { full_name: string | null }; created_at: string };
 
@@ -12,13 +11,8 @@ export default function ModeratorsPage({ params }: { params: { id: string } }) {
   const [success, setSuccess] = useState("");
 
   async function loadModerators() {
-    const supabase = createClient();
-    const { data } = await supabase
-      .from("course_manager_access")
-      .select("manager_id, created_at, profiles(full_name)")
-      .eq("course_id", params.id)
-      .order("created_at", { ascending: false });
-    setModerators((data ?? []) as any);
+    const res = await fetch(`/api/admin/moderators?course_id=${params.id}`);
+    if (res.ok) setModerators(await res.json());
   }
 
   useEffect(() => { loadModerators(); }, []);

@@ -1,6 +1,26 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
+export async function GET(req: Request) {
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return new Response("Unauthorized", { status: 401 });
+
+  const { searchParams } = new URL(req.url);
+  const course_id = searchParams.get("course_id");
+  if (!course_id) return new Response("Missing course_id", { status: 400 });
+
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("course_manager_access")
+    .select("manager_id, created_at, profiles(full_name)")
+    .eq("course_id", course_id)
+    .order("created_at", { ascending: false });
+
+  if (error) return new Response(error.message, { status: 500 });
+  return Response.json(data ?? []);
+}
+
 export async function POST(req: Request) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
