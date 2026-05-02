@@ -21,7 +21,15 @@ type Lesson = {
   deadline_date: string | null;
 };
 
-export function LessonEditor({ lesson, courseId }: { lesson: Lesson; courseId: string }) {
+export function LessonEditor({
+  lesson, courseId, prevDeadlineDate, nextDeadlineDate, courseDeadlineDate,
+}: {
+  lesson: Lesson;
+  courseId: string;
+  prevDeadlineDate?: string | null;
+  nextDeadlineDate?: string | null;
+  courseDeadlineDate?: string | null;
+}) {
   const router = useRouter();
   const [title, setTitle] = useState(lesson.title);
   const [content, setContent] = useState(lesson.content ?? "");
@@ -40,6 +48,7 @@ export function LessonEditor({ lesson, courseId }: { lesson: Lesson; courseId: s
   );
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [deadlineError, setDeadlineError] = useState("");
   const [generatingAudio, setGeneratingAudio] = useState(false);
   const [audioError, setAudioError] = useState("");
 
@@ -83,6 +92,24 @@ export function LessonEditor({ lesson, courseId }: { lesson: Lesson; courseId: s
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
+    setDeadlineError("");
+
+    // Validate exact-date deadlines only
+    if (deadlineMode === "date" && deadlineDate) {
+      if (prevDeadlineDate && deadlineDate <= prevDeadlineDate) {
+        setDeadlineError(`Deadline must be after the previous lesson's deadline (${prevDeadlineDate}).`);
+        return;
+      }
+      if (nextDeadlineDate && deadlineDate >= nextDeadlineDate) {
+        setDeadlineError(`Deadline must be before the next lesson's deadline (${nextDeadlineDate}).`);
+        return;
+      }
+      if (courseDeadlineDate && deadlineDate > courseDeadlineDate) {
+        setDeadlineError(`Deadline cannot be later than the course deadline (${courseDeadlineDate}).`);
+        return;
+      }
+    }
+
     setSaving(true);
 
     let duration_seconds: number | null = null;
@@ -308,13 +335,21 @@ export function LessonEditor({ lesson, courseId }: { lesson: Lesson; courseId: s
           </div>
         )}
         {deadlineMode === "date" && (
-          <input
-            type="date"
-            value={deadlineDate}
-            onChange={(e) => setDeadlineDate(e.target.value)}
-            className="border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
-          />
+          <div className="space-y-1">
+            <input
+              type="date"
+              value={deadlineDate}
+              min={prevDeadlineDate ?? undefined}
+              max={courseDeadlineDate ?? undefined}
+              onChange={(e) => { setDeadlineDate(e.target.value); setDeadlineError(""); }}
+              className="border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+            />
+            {prevDeadlineDate && <p className="text-xs text-gray-400">Must be after previous lesson: {prevDeadlineDate}</p>}
+            {nextDeadlineDate && <p className="text-xs text-gray-400">Must be before next lesson: {nextDeadlineDate}</p>}
+            {courseDeadlineDate && <p className="text-xs text-gray-400">Course deadline: {courseDeadlineDate}</p>}
+          </div>
         )}
+        {deadlineError && <p className="text-xs text-red-500 font-medium">{deadlineError}</p>}
       </div>
 
       {/* Audio narration */}

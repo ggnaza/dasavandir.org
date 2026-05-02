@@ -12,7 +12,7 @@ export default async function CoursePage({ params }: { params: { id: string } })
 
   const [{ data: course }, { data: lessons }, { data: enrollments }] = await Promise.all([
     admin.from("courses").select("*").eq("id", params.id).single(),
-    admin.from("lessons").select("id, title, order").eq("course_id", params.id).order("order"),
+    admin.from("lessons").select("id, title, order, deadline_date").eq("course_id", params.id).order("order"),
     admin.from("enrollments").select("user_id").eq("course_id", params.id),
   ]);
 
@@ -51,7 +51,7 @@ export default async function CoursePage({ params }: { params: { id: string } })
         </Link>
       </div>
 
-      <CourseEditor course={course} />
+      <CourseEditor course={course} lessonDeadlineDates={(lessons ?? []).map(l => ({ title: l.title, deadline_date: l.deadline_date ?? null }))} />
 
       <BackfillDurationsButton courseId={course.id} />
 

@@ -10,14 +10,22 @@ export default async function LessonPage({
   params: { id: string; lessonId: string };
 }) {
   const admin = createAdminClient();
-  const [{ data: lesson }, { data: quiz }, { data: files }, { data: assignment }] = await Promise.all([
+  const [{ data: lesson }, { data: quiz }, { data: files }, { data: assignment }, { data: allLessons }, { data: course }] = await Promise.all([
     admin.from("lessons").select("*").eq("id", params.lessonId).single(),
     admin.from("quizzes").select("id").eq("lesson_id", params.lessonId).single(),
     admin.from("lesson_files").select("id, file_name, storage_path").eq("lesson_id", params.lessonId).order("created_at"),
     admin.from("assignments").select("id").eq("lesson_id", params.lessonId).single(),
+    admin.from("lessons").select("id, order, deadline_date, deadline_days").eq("course_id", params.id).order("order"),
+    admin.from("courses").select("deadline_date, deadline_days").eq("id", params.id).single(),
   ]);
 
   if (!lesson) notFound();
+
+  const sortedLessons = allLessons ?? [];
+  const idx = sortedLessons.findIndex((l) => l.id === params.lessonId);
+  const prevDeadlineDate = idx > 0 ? (sortedLessons[idx - 1].deadline_date ?? null) : null;
+  const nextDeadlineDate = idx >= 0 && idx < sortedLessons.length - 1 ? (sortedLessons[idx + 1].deadline_date ?? null) : null;
+  const courseDeadlineDate = course?.deadline_date ?? null;
 
   return (
     <div className="max-w-2xl">
@@ -28,7 +36,13 @@ export default async function LessonPage({
         <h1 className="text-2xl font-bold mt-2">Edit Lesson</h1>
       </div>
 
-      <LessonEditor lesson={lesson} courseId={params.id} />
+      <LessonEditor
+        lesson={lesson}
+        courseId={params.id}
+        prevDeadlineDate={prevDeadlineDate}
+        nextDeadlineDate={nextDeadlineDate}
+        courseDeadlineDate={courseDeadlineDate}
+      />
 
       <FileUploader lessonId={params.lessonId} existingFiles={files ?? []} />
 

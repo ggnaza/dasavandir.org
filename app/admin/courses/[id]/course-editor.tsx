@@ -20,7 +20,10 @@ type Course = {
   deadline_date: string | null;
 };
 
-export function CourseEditor({ course }: { course: Course }) {
+export function CourseEditor({ course, lessonDeadlineDates = [] }: {
+  course: Course;
+  lessonDeadlineDates?: { title: string; deadline_date: string | null }[];
+}) {
   const router = useRouter();
   const imageInputRef = useRef<HTMLInputElement>(null);
   const [title, setTitle] = useState(course.title);
@@ -41,6 +44,7 @@ export function CourseEditor({ course }: { course: Course }) {
   const [deadlineMode, setDeadlineMode] = useState<"none" | "days" | "date">(
     course.deadline_date ? "date" : course.deadline_days ? "days" : "none"
   );
+  const [deadlineError, setDeadlineError] = useState("");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
@@ -70,6 +74,21 @@ export function CourseEditor({ course }: { course: Course }) {
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
+    setDeadlineError("");
+
+    // Validate: course exact deadline cannot be earlier than any lesson exact deadline
+    if (deadlineMode === "date" && deadlineDate) {
+      const violations = lessonDeadlineDates.filter(
+        (l) => l.deadline_date && l.deadline_date > deadlineDate
+      );
+      if (violations.length > 0) {
+        setDeadlineError(
+          `Course deadline cannot be earlier than lesson deadlines. Conflicting: ${violations.map((l) => `"${l.title}" (${l.deadline_date})`).join(", ")}`
+        );
+        return;
+      }
+    }
+
     setSaving(true);
     const supabase = createClient();
     await supabase
@@ -318,13 +337,24 @@ export function CourseEditor({ course }: { course: Course }) {
           </div>
         )}
         {deadlineMode === "date" && (
-          <input
-            type="date"
-            value={deadlineDate}
-            onChange={(e) => setDeadlineDate(e.target.value)}
-            className="border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
-          />
+          <div className="space-y-1">
+            <input
+              type="date"
+              value={deadlineDate}
+              onChange={(e) => { setDeadlineDate(e.target.value); setDeadlineError(""); }}
+              className="border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+            />
+            {(() => {
+              const latest = lessonDeadlineDates
+                .map((l) => l.deadline_date)
+                .filter(Boolean)
+                .sort()
+                .at(-1);
+              return latest ? <p className="text-xs text-gray-400">Latest lesson deadline: {latest}</p> : null;
+            })()}
+          </div>
         )}
+        {deadlineError && <p className="text-xs text-red-500 font-medium mt-1">{deadlineError}</p>}
       </div>
 
       {/* Pre-submission AI feedback */}
