@@ -9,6 +9,7 @@
     "start": "next start"
   },
   "dependencies": {
+    "@google/genai": "^1.52.0",
     "@mailchimp/mailchimp_transactional": "^1.4.1",
     "@marsidev/react-turnstile": "^1.5.0",
     "@supabase/ssr": "^0.5.1",

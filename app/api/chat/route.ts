@@ -2,11 +2,13 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import OpenAI from "openai";
+import { GoogleGenAI } from "@google/genai";
 import { z } from "zod";
 
 const chatSchema = z.object({
   lessonId: z.string().uuid(),
   courseId: z.string().uuid().optional(),
+  provider: z.enum(["openai", "gemini"]).optional().default("openai"),
   messages: z.array(z.object({
     role: z.enum(["user", "assistant"]),
     content: z.string().max(10_000),
@@ -28,7 +30,7 @@ export async function POST(req: Request) {
 
   const parsed = chatSchema.safeParse(await req.json());
   if (!parsed.success) return new Response("Invalid input", { status: 400 });
-  const { messages, lessonId, courseId } = parsed.data;
+  const { messages, lessonId, courseId, provider } = parsed.data;
   const userId = user.id;
 
   const admin = createAdminClient();
@@ -118,6 +120,50 @@ Your role:
 - When relevant, suggest additional ways to learn: YouTube searches, book titles, key terms to Google, or well-known free resources
 - Always add a disclaimer after any external suggestion. In English: "* These resources are not reviewed or confirmed by the Teach For Armenia team." In Armenian: "* Այս նյութերը չեն ստուգվել կամ հաստատվել Դասավանդի՛ր Հայաստան թիմի կողմից։"`;
 
+  const encoder = new TextEncoder();
+  let fullReply = "";
+
+  if (provider === "gemini") {
+    const gemini = new GoogleGenAI({ apiKey: process.env.GOOGLE_GEMINI_API_KEY });
+
+    const geminiMessages = messages.map((m: { role: string; content: string }) => ({
+      role: m.role === "assistant" ? "model" : "user",
+      parts: [{ text: m.content }],
+    }));
+
+    const stream = await gemini.models.generateContentStream({
+      model: "gemini-2.0-flash",
+      contents: geminiMessages,
+      config: {
+        systemInstruction: systemPrompt,
+        maxOutputTokens: 600,
+      },
+    });
+
+    const readable = new ReadableStream({
+      async start(controller) {
+        for await (const chunk of stream) {
+          const text = chunk.text ?? "";
+          if (text) {
+            fullReply += text;
+            controller.enqueue(encoder.encode(text));
+          }
+        }
+        controller.close();
+
+        if (effectiveCourseId && fullReply) {
+          const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+          updateMemory(admin, userId, effectiveCourseId, messages, fullReply, memoryContext, openai).catch(() => {});
+        }
+      },
+    });
+
+    return new Response(readable, {
+      headers: { "Content-Type": "text/plain; charset=utf-8" },
+    });
+  }
+
+  // Default: OpenAI
   const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY, timeout: 15_000 });
 
   const stream = await openai.chat.completions.create({
@@ -130,10 +176,6 @@ Your role:
     max_tokens: 600,
   });
 
-  // Stream response
-  const encoder = new TextEncoder();
-  let fullReply = "";
-
   const readable = new ReadableStream({
     async start(controller) {
       for await (const chunk of stream) {
@@ -145,8 +187,7 @@ Your role:
       }
       controller.close();
 
-      // After stream ends, async update memory (fire-and-forget)
-      if (effectiveCourseId && userId && fullReply) {
+      if (effectiveCourseId && fullReply) {
         updateMemory(admin, userId, effectiveCourseId, messages, fullReply, memoryContext, openai).catch(() => {});
       }
     },

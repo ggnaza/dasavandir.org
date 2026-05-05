@@ -2,12 +2,18 @@
 import { useState, useRef, useEffect } from "react";
 
 type Message = { role: "user" | "assistant"; content: string };
+type Provider = "openai" | "gemini";
 
 const SUGGESTIONS = [
   "Summarize this lesson",
   "Quiz me on this topic",
   "Explain this in simpler terms",
   "What are the key takeaways?",
+];
+
+const PROVIDERS: { id: Provider; label: string; short: string }[] = [
+  { id: "openai", label: "GPT-4o mini", short: "GPT" },
+  { id: "gemini", label: "Gemini 2.0 Flash", short: "Gemini" },
 ];
 
 export function AiCoach({ lessonId, courseId, userId }: { lessonId: string; courseId: string; userId: string }) {
@@ -17,6 +23,7 @@ export function AiCoach({ lessonId, courseId, userId }: { lessonId: string; cour
   const [loading, setLoading] = useState(false);
   const [recording, setRecording] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
+  const [provider, setProvider] = useState<Provider>("openai");
   const bottomRef = useRef<HTMLDivElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -36,7 +43,7 @@ export function AiCoach({ lessonId, courseId, userId }: { lessonId: string; cour
     const res = await fetch("/api/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ messages: updated, lessonId, courseId, userId }),
+      body: JSON.stringify({ messages: updated, lessonId, courseId, userId, provider }),
     });
 
     if (!res.ok || !res.body) {
@@ -123,9 +130,25 @@ export function AiCoach({ lessonId, courseId, userId }: { lessonId: string; cour
           {/* Header */}
           <div className="px-4 py-3 border-b flex items-center gap-2 shrink-0">
             <span className="text-brand-600 font-bold">✦</span>
-            <div>
+            <div className="flex-1 min-w-0">
               <p className="font-semibold text-sm">AI Coach</p>
               <p className="text-xs text-gray-400">Remembers your progress across sessions</p>
+            </div>
+            <div className="flex gap-1 shrink-0">
+              {PROVIDERS.map((p) => (
+                <button
+                  key={p.id}
+                  onClick={() => setProvider(p.id)}
+                  title={p.label}
+                  className={`text-xs px-2 py-1 rounded-md font-medium transition ${
+                    provider === p.id
+                      ? "bg-brand-600 text-white"
+                      : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+                  }`}
+                >
+                  {p.short}
+                </button>
+              ))}
             </div>
           </div>
 
