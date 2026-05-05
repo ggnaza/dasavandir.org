@@ -5,10 +5,16 @@ import OpenAI from "openai";
 import { GoogleGenAI } from "@google/genai";
 import { z } from "zod";
 
+const GEMINI_MODELS = [
+  "gemini-2.0-flash",
+  "gemini-2.5-flash-preview-04-17",
+  "gemini-2.5-pro-preview-05-06",
+] as const;
+
 const chatSchema = z.object({
   lessonId: z.string().uuid(),
   courseId: z.string().uuid().optional(),
-  provider: z.enum(["openai", "gemini"]).optional().default("openai"),
+  model: z.enum(["gpt-4o-mini", ...GEMINI_MODELS]).optional().default("gpt-4o-mini"),
   messages: z.array(z.object({
     role: z.enum(["user", "assistant"]),
     content: z.string().max(10_000),
@@ -30,7 +36,7 @@ export async function POST(req: Request) {
 
   const parsed = chatSchema.safeParse(await req.json());
   if (!parsed.success) return new Response("Invalid input", { status: 400 });
-  const { messages, lessonId, courseId, provider } = parsed.data;
+  const { messages, lessonId, courseId, model } = parsed.data;
   const userId = user.id;
 
   const admin = createAdminClient();
@@ -123,7 +129,7 @@ Your role:
   const encoder = new TextEncoder();
   let fullReply = "";
 
-  if (provider === "gemini") {
+  if ((GEMINI_MODELS as readonly string[]).includes(model)) {
     const gemini = new GoogleGenAI({ apiKey: process.env.GOOGLE_GEMINI_API_KEY });
 
     const geminiMessages = messages.map((m: { role: string; content: string }) => ({
@@ -132,7 +138,7 @@ Your role:
     }));
 
     const stream = await gemini.models.generateContentStream({
-      model: "gemini-2.0-flash",
+      model,
       contents: geminiMessages,
       config: {
         systemInstruction: systemPrompt,
@@ -167,7 +173,7 @@ Your role:
   const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY, timeout: 15_000 });
 
   const stream = await openai.chat.completions.create({
-    model: "gpt-4o-mini",
+    model,
     stream: true,
     messages: [
       { role: "system", content: systemPrompt },
