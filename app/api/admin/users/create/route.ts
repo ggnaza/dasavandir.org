@@ -27,6 +27,27 @@ export async function POST(req: Request) {
     const { email, fullName, role } = parsed.data;
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 
+    // Check if the user already exists in profiles
+    const { data: existingProfile } = await admin
+      .from("profiles")
+      .select("id")
+      .eq("email", email)
+      .maybeSingle();
+
+    if (existingProfile) {
+      // User already has an account — just update their role/name
+      await admin
+        .from("profiles")
+        .update({ role, full_name: fullName })
+        .eq("id", existingProfile.id);
+
+      return new Response(
+        JSON.stringify({ success: true, message: "User already exists — role updated." }),
+        { status: 200 }
+      );
+    }
+
+    // New user — generate invite link
     const { data: linkData, error: linkError } = await admin.auth.admin.generateLink({
       type: "invite",
       email,
@@ -41,16 +62,11 @@ export async function POST(req: Request) {
       return new Response(JSON.stringify({ error: linkError.message }), { status: 400 });
     }
 
-    const { error: profileError } = await admin.from("profiles").upsert({
-      id: linkData.user.id,
-      full_name: fullName,
-      role,
-    }, { onConflict: "id" });
-
-    if (profileError) {
-      console.error("[users/create profile]", profileError);
-      return new Response(JSON.stringify({ error: "Failed to create user profile" }), { status: 500 });
-    }
+    // Set the correct role on the profile (trigger creates it with 'learner' by default)
+    await admin
+      .from("profiles")
+      .update({ role, full_name: fullName })
+      .eq("id", linkData.user.id);
 
     await sendInviteLinkEmail({
       to: email,

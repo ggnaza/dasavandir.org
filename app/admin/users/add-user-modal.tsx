@@ -11,6 +11,7 @@ type AddUserModalProps = {
 export function AddUserModal({ isOpen, onClose, onSuccess }: AddUserModalProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [info, setInfo] = useState("");
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
@@ -22,6 +23,7 @@ export function AddUserModal({ isOpen, onClose, onSuccess }: AddUserModalProps) 
     e.preventDefault();
     setLoading(true);
     setError("");
+    setInfo("");
 
     try {
       const res = await fetch("/api/admin/users/create", {
@@ -34,9 +36,17 @@ export function AddUserModal({ isOpen, onClose, onSuccess }: AddUserModalProps) 
         }),
       });
 
+      const data = await res.json();
+
       if (!res.ok) {
-        const data = await res.json();
         setError(data.error || "Failed to send invitation");
+        return;
+      }
+
+      if (data.message) {
+        setInfo(data.message);
+        setLoading(false);
+        onSuccess();
         return;
       }
 
@@ -59,6 +69,7 @@ export function AddUserModal({ isOpen, onClose, onSuccess }: AddUserModalProps) 
         <p className="text-sm text-gray-500 mb-4">They'll receive an email to set their own password.</p>
 
         {error && <div className="bg-red-50 text-red-700 p-3 rounded mb-4 text-sm">{error}</div>}
+        {info && <div className="bg-blue-50 text-blue-700 p-3 rounded mb-4 text-sm">{info}</div>}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
