@@ -97,6 +97,11 @@ export const translations = {
     creatingAccount: "Creating account…",
     noAccount: "Don't have an account?",
     haveAccount: "Already have an account?",
+    termsConsent: "I have read and agree to the",
+    termsLink: "Terms of Service",
+    and: "and",
+    privacyLink: "Privacy Policy",
+    termsRequired: "You must accept the Terms of Service and Privacy Policy to continue.",
 
     // Learner dashboard
     enrolledEmpty: "You haven't enrolled in any courses yet.",
@@ -199,6 +204,11 @@ export const translations = {
     creatingAccount: "Ստեղծվում է հաշիվ…",
     noAccount: "Հաշիվ չունե՞ք",
     haveAccount: "Արդեն ունե՞ք հաշիվ",
+    termsConsent: "Կարդացել եմ և համաձայն եմ",
+    termsLink: "Օգտագործման Պայմաններին",
+    and: "և",
+    privacyLink: "Գաղտնիության Քաղաքականությանը",
+    termsRequired: "Շարունակելու համար անհրաժեշտ է ընդունել Օգտագործման Պայմաններն ու Գաղտնիության Քաղաքականությունը:",
 
     // Learner dashboard
     enrolledEmpty: "Դուք դեռ ոչ մի դասընթացի չեք գրանցվել:",
