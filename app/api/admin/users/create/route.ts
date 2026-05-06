@@ -34,7 +34,7 @@ export async function POST(req: Request) {
 
     if (authError) {
       console.error("[users/create auth]", authError);
-      return new Response(JSON.stringify({ error: "Failed to create user" }), { status: 400 });
+      return new Response(JSON.stringify({ error: authError.message }), { status: 400 });
     }
 
     const { error: profileError } = await admin.from("profiles").insert({
