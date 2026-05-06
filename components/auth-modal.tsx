@@ -153,7 +153,7 @@ export function AuthModal({ defaultTab = "login", onClose, lang = "en" }: Props)
           </div>
         )}
         {/* Header + form — hidden once email is sent */}
-        {!emailSent && <div className="flex items-center justify-between px-6 pt-6 pb-2">
+        {!emailSent && <><div className="flex items-center justify-between px-6 pt-6 pb-2">
           <div className="flex gap-1 bg-gray-100 p-1 rounded-lg">
             <button
               onClick={() => switchTab("login")}
@@ -303,7 +303,7 @@ export function AuthModal({ defaultTab = "login", onClose, lang = "en" }: Props)
               </button>
             </form>
           )}
-        </div>}
+        </div></>}
       </div>
     </div>
   );
