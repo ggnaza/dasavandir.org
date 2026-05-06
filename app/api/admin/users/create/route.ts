@@ -58,13 +58,28 @@ export async function POST(req: Request) {
     }
 
     // Trigger is disabled — create profile explicitly
-    await admin.from("profiles").upsert({
+    // Try with status first, fall back without it if column doesn't exist yet
+    const upsertData: Record<string, unknown> = {
       id: linkData.user.id,
       full_name: fullName,
       email,
       role,
-      status: "pending",
-    }, { onConflict: "id" });
+    };
+
+    const { error: upsertErr1 } = await admin.from("profiles").upsert(
+      { ...upsertData, status: "pending" },
+      { onConflict: "id" }
+    );
+
+    if (upsertErr1) {
+      console.error("[users/create upsert with status]", upsertErr1);
+      // Retry without status column in case migration hasn't run yet
+      const { error: upsertErr2 } = await admin.from("profiles").upsert(upsertData, { onConflict: "id" });
+      if (upsertErr2) {
+        console.error("[users/create upsert fallback]", upsertErr2);
+        return new Response(JSON.stringify({ error: "Failed to create profile: " + upsertErr2.message }), { status: 500 });
+      }
+    }
 
     await sendInviteLinkEmail({ to: email, fullName, inviteUrl: linkData.properties.action_link });
 
