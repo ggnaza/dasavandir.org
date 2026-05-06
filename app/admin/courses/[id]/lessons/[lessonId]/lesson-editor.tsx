@@ -51,6 +51,12 @@ export function LessonEditor({
   const [deadlineError, setDeadlineError] = useState("");
   const [generatingAudio, setGeneratingAudio] = useState(false);
   const [audioError, setAudioError] = useState("");
+  // Video source mode: "link" = external URL, "upload" = Supabase Storage path
+  const [videoMode, setVideoMode] = useState<"link" | "upload">(
+    lesson.video_url && !lesson.video_url.startsWith("http") ? "upload" : "link"
+  );
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+  const [uploadError, setUploadError] = useState("");
 
   async function handleDocumentUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -90,6 +96,41 @@ export function LessonEditor({
     router.refresh();
   }
 
+  async function handleVideoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadError("");
+    setUploadProgress(0);
+
+    const urlRes = await fetch("/api/lessons/video-upload-url", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ lessonId: lesson.id, filename: file.name }),
+    });
+    if (!urlRes.ok) { setUploadError(await urlRes.text()); setUploadProgress(null); return; }
+    const { signedUrl, path } = await urlRes.json();
+
+    await new Promise<void>((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open("PUT", signedUrl);
+      xhr.setRequestHeader("Content-Type", file.type || "video/mp4");
+      xhr.upload.onprogress = (ev) => {
+        if (ev.lengthComputable) setUploadProgress(Math.round((ev.loaded / ev.total) * 100));
+      };
+      xhr.onload = () => (xhr.status < 300 ? resolve() : reject(new Error(`Upload failed: ${xhr.status}`)));
+      xhr.onerror = () => reject(new Error("Network error during upload"));
+      xhr.send(file);
+    }).catch((err) => { setUploadError(err.message); setUploadProgress(null); return; });
+
+    setVideoUrl(path);
+    setUploadProgress(null);
+
+    // Persist immediately so the path is saved
+    const supabase = createClient();
+    await supabase.from("lessons").update({ video_url: path }).eq("id", lesson.id);
+    router.refresh();
+  }
+
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     setDeadlineError("");
@@ -113,7 +154,7 @@ export function LessonEditor({
     setSaving(true);
 
     let duration_seconds: number | null = null;
-    if (videoUrl && videoUrl.includes("drive.google.com")) {
+    if (videoUrl && videoUrl.startsWith("http") && videoUrl.includes("drive.google.com")) {
       const res = await fetch("/api/lessons/video-duration", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -189,18 +230,77 @@ export function LessonEditor({
       <LessonContentEditor value={content} onChange={setContent} />
 
       {/* Video */}
-      <div>
-        <label className="block text-sm font-medium mb-1">Video URL <span className="text-gray-400">(optional)</span></label>
-        <input
-          type="url"
-          value={videoUrl}
-          onChange={(e) => setVideoUrl(e.target.value)}
-          placeholder="YouTube, Vimeo, or Google Drive share link"
-          className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-500"
-        />
-        <p className="text-xs text-gray-400 mt-1">
-          Google Drive: open the file → Share → copy link (must be "Anyone with the link")
-        </p>
+      <div className="border rounded-xl p-4 space-y-3 bg-gray-50">
+        <div className="flex items-center justify-between">
+          <p className="text-sm font-medium">Video <span className="text-gray-400 font-normal">(optional)</span></p>
+          <div className="flex gap-1 bg-white border rounded-lg p-0.5">
+            {(["link", "upload"] as const).map((m) => (
+              <button
+                key={m}
+                type="button"
+                onClick={() => { setVideoMode(m); setVideoUrl(""); setUploadError(""); }}
+                className={`text-xs px-3 py-1 rounded-md font-medium transition ${videoMode === m ? "bg-brand-600 text-white" : "text-gray-500 hover:text-gray-700"}`}
+              >
+                {m === "link" ? "Paste link" : "Upload file"}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {videoMode === "link" ? (
+          <div>
+            <input
+              type="url"
+              value={videoUrl}
+              onChange={(e) => setVideoUrl(e.target.value)}
+              placeholder="YouTube, Google Drive, or Vimeo URL"
+              className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 bg-white"
+            />
+            <p className="text-xs text-gray-400 mt-1">
+              Google Drive: Share → "Anyone with the link" → copy URL
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            <label className="cursor-pointer flex items-center gap-3 border-2 border-dashed rounded-lg p-3 hover:bg-white transition bg-white/50">
+              <span className="text-xl shrink-0">🎬</span>
+              <div className="flex-1 min-w-0">
+                {uploadProgress !== null ? (
+                  <div>
+                    <p className="text-sm font-medium">Uploading… {uploadProgress}%</p>
+                    <div className="mt-1 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                      <div className="h-full bg-brand-600 rounded-full transition-all" style={{ width: `${uploadProgress}%` }} />
+                    </div>
+                  </div>
+                ) : videoUrl ? (
+                  <p className="text-sm font-medium truncate text-green-700">✓ {videoUrl.split("/").pop()}</p>
+                ) : (
+                  <div>
+                    <p className="text-sm font-medium">Choose video file</p>
+                    <p className="text-xs text-gray-400">MP4, MOV, WebM — uploaded directly to private storage</p>
+                  </div>
+                )}
+              </div>
+              <input
+                type="file"
+                accept="video/*"
+                className="hidden"
+                disabled={uploadProgress !== null}
+                onChange={handleVideoUpload}
+              />
+            </label>
+            {uploadError && <p className="text-xs text-red-500">{uploadError}</p>}
+            {videoUrl && (
+              <button
+                type="button"
+                onClick={() => { setVideoUrl(""); }}
+                className="text-xs text-red-400 hover:underline"
+              >
+                Remove video
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Google Slides / Presentation */}
