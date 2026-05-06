@@ -2,7 +2,7 @@
 import { useState, useRef, useEffect } from "react";
 
 type Question = { question: string; options: string[]; correct: number };
-type Chapter = { id: string; title: string; start: number; end: number; questions: Question[] };
+type Chapter = { id: string; title: string; start: number; end: number; questions?: Question[] };
 
 // ─── Shared quiz component ────────────────────────────────────────────────────
 
@@ -117,7 +117,7 @@ function NativeVideoChapters({ chapters, videoUrl }: { chapters: Chapter[]; vide
         if (t >= chapters[i].start) {
           setActiveChapter(i);
           const ch = chapters[i];
-          if (ch.questions.length > 0 && t >= ch.end - 0.5 && !shownQuizzes.current.has(i)) {
+          if ((ch.questions?.length ?? 0) > 0 && t >= ch.end - 0.5 && !shownQuizzes.current.has(i)) {
             video.pause();
             shownQuizzes.current.add(i);
             setQuizChapter(i);
@@ -172,8 +172,8 @@ function NativeVideoChapters({ chapters, videoUrl }: { chapters: Chapter[]; vide
         ))}
       </div>
 
-      {quizChapter !== null && chapters[quizChapter]?.questions.length > 0 && (
-        <InlineQuiz questions={chapters[quizChapter].questions} chapterIndex={quizChapter} onContinue={continueAfterQuiz} />
+      {quizChapter !== null && (chapters[quizChapter]?.questions?.length ?? 0) > 0 && (
+        <InlineQuiz questions={chapters[quizChapter].questions!} chapterIndex={quizChapter} onContinue={continueAfterQuiz} />
       )}
     </div>
   );
@@ -219,9 +219,9 @@ function IframeChapters({ chapters, videoUrl }: { chapters: Chapter[]; videoUrl:
             <iframe src={chapterEmbedUrl(videoUrl, ch.start, ch.end)} className="w-full h-full" allowFullScreen
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" />
           </div>
-          {ch.questions.length > 0 && (
+          {(ch.questions?.length ?? 0) > 0 && (
             <div className="p-4">
-              <InlineQuiz questions={ch.questions} chapterIndex={i} />
+              <InlineQuiz questions={ch.questions!} chapterIndex={i} />
             </div>
           )}
         </div>
