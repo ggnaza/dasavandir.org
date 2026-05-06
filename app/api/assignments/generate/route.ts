@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { buildLessonContext } from "@/lib/lesson-ai-context";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { z } from "zod";
-import OpenAI from "openai";
+import { getAIModel, callLLM } from "@/lib/llm";
 
 export const runtime = "nodejs";
 
@@ -50,7 +50,7 @@ export async function POST(req: Request) {
     return new Response("Lesson has no content to generate an assignment from", { status: 400 });
   }
 
-  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY, timeout: 25_000 });
+  const model = await getAIModel();
 
   const systemPrompt = `You are an instructional designer. Given lesson material, generate a practical assignment for learners.
 
@@ -69,17 +69,7 @@ Rules:
 - Rubric: 3-5 criteria, total points between 50-100
 ${language ? `- Write everything in ${language}` : "- Match the language of the lesson content"}`;
 
-  const completion = await openai.chat.completions.create({
-    model: "gpt-4o",
-    messages: [
-      { role: "system", content: systemPrompt },
-      { role: "user", content: parts.join("\n\n") },
-    ],
-    response_format: { type: "json_object" },
-    temperature: 0.7,
-  });
-
-  const raw = completion.choices[0].message.content ?? "{}";
+  const raw = await callLLM(model, systemPrompt, parts.join("\n\n"), { temperature: 0.7, maxTokens: 2000, jsonMode: true });
   try {
     return Response.json({ ...JSON.parse(raw), warnings });
   } catch {

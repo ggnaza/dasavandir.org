@@ -1,15 +1,11 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
+import { getAIModel } from "@/lib/llm";
 import OpenAI from "openai";
 import { GoogleGenAI } from "@google/genai";
+import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
-
-const GEMINI_MODELS = [
-  "gemini-2.0-flash",
-  "gemini-2.5-flash-preview-04-17",
-  "gemini-2.5-pro-preview-05-06",
-] as const;
 
 const chatSchema = z.object({
   lessonId: z.string().uuid(),
@@ -40,13 +36,7 @@ export async function POST(req: Request) {
 
   const admin = createAdminClient();
 
-  // Load model from admin settings
-  const { data: settingRow } = await admin
-    .from("settings")
-    .select("value")
-    .eq("key", "ai_coach_model")
-    .maybeSingle();
-  const model: string = settingRow?.value ?? "gpt-4o-mini";
+  const model = await getAIModel();
 
   // Load lesson + course context
   const { data: lesson } = await admin
@@ -136,7 +126,41 @@ Your role:
   const encoder = new TextEncoder();
   let fullReply = "";
 
-  if ((GEMINI_MODELS as readonly string[]).includes(model)) {
+  if (model.startsWith("claude-")) {
+    const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+    const stream = anthropic.messages.stream({
+      model,
+      max_tokens: 600,
+      system: systemPrompt,
+      messages: messages.map((m: { role: string; content: string }) => ({
+        role: m.role as "user" | "assistant",
+        content: m.content,
+      })),
+    });
+
+    const readable = new ReadableStream({
+      async start(controller) {
+        for await (const event of stream) {
+          if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
+            const text = event.delta.text;
+            if (text) {
+              fullReply += text;
+              controller.enqueue(encoder.encode(text));
+            }
+          }
+        }
+        controller.close();
+        if (effectiveCourseId && fullReply) {
+          const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+          updateMemory(admin, userId, effectiveCourseId, messages, fullReply, memoryContext, openai).catch(() => {});
+        }
+      },
+    });
+
+    return new Response(readable, { headers: { "Content-Type": "text/plain; charset=utf-8" } });
+  }
+
+  if (model.startsWith("gemini-")) {
     const gemini = new GoogleGenAI({ apiKey: process.env.GOOGLE_GEMINI_API_KEY });
 
     const geminiMessages = messages.map((m: { role: string; content: string }) => ({

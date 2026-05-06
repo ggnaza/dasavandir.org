@@ -3,7 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { buildLessonContext } from "@/lib/lesson-ai-context";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { z } from "zod";
-import OpenAI from "openai";
+import { getAIModel, callLLM } from "@/lib/llm";
 
 export const runtime = "nodejs";
 
@@ -62,16 +62,9 @@ export async function POST(req: Request) {
     return new Response("Lesson has no content to generate questions from", { status: 400 });
   }
 
-  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY, timeout: 20_000 });
+  const model = await getAIModel();
 
-  try {
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o",
-      temperature: 0.7,
-      messages: [
-        {
-          role: "system",
-          content: `You are an expert educator creating multiple-choice quiz questions.
+  const systemPrompt = `You are an expert educator creating multiple-choice quiz questions.
 Generate exactly ${count} questions based strictly on the lesson material provided — do not invent topics not covered in the material.
 Each question must have 4 answer options and exactly one correct answer.
 Questions should test genuine understanding, not just memorization.
@@ -79,11 +72,9 @@ ${language
   ? `IMPORTANT: You MUST write ALL questions and answer options in ${language}. Do not use any other language.`
   : `IMPORTANT: Detect the language of the lesson content and generate ALL questions and answer options in that same language.`
 }
-Return ONLY valid JSON — no markdown, no explanation.`,
-        },
-        {
-          role: "user",
-          content: `${parts.join("\n\n")}
+Return ONLY valid JSON — no markdown, no explanation.`;
+
+  const userMessage = `${parts.join("\n\n")}
 
 Return this exact JSON structure:
 {
@@ -96,12 +87,10 @@ Return this exact JSON structure:
   ]
 }
 
-The "correct" field is the 0-based index of the correct option.`,
-        },
-      ],
-    });
+The "correct" field is the 0-based index of the correct option.`;
 
-    const raw = completion.choices[0].message.content ?? "";
+  try {
+    const raw = await callLLM(model, systemPrompt, userMessage, { temperature: 0.7, maxTokens: 2000, jsonMode: true });
     try {
       const json = JSON.parse(raw.replace(/```json|```/g, "").trim());
       return Response.json({ questions: json.questions, warnings });
