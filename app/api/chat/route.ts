@@ -14,7 +14,6 @@ const GEMINI_MODELS = [
 const chatSchema = z.object({
   lessonId: z.string().uuid(),
   courseId: z.string().uuid().optional(),
-  model: z.enum(["gpt-4o-mini", ...GEMINI_MODELS]).optional().default("gpt-4o-mini"),
   messages: z.array(z.object({
     role: z.enum(["user", "assistant"]),
     content: z.string().max(10_000),
@@ -36,10 +35,18 @@ export async function POST(req: Request) {
 
   const parsed = chatSchema.safeParse(await req.json());
   if (!parsed.success) return new Response("Invalid input", { status: 400 });
-  const { messages, lessonId, courseId, model } = parsed.data;
+  const { messages, lessonId, courseId } = parsed.data;
   const userId = user.id;
 
   const admin = createAdminClient();
+
+  // Load model from admin settings
+  const { data: settingRow } = await admin
+    .from("settings")
+    .select("value")
+    .eq("key", "ai_coach_model")
+    .maybeSingle();
+  const model: string = settingRow?.value ?? "gpt-4o-mini";
 
   // Load lesson + course context
   const { data: lesson } = await admin
