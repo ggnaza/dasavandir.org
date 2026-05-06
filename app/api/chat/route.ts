@@ -67,6 +67,28 @@ export async function POST(req: Request) {
     .neq("id", lessonId)
     .order("order");
 
+  // Load course-level supplementary resources for AI context
+  let courseResourcesText = "";
+  if (effectiveCourseId) {
+    const { data: resources } = await admin
+      .from("course_resources")
+      .select("title, url, file_name, extracted_text")
+      .eq("course_id", effectiveCourseId)
+      .order("created_at");
+    if (resources?.length) {
+      courseResourcesText = resources
+        .map((r) => {
+          const ref = r.url ? `(${r.url})` : r.file_name ? `(${r.file_name})` : "";
+          const body = r.extracted_text?.trim() ?? "";
+          return body
+            ? `### ${r.title} ${ref}\n${body.slice(0, 3000)}`
+            : `### ${r.title} ${ref}\n(no text extracted)`;
+        })
+        .join("\n\n")
+        .slice(0, 8000);
+    }
+  }
+
   // Load AI memory for this user+course
   let memoryContext = "";
   if (effectiveCourseId && userId) {
@@ -110,6 +132,7 @@ Other lessons in this course (for broader context):
 ---
 ${otherLessonsText || "(no other lessons yet)"}
 ---
+${courseResourcesText ? `\nCourse supplementary resources (provided by the course creator for your reference):\n---\n${courseResourcesText}\n---` : ""}
 ${memoryContext ? `\nWhat you know about this learner from previous sessions:\n---\n${memoryContext}\n---` : ""}
 
 Your role:
