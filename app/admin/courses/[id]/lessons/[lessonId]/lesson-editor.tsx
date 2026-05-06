@@ -5,6 +5,24 @@ import { createClient } from "@/lib/supabase/client";
 import { LessonContentEditor } from "@/components/lesson-content-editor-dynamic";
 import { ChaptersEditor } from "./chapters-editor";
 
+function PreviewModal({ courseId, lessonId, onClose }: { courseId: string; lessonId: string; onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col bg-black/60" onClick={onClose}>
+      <div className="flex items-center justify-between px-4 py-2 bg-gray-900 shrink-0" onClick={(e) => e.stopPropagation()}>
+        <p className="text-sm text-gray-300 font-medium">Lesson preview</p>
+        <button onClick={onClose} className="text-gray-400 hover:text-white text-xl leading-none px-2">✕</button>
+      </div>
+      <div className="flex-1 overflow-hidden" onClick={(e) => e.stopPropagation()}>
+        <iframe
+          src={`/admin/courses/${courseId}/lessons/${lessonId}/preview`}
+          className="w-full h-full border-0"
+          title="Lesson preview"
+        />
+      </div>
+    </div>
+  );
+}
+
 type Lesson = {
   id: string;
   title: string;
@@ -31,6 +49,7 @@ export function LessonEditor({
   courseDeadlineDate?: string | null;
 }) {
   const router = useRouter();
+  const [showPreview, setShowPreview] = useState(false);
   const [title, setTitle] = useState(lesson.title);
   const [content, setContent] = useState(lesson.content ?? "");
   const [videoUrl, setVideoUrl] = useState(lesson.video_url ?? "");
@@ -110,17 +129,28 @@ export function LessonEditor({
     if (!urlRes.ok) { setUploadError(await urlRes.text()); setUploadProgress(null); return; }
     const { signedUrl, path } = await urlRes.json();
 
-    await new Promise<void>((resolve, reject) => {
+    const uploadOk = await new Promise<boolean>((resolve) => {
       const xhr = new XMLHttpRequest();
       xhr.open("PUT", signedUrl);
-      xhr.setRequestHeader("Content-Type", file.type || "video/mp4");
       xhr.upload.onprogress = (ev) => {
         if (ev.lengthComputable) setUploadProgress(Math.round((ev.loaded / ev.total) * 100));
       };
-      xhr.onload = () => (xhr.status < 300 ? resolve() : reject(new Error(`Upload failed: ${xhr.status}`)));
-      xhr.onerror = () => reject(new Error("Network error during upload"));
+      xhr.onload = () => {
+        if (xhr.status < 300) {
+          resolve(true);
+        } else {
+          let msg = `Upload failed: ${xhr.status}`;
+          try { const body = JSON.parse(xhr.responseText); msg = body.message ?? msg; } catch {}
+          setUploadError(msg);
+          setUploadProgress(null);
+          resolve(false);
+        }
+      };
+      xhr.onerror = () => { setUploadError("Network error during upload"); setUploadProgress(null); resolve(false); };
       xhr.send(file);
-    }).catch((err) => { setUploadError(err.message); setUploadProgress(null); return; });
+    });
+
+    if (!uploadOk) return;
 
     setVideoUrl(path);
     setUploadProgress(null);
@@ -215,6 +245,8 @@ export function LessonEditor({
   }
 
   return (
+    <>
+    {showPreview && <PreviewModal courseId={courseId} lessonId={lesson.id} onClose={() => setShowPreview(false)} />}
     <form onSubmit={handleSave} className="bg-white border rounded-xl p-6 space-y-4">
       <div>
         <label className="block text-sm font-medium mb-1">Lesson title</label>
@@ -478,14 +510,24 @@ export function LessonEditor({
         <button type="button" onClick={handleDelete} className="text-sm text-red-500 hover:underline">
           Delete lesson
         </button>
-        <button
-          type="submit"
-          disabled={saving}
-          className="bg-brand-600 text-white px-5 py-2 rounded-lg hover:bg-brand-700 disabled:opacity-50 text-sm font-medium"
-        >
-          {saving ? "Saving…" : saved ? "Saved ✓" : "Save changes"}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setShowPreview(true)}
+            className="text-sm border border-gray-300 text-gray-600 px-4 py-2 rounded-lg hover:bg-gray-50 font-medium"
+          >
+            Preview
+          </button>
+          <button
+            type="submit"
+            disabled={saving}
+            className="bg-brand-600 text-white px-5 py-2 rounded-lg hover:bg-brand-700 disabled:opacity-50 text-sm font-medium"
+          >
+            {saving ? "Saving…" : saved ? "Saved ✓" : "Save changes"}
+          </button>
+        </div>
       </div>
     </form>
+    </>
   );
 }

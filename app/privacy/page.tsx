@@ -1,12 +1,12 @@
 "use client";
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 
 const LAST_UPDATED = "May 6, 2026";
 const LAST_UPDATED_HY = "Մայիս 6, 2026";
 
-export default function PrivacyPage() {
+function PrivacyPageInner() {
   const params = useSearchParams();
   const [lang, setLang] = useState<"en" | "hy">(params.get("lang") === "hy" ? "hy" : "en");
 
@@ -40,6 +40,10 @@ export default function PrivacyPage() {
       </div>
     </div>
   );
+}
+
+export default function PrivacyPage() {
+  return <Suspense><PrivacyPageInner /></Suspense>;
 }
 
 function PrivacyEN() {

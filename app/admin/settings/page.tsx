@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { AI_MODELS } from "@/lib/llm";
 
-const MODELS = [
-  { id: "gpt-4o-mini",                    label: "GPT-4o mini",      note: "Fast & affordable (OpenAI)" },
-  { id: "gemini-2.0-flash",               label: "Gemini 2.0 Flash", note: "Fast (Google)" },
-  { id: "gemini-2.5-flash-preview-04-17", label: "Gemini 2.5 Flash", note: "Smarter, fast (Google)" },
-  { id: "gemini-2.5-pro-preview-05-06",   label: "Gemini 2.5 Pro",   note: "Most capable (Google)" },
-] as const;
+const PROVIDER_ORDER = ["OpenAI", "Google", "Anthropic"];
+
+const grouped = PROVIDER_ORDER.map((provider) => ({
+  provider,
+  models: AI_MODELS.filter((m) => m.provider === provider),
+}));
 
 export default function SettingsPage() {
   const [model, setModel] = useState("gpt-4o-mini");
@@ -20,7 +21,7 @@ export default function SettingsPage() {
     fetch("/api/admin/settings")
       .then((r) => r.json())
       .then((d) => {
-        if (d.settings?.ai_coach_model) setModel(d.settings.ai_coach_model);
+        if (d.settings?.ai_model) setModel(d.settings.ai_model);
       })
       .finally(() => setLoading(false));
   }, []);
@@ -32,7 +33,7 @@ export default function SettingsPage() {
     const res = await fetch("/api/admin/settings", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ai_coach_model: model }),
+      body: JSON.stringify({ ai_model: model }),
     });
     if (res.ok) {
       setSaved(true);
@@ -50,35 +51,42 @@ export default function SettingsPage() {
 
       <div className="bg-white border rounded-xl p-6 space-y-6">
         <div>
-          <h2 className="text-base font-semibold mb-1">AI Coach Model</h2>
+          <h2 className="text-base font-semibold mb-1">AI Model</h2>
           <p className="text-sm text-gray-500 mb-4">
-            Applies to all learners. Choose the model that balances quality and cost for your needs.
+            Applies to all AI features — AI coach, quiz generation, assignment generation, course builder, submission grading, and more.
           </p>
 
           {loading ? (
             <div className="text-sm text-gray-400">Loading…</div>
           ) : (
-            <div className="space-y-2">
-              {MODELS.map((m) => (
-                <label
-                  key={m.id}
-                  className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition ${
-                    model === m.id ? "border-brand-500 bg-orange-50" : "border-gray-200 hover:bg-gray-50"
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    name="model"
-                    value={m.id}
-                    checked={model === m.id}
-                    onChange={() => setModel(m.id)}
-                    className="accent-orange-500"
-                  />
-                  <div>
-                    <p className="text-sm font-medium text-gray-900">{m.label}</p>
-                    <p className="text-xs text-gray-500">{m.note}</p>
+            <div className="space-y-4">
+              {grouped.map(({ provider, models }) => (
+                <div key={provider}>
+                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1.5">{provider}</p>
+                  <div className="space-y-1.5">
+                    {models.map((m) => (
+                      <label
+                        key={m.id}
+                        className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition ${
+                          model === m.id ? "border-brand-500 bg-brand-50" : "border-gray-200 hover:bg-gray-50"
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          name="model"
+                          value={m.id}
+                          checked={model === m.id}
+                          onChange={() => setModel(m.id)}
+                          className="accent-brand-600"
+                        />
+                        <div>
+                          <p className="text-sm font-medium text-gray-900">{m.label}</p>
+                          <p className="text-xs text-gray-500">{m.note}</p>
+                        </div>
+                      </label>
+                    ))}
                   </div>
-                </label>
+                </div>
               ))}
             </div>
           )}
@@ -90,8 +98,7 @@ export default function SettingsPage() {
           <button
             onClick={save}
             disabled={saving || loading}
-            className="px-5 py-2 rounded-lg text-white text-sm font-medium disabled:opacity-50"
-            style={{ backgroundColor: "#EC5328" }}
+            className="bg-brand-600 text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-brand-700 disabled:opacity-50"
           >
             {saving ? "Saving…" : "Save settings"}
           </button>

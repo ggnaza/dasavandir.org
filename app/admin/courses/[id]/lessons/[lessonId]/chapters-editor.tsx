@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 
 type Question = { question: string; options: string[]; correct: number };
+type ChapterRaw = { id: string; title: string; start: number; end: number; questions?: Question[] };
 type Chapter = { id: string; title: string; start: number; end: number; questions: Question[] };
 
 function toTime(s: number) {
@@ -20,14 +21,15 @@ function toSeconds(t: string): number {
   return 0;
 }
 
-export function ChaptersEditor({ lessonId, initial }: { lessonId: string; initial: Chapter[] }) {
+export function ChaptersEditor({ lessonId, initial }: { lessonId: string; initial: ChapterRaw[] | null }) {
   const router = useRouter();
-  const [chapters, setChapters] = useState<Chapter[]>(initial);
+  const [chapters, setChapters] = useState<Chapter[]>(
+    (initial ?? []).map((ch) => ({ ...ch, questions: ch.questions ?? [] }))
+  );
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [saveError, setSaveError] = useState("");
   const [openQuiz, setOpenQuiz] = useState<string | null>(null);
-  const [generating, setGenerating] = useState<string | null>(null);
 
   function addChapter() {
     const lastEnd = chapters[chapters.length - 1]?.end ?? 0;
@@ -79,29 +81,6 @@ export function ChaptersEditor({ lessonId, initial }: { lessonId: string; initia
       );
       return { ...c, questions: qs };
     }));
-  }
-
-  async function generate(chapter: Chapter) {
-    setGenerating(chapter.id);
-    const res = await fetch("/api/ai-builder/quiz", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        lessonId,
-        count: 3,
-        chapterTitle: chapter.title,
-        chapterStart: chapter.start,
-        chapterEnd: chapter.end,
-      }),
-    });
-    if (res.ok) {
-      const { questions } = await res.json();
-      setChapters((prev) => prev.map((c) =>
-        c.id === chapter.id ? { ...c, questions: [...c.questions, ...questions] } : c
-      ));
-      setOpenQuiz(chapter.id);
-    }
-    setGenerating(null);
   }
 
   async function save() {
@@ -171,17 +150,11 @@ export function ChaptersEditor({ lessonId, initial }: { lessonId: string; initia
 
           {/* Per-chapter quiz */}
           <div className="border-t pt-3 space-y-2">
-            <div className="flex items-center justify-between">
-              <button type="button" onClick={() => setOpenQuiz(openQuiz === ch.id ? null : ch.id)}
-                className="text-xs font-medium text-gray-600 hover:text-gray-900 flex items-center gap-1">
-                {ch.questions.length > 0 ? `📝 Quiz (${ch.questions.length})` : "📝 Add quiz"}
-                <span>{openQuiz === ch.id ? "▲" : "▼"}</span>
-              </button>
-              <button type="button" onClick={() => generate(ch)} disabled={generating === ch.id}
-                className="text-xs bg-brand-50 text-brand-700 border border-brand-200 px-3 py-1 rounded-lg hover:bg-brand-100 disabled:opacity-50">
-                {generating === ch.id ? "Generating…" : "✦ Generate with AI"}
-              </button>
-            </div>
+            <button type="button" onClick={() => setOpenQuiz(openQuiz === ch.id ? null : ch.id)}
+              className="text-xs font-medium text-gray-600 hover:text-gray-900 flex items-center gap-1">
+              {ch.questions.length > 0 ? `📝 Quiz (${ch.questions.length})` : "📝 Add quiz"}
+              <span>{openQuiz === ch.id ? "▲" : "▼"}</span>
+            </button>
 
             {openQuiz === ch.id && (
               <div className="space-y-3 pt-1">
