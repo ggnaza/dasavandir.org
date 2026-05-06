@@ -2,6 +2,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { CourseEditor } from "./course-editor";
+import { CourseResources } from "./course-resources";
 import { LessonReorderButtons } from "./lesson-reorder-buttons";
 import { BackfillDurationsButton } from "./backfill-durations-button";
 
@@ -52,6 +53,10 @@ export default async function CoursePage({ params }: { params: { id: string } })
       </div>
 
       <CourseEditor course={course} lessonDeadlineDates={(lessons ?? []).map(l => ({ title: l.title, deadline_date: l.deadline_date ?? null }))} />
+
+      <div className="mt-4">
+        <CourseResources courseId={course.id} />
+      </div>
 
       <BackfillDurationsButton courseId={course.id} />
 
