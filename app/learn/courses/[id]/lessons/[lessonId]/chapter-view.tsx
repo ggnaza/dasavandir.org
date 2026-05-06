@@ -108,7 +108,7 @@ function NativeVideoChapters({ chapters, videoUrl }: { chapters: Chapter[]; vide
   const shownQuizzes = useRef<Set<number>>(new Set());
 
   useEffect(() => {
-    const video = videoRef.current;
+    const video = videoRef.current as HTMLVideoElement;
     if (!video) return;
 
     function onTimeUpdate() {
