@@ -259,11 +259,11 @@ export function AuthModal({ defaultTab = "login", onClose, lang = "en" }: Props)
                 />
                 <span className="text-xs text-gray-600">
                   {T.termsConsent}{" "}
-                  <Link href="/terms" target="_blank" className="font-medium hover:underline" style={{ color: "#EC5328" }}>
+                  <Link href={`/terms?lang=${lang}`} target="_blank" className="font-medium hover:underline" style={{ color: "#EC5328" }}>
                     {T.termsLink}
                   </Link>{" "}
                   {T.and}{" "}
-                  <Link href="/privacy" target="_blank" className="font-medium hover:underline" style={{ color: "#EC5328" }}>
+                  <Link href={`/privacy?lang=${lang}`} target="_blank" className="font-medium hover:underline" style={{ color: "#EC5328" }}>
                     {T.privacyLink}
                   </Link>
                 </span>

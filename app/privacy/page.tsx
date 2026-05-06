@@ -1,12 +1,14 @@
 "use client";
 import { useState } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 
 const LAST_UPDATED = "May 6, 2026";
 const LAST_UPDATED_HY = "Մայիս 6, 2026";
 
 export default function PrivacyPage() {
-  const [lang, setLang] = useState<"en" | "hy">("en");
+  const params = useSearchParams();
+  const [lang, setLang] = useState<"en" | "hy">(params.get("lang") === "hy" ? "hy" : "en");
 
   return (
     <div className="min-h-screen bg-white">
