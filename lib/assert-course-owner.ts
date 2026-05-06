@@ -16,15 +16,27 @@ export async function assertCourseOwner(courseId: string, userId: string): Promi
   // Original course creator always has access
   if (course.created_by === userId) return null;
 
-  // Check if granted explicit access
-  const { data: access } = await admin
+  // Check course_creator_access (for course_creator role)
+  const { data: creatorAccess } = await admin
     .from("course_creator_access")
     .select("id")
     .eq("creator_id", userId)
     .eq("course_id", courseId)
     .maybeSingle();
 
-  if (access) return null;
+  if (creatorAccess) return null;
+
+  // Check course_manager_access (for course_manager role)
+  if (profile?.role === "course_manager") {
+    const { data: managerAccess } = await admin
+      .from("course_manager_access")
+      .select("id")
+      .eq("manager_id", userId)
+      .eq("course_id", courseId)
+      .maybeSingle();
+
+    if (managerAccess) return null;
+  }
 
   return new Response("Forbidden", { status: 403 });
 }

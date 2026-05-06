@@ -51,13 +51,15 @@ export async function POST(req: Request) {
 
   const courseId = (assignment.lessons as any)?.course_id;
   if (courseId) {
-    const { data: course } = await admin
-      .from("courses")
-      .select("pre_submission_ai")
-      .eq("id", courseId)
-      .single();
+    const [{ data: course }, { data: enrollment }] = await Promise.all([
+      admin.from("courses").select("pre_submission_ai").eq("id", courseId).single(),
+      admin.from("enrollments").select("id").eq("user_id", user.id).eq("course_id", courseId).maybeSingle(),
+    ]);
     if (!course?.pre_submission_ai) {
       return new Response("Pre-submission feedback is not enabled for this course", { status: 403 });
+    }
+    if (!enrollment) {
+      return new Response("Not enrolled in this course", { status: 403 });
     }
   }
 

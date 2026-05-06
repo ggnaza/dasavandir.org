@@ -8,6 +8,18 @@ import { cookies } from "next/headers";
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
+// Only fetch PDFs from trusted hosts — prevents SSRF via a crafted document_url
+const ALLOWED_PDF_HOSTS = ["supabase.co"];
+function isAllowedDocumentUrl(url: string): boolean {
+  try {
+    const { hostname, protocol } = new URL(url);
+    if (protocol !== "https:") return false;
+    return ALLOWED_PDF_HOSTS.some((h) => hostname === h || hostname.endsWith("." + h));
+  } catch {
+    return false;
+  }
+}
+
 function extractFileId(url: string): string | null {
   try {
     const match = new URL(url).pathname.match(/\/d\/([a-zA-Z0-9_-]+)/);
@@ -72,6 +84,9 @@ export async function POST(req: Request) {
 
     // Extract PDF
     if (lesson.document_url) {
+      if (!isAllowedDocumentUrl(lesson.document_url)) {
+        pdfStatus = "blocked (untrusted URL)";
+      } else
       try {
         const res = await fetch(lesson.document_url);
         const buffer = Buffer.from(await res.arrayBuffer());

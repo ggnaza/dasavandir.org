@@ -65,6 +65,7 @@ export async function POST(req: Request) {
     }
 
     // Trigger is disabled — create profile explicitly
+    // Try with status first, fall back without it if column doesn't exist yet
     const upsertData: Record<string, unknown> = {
       id: linkData.user.id,
       full_name: fullName,
@@ -79,6 +80,7 @@ export async function POST(req: Request) {
 
     if (upsertErr1) {
       console.error("[users/create upsert with status]", upsertErr1);
+      // Retry without status column in case migration hasn't run yet
       const { error: upsertErr2 } = await admin.from("profiles").upsert(upsertData, { onConflict: "id" });
       if (upsertErr2) {
         console.error("[users/create upsert fallback]", upsertErr2);

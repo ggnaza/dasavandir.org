@@ -1,7 +1,7 @@
 export type Lang = "en" | "hy";
 
 export function getLang(cookieValue?: string | null): Lang {
-  return cookieValue === "hy" ? "hy" : "en";
+  return cookieValue === "en" ? "en" : "hy";
 }
 
 export const translations = {

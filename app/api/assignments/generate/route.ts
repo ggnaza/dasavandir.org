@@ -1,9 +1,15 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { buildLessonContext } from "@/lib/lesson-ai-context";
+import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
+import { z } from "zod";
 import OpenAI from "openai";
 
 export const runtime = "nodejs";
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+const EDITOR_ROLES = ["admin", "course_creator", "course_manager"];
 
 export async function POST(req: Request) {
   const supabase = createClient();
@@ -12,10 +18,13 @@ export async function POST(req: Request) {
 
   const admin = createAdminClient();
   const { data: profile } = await admin.from("profiles").select("role").eq("id", user.id).single();
-  if (profile?.role !== "admin") return new Response("Forbidden", { status: 403 });
+  if (!profile || !EDITOR_ROLES.includes(profile.role)) return new Response("Forbidden", { status: 403 });
+
+  const { allowed } = await checkRateLimit(`assign-gen:${user.id}`, 10, 60 * 60_000);
+  if (!allowed) return rateLimitResponse({ limit: 10, windowSecs: 3600 });
 
   const { lessonId } = await req.json();
-  if (!lessonId) return new Response("Missing lessonId", { status: 400 });
+  if (!lessonId || !UUID_RE.test(lessonId)) return new Response("Missing lessonId", { status: 400 });
 
   const { data: lesson } = await admin
     .from("lessons")

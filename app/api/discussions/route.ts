@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import DOMPurify from "isomorphic-dompurify";
 import { z } from "zod";
 
@@ -17,6 +18,9 @@ export async function POST(req: Request) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return new Response("Unauthorized", { status: 401 });
+
+  const { allowed } = await checkRateLimit(`discussion:${user.id}`, 10, 60 * 60_000);
+  if (!allowed) return rateLimitResponse({ limit: 10, windowSecs: 3600 });
 
   const parsed = schema.safeParse(await req.json());
   if (!parsed.success) return new Response("Invalid input", { status: 400 });
@@ -45,6 +49,9 @@ export async function POST(req: Request) {
     body: cleanBody,
   }).select().single();
 
-  if (error) return new Response(error.message, { status: 500 });
+  if (error) {
+    console.error("[discussions/post]", error);
+    return new Response("Failed to create discussion", { status: 500 });
+  }
   return Response.json(data);
 }

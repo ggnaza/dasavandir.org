@@ -51,19 +51,22 @@ export function AddUserModal({ isOpen, onClose, onSuccess }: AddUserModalProps) 
       const data = await res.json();
 
       if (!res.ok) {
-        setError(data.error || "Failed to create user");
+        setError(data.error || "Failed to send invitation");
         return;
       }
 
       if (data.message) {
         setInfo(data.message);
+        setLoading(false);
+        onSuccess();
+        return;
       }
 
       setFormData({ firstName: "", lastName: "", email: "", role: "learner", courseId: "" });
       onSuccess();
-      if (!data.message) onClose();
+      onClose();
     } catch {
-      setError("Error creating user");
+      setError("Error sending invitation");
     } finally {
       setLoading(false);
     }
@@ -74,7 +77,8 @@ export function AddUserModal({ isOpen, onClose, onSuccess }: AddUserModalProps) 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg p-6 w-full max-w-md">
-        <h2 className="text-xl font-bold mb-4">Invite User</h2>
+        <h2 className="text-xl font-bold mb-1">Invite User</h2>
+        <p className="text-sm text-gray-500 mb-4">They'll receive an email to set their own password.</p>
 
         {error && <div className="bg-red-50 text-red-700 p-3 rounded mb-4 text-sm">{error}</div>}
         {info && <div className="bg-blue-50 text-blue-700 p-3 rounded mb-4 text-sm">{info}</div>}
@@ -94,7 +98,6 @@ export function AddUserModal({ isOpen, onClose, onSuccess }: AddUserModalProps) 
               placeholder="Last Name"
               value={formData.lastName}
               onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
-              required
               className="border rounded px-3 py-2 text-sm"
             />
           </div>

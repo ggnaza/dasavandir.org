@@ -1,18 +1,15 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import type { Lang } from "@/lib/i18n";
 
 export function LanguageToggle({ current }: { current: Lang }) {
-  const router = useRouter();
-
   async function switchTo(lang: Lang) {
     await fetch("/api/language", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ lang }),
     });
-    router.refresh();
+    window.location.reload();
   }
 
   return (
