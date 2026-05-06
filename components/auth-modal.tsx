@@ -25,6 +25,7 @@ export function AuthModal({ defaultTab = "login", onClose, lang = "en" }: Props)
   const [password, setPassword] = useState("");
   const [captchaToken, setCaptchaToken] = useState("");
   const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [emailSent, setEmailSent] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [oauthLoading, setOauthLoading] = useState(false);
@@ -110,9 +111,11 @@ export function AuthModal({ defaultTab = "login", onClose, lang = "en" }: Props)
       setLoading(false);
       return;
     }
-    if (data.user) {
+    if (data.session) {
       router.push("/learn");
       router.refresh();
+    } else if (data.user) {
+      setEmailSent(email);
     }
   }
 
@@ -134,8 +137,23 @@ export function AuthModal({ defaultTab = "login", onClose, lang = "en" }: Props)
       onClick={(e) => { if (e.target === e.currentTarget) close(); }}
     >
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-y-auto max-h-[90vh]">
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 pt-6 pb-2">
+        {/* Email confirmation screen */}
+        {emailSent && (
+          <div className="px-6 py-10 text-center">
+            <div className="w-14 h-14 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-5">
+              <svg className="w-7 h-7 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+              </svg>
+            </div>
+            <h2 className="text-lg font-bold text-gray-900 mb-2">Check your email</h2>
+            <p className="text-sm text-gray-600 mb-1">We sent a confirmation link to</p>
+            <p className="text-sm font-medium text-gray-900 mb-4">{emailSent}</p>
+            <p className="text-xs text-gray-500 mb-6">Click the link to activate your account and start learning. The link expires in 24 hours.</p>
+            <button onClick={close} className="text-sm text-brand-600 hover:underline font-medium">Close</button>
+          </div>
+        )}
+        {/* Header + form — hidden once email is sent */}
+        {!emailSent && <div className="flex items-center justify-between px-6 pt-6 pb-2">
           <div className="flex gap-1 bg-gray-100 p-1 rounded-lg">
             <button
               onClick={() => switchTab("login")}
@@ -285,7 +303,7 @@ export function AuthModal({ defaultTab = "login", onClose, lang = "en" }: Props)
               </button>
             </form>
           )}
-        </div>
+        </div>}
       </div>
     </div>
   );
