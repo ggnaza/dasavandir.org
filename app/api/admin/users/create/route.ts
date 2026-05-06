@@ -1,5 +1,15 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { logAudit } from "@/lib/audit-log";
+import { sendInviteLinkEmail } from "@/lib/email";
+import { z } from "zod";
+
+const schema = z.object({
+  email: z.string().email().max(254),
+  fullName: z.string().min(1).max(200),
+  role: z.enum(["admin", "course_creator", "course_manager", "learner"]).optional().default("learner"),
+  courseId: z.string().uuid().optional(),
+});
 
 export async function POST(req: Request) {
   try {
@@ -9,45 +19,89 @@ export async function POST(req: Request) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
 
-    const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single();
+    const { data: profile } = await admin.from("profiles").select("role").eq("id", user.id).single();
     if (profile?.role !== "admin") return new Response(JSON.stringify({ error: "Forbidden" }), { status: 403 });
 
-    const { email, password, fullName, role } = await req.json();
+    const parsed = schema.safeParse(await req.json());
+    if (!parsed.success) return new Response(JSON.stringify({ error: "Invalid input" }), { status: 400 });
 
-    if (!email || !password || !fullName) {
-      return new Response(JSON.stringify({ error: "Missing required fields" }), { status: 400 });
+    const { email, fullName, role, courseId } = parsed.data;
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+
+    // Check if user already exists in profiles
+    const { data: existingProfile } = await admin
+      .from("profiles")
+      .select("id, status")
+      .eq("email", email)
+      .maybeSingle();
+
+    if (existingProfile) {
+      await admin.from("profiles").update({ role, full_name: fullName }).eq("id", existingProfile.id);
+      if (courseId) {
+        await admin.from("enrollments").upsert(
+          { user_id: existingProfile.id, course_id: courseId },
+          { onConflict: "user_id,course_id" }
+        );
+      }
+      return new Response(
+        JSON.stringify({ success: true, message: "User already exists — role updated." }),
+        { status: 200 }
+      );
     }
 
-    const { data: authData, error: authError } = await admin.auth.admin.createUser({
+    // New user — generate invite link
+    const { data: linkData, error: linkError } = await admin.auth.admin.generateLink({
+      type: "invite",
       email,
-      password,
-      user_metadata: { full_name: fullName },
+      options: {
+        redirectTo: `${siteUrl}/auth/set-password`,
+        data: { full_name: fullName },
+      },
     });
 
-    if (authError) {
-      return new Response(JSON.stringify({ error: authError.message }), { status: 400 });
+    if (linkError) {
+      console.error("[users/create invite]", linkError);
+      return new Response(JSON.stringify({ error: linkError.message }), { status: 400 });
     }
 
-    const { error: profileError } = await admin.from("profiles").insert({
-      id: authData.user.id,
+    // Trigger is disabled — create profile explicitly
+    const upsertData: Record<string, unknown> = {
+      id: linkData.user.id,
       full_name: fullName,
-      role: role || "learner",
-    });
+      email,
+      role,
+    };
 
-    if (profileError) {
-      return new Response(JSON.stringify({ error: profileError.message }), { status: 400 });
+    const { error: upsertErr1 } = await admin.from("profiles").upsert(
+      { ...upsertData, status: "pending" },
+      { onConflict: "id" }
+    );
+
+    if (upsertErr1) {
+      console.error("[users/create upsert with status]", upsertErr1);
+      const { error: upsertErr2 } = await admin.from("profiles").upsert(upsertData, { onConflict: "id" });
+      if (upsertErr2) {
+        console.error("[users/create upsert fallback]", upsertErr2);
+        return new Response(JSON.stringify({ error: "Failed to create profile: " + upsertErr2.message }), { status: 500 });
+      }
     }
 
-    await admin.from("audit_logs").insert({
-      user_id: user.id,
-      action: "create_user",
-      entity_type: "user",
-      entity_id: authData.user.id,
-      details: { email, full_name: fullName, role: role || "learner" },
+    if (courseId) {
+      await admin.from("enrollments").upsert(
+        { user_id: linkData.user.id, course_id: courseId },
+        { onConflict: "user_id,course_id" }
+      );
+    }
+
+    await sendInviteLinkEmail({ to: email, fullName, inviteUrl: linkData.properties.action_link });
+
+    await logAudit("create_user", user.id, req, {
+      email, full_name: fullName, role, new_user_id: linkData.user.id, course_id: courseId,
     });
 
-    return new Response(JSON.stringify({ success: true, userId: authData.user.id }), { status: 200 });
+    return new Response(JSON.stringify({ success: true }), { status: 200 });
   } catch (err: any) {
-    return new Response(JSON.stringify({ error: err.message }), { status: 500 });
+    console.error("[users/create]", err);
+    return new Response(JSON.stringify({ error: "Internal server error" }), { status: 500 });
   }
 }
