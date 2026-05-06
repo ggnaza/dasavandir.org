@@ -110,17 +110,28 @@ export function LessonEditor({
     if (!urlRes.ok) { setUploadError(await urlRes.text()); setUploadProgress(null); return; }
     const { signedUrl, path } = await urlRes.json();
 
-    await new Promise<void>((resolve, reject) => {
+    const uploadOk = await new Promise<boolean>((resolve) => {
       const xhr = new XMLHttpRequest();
       xhr.open("PUT", signedUrl);
-      xhr.setRequestHeader("Content-Type", file.type || "video/mp4");
       xhr.upload.onprogress = (ev) => {
         if (ev.lengthComputable) setUploadProgress(Math.round((ev.loaded / ev.total) * 100));
       };
-      xhr.onload = () => (xhr.status < 300 ? resolve() : reject(new Error(`Upload failed: ${xhr.status}`)));
-      xhr.onerror = () => reject(new Error("Network error during upload"));
+      xhr.onload = () => {
+        if (xhr.status < 300) {
+          resolve(true);
+        } else {
+          let msg = `Upload failed: ${xhr.status}`;
+          try { const body = JSON.parse(xhr.responseText); msg = body.message ?? msg; } catch {}
+          setUploadError(msg);
+          setUploadProgress(null);
+          resolve(false);
+        }
+      };
+      xhr.onerror = () => { setUploadError("Network error during upload"); setUploadProgress(null); resolve(false); };
       xhr.send(file);
-    }).catch((err) => { setUploadError(err.message); setUploadProgress(null); return; });
+    });
+
+    if (!uploadOk) return;
 
     setVideoUrl(path);
     setUploadProgress(null);
