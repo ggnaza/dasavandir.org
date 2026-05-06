@@ -1,11 +1,11 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { logAudit } from "@/lib/audit-log";
+import { sendInviteLinkEmail } from "@/lib/email";
 import { z } from "zod";
 
 const schema = z.object({
   email: z.string().email().max(254),
-  password: z.string().min(8).max(128),
   fullName: z.string().min(1).max(200),
   role: z.enum(["admin", "course_creator", "course_manager", "learner"]).optional().default("learner"),
 });
@@ -24,38 +24,48 @@ export async function POST(req: Request) {
     const parsed = schema.safeParse(await req.json());
     if (!parsed.success) return new Response(JSON.stringify({ error: "Invalid input" }), { status: 400 });
 
-    const { email, password, fullName, role } = parsed.data;
+    const { email, fullName, role } = parsed.data;
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 
-    const { data: authData, error: authError } = await admin.auth.admin.createUser({
+    const { data: linkData, error: linkError } = await admin.auth.admin.generateLink({
+      type: "invite",
       email,
-      password,
-      user_metadata: { full_name: fullName },
+      options: {
+        redirectTo: `${siteUrl}/auth/set-password`,
+        data: { full_name: fullName },
+      },
     });
 
-    if (authError) {
-      console.error("[users/create auth]", authError);
-      return new Response(JSON.stringify({ error: authError.message }), { status: 400 });
+    if (linkError) {
+      console.error("[users/create invite]", linkError);
+      return new Response(JSON.stringify({ error: linkError.message }), { status: 400 });
     }
 
-    const { error: profileError } = await admin.from("profiles").insert({
-      id: authData.user.id,
+    const { error: profileError } = await admin.from("profiles").upsert({
+      id: linkData.user.id,
       full_name: fullName,
       role,
-    });
+    }, { onConflict: "id" });
 
     if (profileError) {
       console.error("[users/create profile]", profileError);
       return new Response(JSON.stringify({ error: "Failed to create user profile" }), { status: 500 });
     }
 
+    await sendInviteLinkEmail({
+      to: email,
+      fullName,
+      inviteUrl: linkData.properties.action_link,
+    });
+
     await logAudit("create_user", user.id, req, {
       email,
       full_name: fullName,
       role,
-      new_user_id: authData.user.id,
+      new_user_id: linkData.user.id,
     });
 
-    return new Response(JSON.stringify({ success: true, userId: authData.user.id }), { status: 200 });
+    return new Response(JSON.stringify({ success: true }), { status: 200 });
   } catch (err: any) {
     console.error("[users/create]", err);
     return new Response(JSON.stringify({ error: "Internal server error" }), { status: 500 });
