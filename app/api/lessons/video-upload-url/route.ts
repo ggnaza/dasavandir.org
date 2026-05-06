@@ -27,7 +27,7 @@ export async function POST(req: Request) {
 
   const { data, error } = await admin.storage
     .from("lesson-videos")
-    .createSignedUploadUrl(path);
+    .createSignedUploadUrl(path, { upsert: true });
 
   if (error) {
     console.error("[video-upload-url]", error);
