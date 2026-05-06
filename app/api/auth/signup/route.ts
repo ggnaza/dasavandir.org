@@ -34,5 +34,6 @@ export async function POST(req: Request) {
     console.error("[auth/signup]", error);
     return new Response("Failed to create account", { status: 400 });
   }
-  return Response.json({ userId: data.user?.id });
+  // session is null when Supabase requires email confirmation
+  return Response.json({ needsConfirmation: !data.session });
 }
