@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { AI_MODELS } from "@/lib/llm";
+import { AI_MODELS } from "@/lib/ai-models";
 
 const PROVIDER_ORDER = ["OpenAI", "Google", "Anthropic"];
 
