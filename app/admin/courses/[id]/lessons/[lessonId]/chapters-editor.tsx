@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 
 type Question = { question: string; options: string[]; correct: number };
+type ChapterRaw = { id: string; title: string; start: number; end: number; questions?: Question[] };
 type Chapter = { id: string; title: string; start: number; end: number; questions: Question[] };
 
 function toTime(s: number) {
@@ -20,9 +21,11 @@ function toSeconds(t: string): number {
   return 0;
 }
 
-export function ChaptersEditor({ lessonId, initial }: { lessonId: string; initial: Chapter[] }) {
+export function ChaptersEditor({ lessonId, initial }: { lessonId: string; initial: ChapterRaw[] | null }) {
   const router = useRouter();
-  const [chapters, setChapters] = useState<Chapter[]>(initial);
+  const [chapters, setChapters] = useState<Chapter[]>(
+    (initial ?? []).map((ch) => ({ ...ch, questions: ch.questions ?? [] }))
+  );
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [saveError, setSaveError] = useState("");
