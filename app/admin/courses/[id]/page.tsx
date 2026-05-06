@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { CourseEditor } from "./course-editor";
 import { CourseResources } from "./course-resources";
+import { CourseReminders } from "./course-reminders";
 import { LessonReorderButtons } from "./lesson-reorder-buttons";
 import { BackfillDurationsButton } from "./backfill-durations-button";
 
@@ -57,6 +58,13 @@ export default async function CoursePage({ params }: { params: { id: string } })
       <div className="mt-4">
         <CourseResources courseId={course.id} />
       </div>
+
+      <CourseReminders
+        courseId={course.id}
+        initialNotifyOnNewLesson={course.notify_on_new_lesson ?? false}
+        initialNotStartedDays={course.remind_not_started_days ?? null}
+        initialNotCompletedDays={course.remind_not_completed_days ?? null}
+      />
 
       <BackfillDurationsButton courseId={course.id} />
 
