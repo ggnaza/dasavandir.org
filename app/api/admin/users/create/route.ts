@@ -27,20 +27,15 @@ export async function POST(req: Request) {
     const { email, fullName, role } = parsed.data;
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 
-    // Check if the user already exists in profiles
+    // Check if user already exists in profiles
     const { data: existingProfile } = await admin
       .from("profiles")
-      .select("id")
+      .select("id, status")
       .eq("email", email)
       .maybeSingle();
 
     if (existingProfile) {
-      // User already has an account — just update their role/name
-      await admin
-        .from("profiles")
-        .update({ role, full_name: fullName })
-        .eq("id", existingProfile.id);
-
+      await admin.from("profiles").update({ role, full_name: fullName }).eq("id", existingProfile.id);
       return new Response(
         JSON.stringify({ success: true, message: "User already exists — role updated." }),
         { status: 200 }
@@ -62,23 +57,19 @@ export async function POST(req: Request) {
       return new Response(JSON.stringify({ error: linkError.message }), { status: 400 });
     }
 
-    // Set the correct role on the profile (trigger creates it with 'learner' by default)
-    await admin
-      .from("profiles")
-      .update({ role, full_name: fullName })
-      .eq("id", linkData.user.id);
+    // Trigger is disabled — create profile explicitly
+    await admin.from("profiles").upsert({
+      id: linkData.user.id,
+      full_name: fullName,
+      email,
+      role,
+      status: "pending",
+    }, { onConflict: "id" });
 
-    await sendInviteLinkEmail({
-      to: email,
-      fullName,
-      inviteUrl: linkData.properties.action_link,
-    });
+    await sendInviteLinkEmail({ to: email, fullName, inviteUrl: linkData.properties.action_link });
 
     await logAudit("create_user", user.id, req, {
-      email,
-      full_name: fullName,
-      role,
-      new_user_id: linkData.user.id,
+      email, full_name: fullName, role, new_user_id: linkData.user.id,
     });
 
     return new Response(JSON.stringify({ success: true }), { status: 200 });
