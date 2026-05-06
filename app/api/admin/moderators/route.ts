@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { assertCourseOwner } from "@/lib/assert-course-owner";
+import { sendModeratorAddedEmail } from "@/lib/email";
 import { z } from "zod";
 
 const EDITOR_ROLES = ["admin", "course_creator", "course_manager"];
@@ -98,6 +99,17 @@ export async function POST(req: Request) {
     console.error("[moderators/add]", error);
     return new Response("Failed to add moderator", { status: 500 });
   }
+
+  const { data: course } = await admin.from("courses").select("title").eq("id", course_id).single();
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+  const courseUrl = `${siteUrl}/courses/${course_id}`;
+
+  await sendModeratorAddedEmail({
+    to: email,
+    fullName: targetAuthUser.user_metadata?.full_name ?? "",
+    courseTitle: course?.title ?? "",
+    courseUrl,
+  }).catch((err) => console.error("[moderators/email]", err));
 
   return Response.json({ ok: true });
 }
