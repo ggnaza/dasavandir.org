@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { Turnstile } from "@marsidev/react-turnstile";
 import type { Lang } from "@/lib/i18n";
@@ -23,6 +24,7 @@ export function AuthModal({ defaultTab = "login", onClose, lang = "en" }: Props)
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [captchaToken, setCaptchaToken] = useState("");
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [oauthLoading, setOauthLoading] = useState(false);
@@ -50,6 +52,7 @@ export function AuthModal({ defaultTab = "login", onClose, lang = "en" }: Props)
     setPassword("");
     setName("");
     setCaptchaToken("");
+    setAcceptedTerms(false);
   }
 
   async function handleLogin(e: React.FormEvent) {
@@ -71,6 +74,10 @@ export function AuthModal({ defaultTab = "login", onClose, lang = "en" }: Props)
     e.preventDefault();
     if (!isPasswordValid(password)) {
       setError("Password does not meet the requirements below.");
+      return;
+    }
+    if (!acceptedTerms) {
+      setError(T.termsRequired);
       return;
     }
     if (!captchaToken) {
@@ -243,6 +250,24 @@ export function AuthModal({ defaultTab = "login", onClose, lang = "en" }: Props)
                 />
                 <PasswordStrength password={password} />
               </div>
+              <label className="flex items-start gap-2 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={acceptedTerms}
+                  onChange={(e) => setAcceptedTerms(e.target.checked)}
+                  className="mt-0.5 shrink-0 accent-brand-600"
+                />
+                <span className="text-xs text-gray-600">
+                  {T.termsConsent}{" "}
+                  <Link href="/terms" target="_blank" className="font-medium hover:underline" style={{ color: "#EC5328" }}>
+                    {T.termsLink}
+                  </Link>{" "}
+                  {T.and}{" "}
+                  <Link href="/privacy" target="_blank" className="font-medium hover:underline" style={{ color: "#EC5328" }}>
+                    {T.privacyLink}
+                  </Link>
+                </span>
+              </label>
               <Turnstile
                 siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY!}
                 onSuccess={setCaptchaToken}
@@ -252,7 +277,7 @@ export function AuthModal({ defaultTab = "login", onClose, lang = "en" }: Props)
               {error && <p className="text-red-600 text-xs">{error}</p>}
               <button
                 type="submit"
-                disabled={loading || !captchaToken}
+                disabled={loading || !captchaToken || !acceptedTerms}
                 className="w-full py-2.5 rounded-lg text-white text-sm font-medium disabled:opacity-50"
                 style={{ backgroundColor: "#EC5328" }}
               >

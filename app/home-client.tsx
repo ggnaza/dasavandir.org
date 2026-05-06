@@ -214,6 +214,8 @@ export function HomeClient({ courses, lang }: Props) {
           <div className="flex gap-6 text-sm text-gray-400">
             <button onClick={() => setModal("login")} className="hover:text-white">{T.signIn}</button>
             <button onClick={() => setModal("signup")} className="hover:text-white">{T.getStarted}</button>
+            <a href="/terms" className="hover:text-white">{T.termsLink}</a>
+            <a href="/privacy" className="hover:text-white">{T.privacyLink}</a>
           </div>
           <p className="text-gray-500 text-xs">© {new Date().getFullYear()} Teach For Armenia. {T.allRights}</p>
         </div>
