@@ -49,7 +49,7 @@ export async function GET() {
     const { admin } = await checkAdmin();
     const { data: users, error } = await admin
       .from("profiles")
-      .select("id, full_name, role, created_at")
+      .select("id, full_name, email, role, status, created_at")
       .order("created_at", { ascending: false });
 
     if (error) {

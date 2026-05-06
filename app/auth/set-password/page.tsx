@@ -47,6 +47,8 @@ export default function SetPasswordPage() {
       setLoading(false);
       return;
     }
+    // Mark profile as active
+    await fetch("/api/auth/activate", { method: "POST" });
     router.push("/learn");
   }
 
