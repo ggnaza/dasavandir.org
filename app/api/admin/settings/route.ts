@@ -1,7 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { z } from "zod";
-import { VALID_MODEL_IDS } from "@/lib/llm";
+import { VALID_MODEL_IDS } from "@/lib/ai-models";
 
 async function requireAdmin() {
   const supabase = createClient();
