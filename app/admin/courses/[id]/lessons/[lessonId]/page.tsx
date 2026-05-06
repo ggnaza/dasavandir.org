@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { LessonEditor } from "./lesson-editor";
 import { FileUploader } from "./file-uploader";
+import { LessonReminders } from "./lesson-reminders";
 
 export default async function LessonPage({
   params,
@@ -43,6 +44,8 @@ export default async function LessonPage({
         nextDeadlineDate={nextDeadlineDate}
         courseDeadlineDate={courseDeadlineDate}
       />
+
+      <LessonReminders lessonId={params.lessonId} courseId={params.id} />
 
       <FileUploader lessonId={params.lessonId} existingFiles={files ?? []} />
 
