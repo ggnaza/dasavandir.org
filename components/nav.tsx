@@ -35,6 +35,7 @@ export function Nav({ role, userName, unreadNotifications = 0, lang = "en" }: Na
           { href: "/admin/learners", label: "Learners" },
           { href: "/admin/analytics", label: "Analytics" },
           { href: "/admin/users", label: "Users" },
+          { href: "/admin/settings", label: "Settings" },
         ]
       : role === "creator"
       ? [
