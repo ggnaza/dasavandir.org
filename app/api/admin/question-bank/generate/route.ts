@@ -3,7 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { assertCourseOwner } from "@/lib/assert-course-owner";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { z } from "zod";
-import OpenAI from "openai";
+import { getAIModel, callLLM } from "@/lib/llm";
 
 const schema = z.object({
   lesson_id: z.string().uuid(),
@@ -50,18 +50,11 @@ export async function POST(req: Request) {
 
   if (!text) return new Response("This lesson has no text content to generate questions from.", { status: 422 });
 
-  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY, timeout: 30_000 });
-
-  const completion = await openai.chat.completions.create({
-    model: "gpt-4o-mini",
-    messages: [
-      {
-        role: "system",
-        content: `You generate multiple-choice quiz questions based on lesson content. Always return valid JSON only.`,
-      },
-      {
-        role: "user",
-        content: `Generate exactly ${count} multiple-choice questions based on this lesson titled "${lesson.title}".
+  const model = await getAIModel();
+  const raw = await callLLM(
+    model,
+    `You generate multiple-choice quiz questions based on lesson content. Always return valid JSON only.`,
+    `Generate exactly ${count} multiple-choice questions based on this lesson titled "${lesson.title}".
 
 Lesson content:
 ---
@@ -76,16 +69,12 @@ Return a JSON array of exactly ${count} objects, each with:
 Example: [{"question":"...","options":["A","B","C","D"],"correct":2}]
 
 Return ONLY the JSON array, nothing else.`,
-      },
-    ],
-    max_tokens: 2000,
-    response_format: { type: "json_object" },
-  });
+    { maxTokens: 2000, jsonMode: true }
+  );
 
   let generated: { question: string; options: string[]; correct: number }[] = [];
   try {
-    const raw = completion.choices[0]?.message?.content ?? "{}";
-    const p = JSON.parse(raw);
+    const p = JSON.parse(raw.replace(/```json|```/g, "").trim());
     generated = Array.isArray(p) ? p : (p.questions ?? p.items ?? Object.values(p)[0] ?? []);
   } catch {
     return new Response("AI returned invalid JSON. Please try again.", { status: 500 });

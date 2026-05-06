@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
-import OpenAI from "openai";
+import { getAIModel, callLLM } from "@/lib/llm";
 
 export const runtime = "nodejs";
 
@@ -88,15 +88,8 @@ Source material:
 ${truncated}
 ---`;
 
-  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-  const completion = await openai.chat.completions.create({
-    model: "gpt-4o",
-    messages: [{ role: "user", content: prompt }],
-    response_format: { type: "json_object" },
-    max_tokens: 4000,
-  });
-
-  const raw = completion.choices[0].message.content ?? "{}";
+  const model = await getAIModel();
+  const raw = await callLLM(model, "You are a course creation expert. Return ONLY valid JSON.", prompt, { maxTokens: 4000, jsonMode: true });
 
   try {
     const course = JSON.parse(raw);
