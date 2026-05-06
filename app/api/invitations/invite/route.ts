@@ -2,8 +2,8 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { assertCourseOwner } from "@/lib/assert-course-owner";
 import { logAudit } from "@/lib/audit-log";
+import { sendInvitationEmail } from "@/lib/email";
 import { z } from "zod";
-import mailchimp from "@mailchimp/mailchimp_transactional";
 
 const studentSchema = z.object({
   email: z.string().email(),
@@ -62,53 +62,17 @@ export async function POST(req: Request) {
     .from("invitations")
     .upsert(rows, { onConflict: "course_id,email", ignoreDuplicates: true });
 
-  // Send invitation emails via Mailchimp Transactional (Mandrill)
-  const mandrillKey = process.env.MANDRILL_API_KEY;
-  const fromEmail = process.env.MANDRILL_FROM_EMAIL || "info@mindxforum.am";
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
-
-  if (!mandrillKey) {
-    console.error("[invite] MANDRILL_API_KEY is not set");
-  }
-
-  if (mandrillKey && course) {
-    const client = mailchimp(mandrillKey);
+  if (course) {
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
     const signupUrl = `${siteUrl}/auth/signup`;
 
-    const escHtml = (s: string) =>
-      s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-
-    const safeTitle = escHtml(course.title);
-
     const results = await Promise.allSettled(
-      studentList.map(({ email, firstName }) => {
-        const name = escHtml(firstName || "there");
-        const safeEmail = escHtml(email);
-        return client.messages.send({
-          message: {
-            from_email: fromEmail,
-            from_name: "Dasavandir",
-            subject: `You're invited to "${course.title}"`,
-            html: `
-              <div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:24px">
-                <h2 style="margin-top:0">You've been invited!</h2>
-                <p>Hi ${name},</p>
-                <p>You have been invited to enroll in <strong>${safeTitle}</strong>.</p>
-                <p>Click the button below to create your account and start learning.</p>
-                <a href="${signupUrl}" style="display:inline-block;background:#6d28d9;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;margin:16px 0">
-                  Accept invitation
-                </a>
-                <p style="color:#6b7280;font-size:14px">
-                  After signing up with this email address (${safeEmail}), you will be automatically enrolled in the course.
-                </p>
-              </div>
-            `,
-            to: [{ email, type: "to" as const }],
-          },
-        });
-      })
+      studentList.map(({ email, firstName }) =>
+        sendInvitationEmail({ to: email, firstName, courseTitle: course.title, signupUrl })
+      )
     );
-    console.log("[invite] Mandrill results:", JSON.stringify(results));
+    const failed = results.filter((r) => r.status === "rejected");
+    if (failed.length) console.error("[invite] Resend errors:", failed);
   }
 
   await logAudit("invite_users", user.id, req, { course_id: courseId, count: studentList.length });
