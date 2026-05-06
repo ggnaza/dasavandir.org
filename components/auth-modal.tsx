@@ -133,7 +133,7 @@ export function AuthModal({ defaultTab = "login", onClose, lang = "en" }: Props)
       style={{ backgroundColor: "rgba(0,0,0,0.5)" }}
       onClick={(e) => { if (e.target === e.currentTarget) close(); }}
     >
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-y-auto max-h-[90vh]">
         {/* Header */}
         <div className="flex items-center justify-between px-6 pt-6 pb-2">
           <div className="flex gap-1 bg-gray-100 p-1 rounded-lg">
@@ -277,7 +277,7 @@ export function AuthModal({ defaultTab = "login", onClose, lang = "en" }: Props)
               {error && <p className="text-red-600 text-xs">{error}</p>}
               <button
                 type="submit"
-                disabled={loading || !captchaToken || !acceptedTerms}
+                disabled={loading || !captchaToken}
                 className="w-full py-2.5 rounded-lg text-white text-sm font-medium disabled:opacity-50"
                 style={{ backgroundColor: "#EC5328" }}
               >
