@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Turnstile } from "@marsidev/react-turnstile";
 import type { Lang } from "@/lib/i18n";
 import { translations } from "@/lib/i18n";
+import { PasswordStrength, isPasswordValid } from "@/components/password-strength";
 
 type Tab = "login" | "signup";
 
@@ -68,6 +69,10 @@ export function AuthModal({ defaultTab = "login", onClose, lang = "en" }: Props)
 
   async function handleSignup(e: React.FormEvent) {
     e.preventDefault();
+    if (!isPasswordValid(password)) {
+      setError("Password does not meet the requirements below.");
+      return;
+    }
     if (!captchaToken) {
       setError("Please complete the CAPTCHA.");
       return;
@@ -236,6 +241,7 @@ export function AuthModal({ defaultTab = "login", onClose, lang = "en" }: Props)
                   className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
                   placeholder={T.passwordMinPlaceholder}
                 />
+                <PasswordStrength password={password} />
               </div>
               <Turnstile
                 siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY!}
