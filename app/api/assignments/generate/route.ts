@@ -1,6 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
-import { buildLessonContext } from "@/lib/lesson-ai-context";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { z } from "zod";
 import { getAIModel, callLLM } from "@/lib/llm";
@@ -28,7 +27,7 @@ export async function POST(req: Request) {
 
   const { data: lesson } = await admin
     .from("lessons")
-    .select("title, content, slides_url, video_url, document_url, course_id")
+    .select("title, content, slides_text, document_text, video_url, course_id")
     .eq("id", lessonId)
     .single();
 
@@ -43,11 +42,39 @@ export async function POST(req: Request) {
   const languageMap: Record<string, string> = { hy: "Armenian", en: "English" };
   const language = languageMap[course?.language ?? ""] ?? null;
 
-  const { parts, warnings } = await buildLessonContext(lesson);
+  // Build lesson text from pre-extracted DB fields
+  const contentText = (lesson.content ?? "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+  const slidesText = (lesson.slides_text ?? "").trim();
+  const documentText = (lesson.document_text ?? "").trim();
 
-  const hasContent = lesson.content || lesson.slides_url || lesson.video_url || lesson.document_url;
-  if (!hasContent) {
-    return new Response("Lesson has no content to generate an assignment from", { status: 400 });
+  const lessonText = [
+    `Lesson title: ${lesson.title}`,
+    contentText ? `Lesson content:\n${contentText}` : "",
+    slidesText ? `Slide content:\n${slidesText}` : "",
+    documentText ? `Document content:\n${documentText}` : "",
+    lesson.video_url ? `(This lesson also includes a video — AI cannot read video content)` : "",
+  ].filter(Boolean).join("\n\n").slice(0, 12000);
+
+  // Load course-level resources
+  const { data: resources } = await admin
+    .from("course_resources")
+    .select("title, extracted_text")
+    .eq("course_id", lesson.course_id)
+    .order("created_at");
+
+  const resourcesText = (resources ?? [])
+    .filter((r) => r.extracted_text?.trim())
+    .map((r) => `### ${r.title}\n${r.extracted_text!.trim()}`)
+    .join("\n\n")
+    .slice(0, 6000);
+
+  const fullContext = [
+    lessonText,
+    resourcesText ? `Course supplementary resources:\n${resourcesText}` : "",
+  ].filter(Boolean).join("\n\n");
+
+  if (!fullContext.trim() || fullContext.trim() === `Lesson title: ${lesson.title}`) {
+    return new Response("Lesson has no text content to generate an assignment from. Please extract slides or documents first.", { status: 400 });
   }
 
   const model = await getAIModel();
@@ -64,14 +91,14 @@ Return a JSON object with exactly this shape:
 }
 
 Rules:
-- Base the assignment entirely on the lesson material provided
+- Base the assignment entirely on the lesson material provided — reference specific concepts, terms, or frameworks from the material
 - Instructions should use headings and bullet points; include a <table> when comparing/evaluating multiple items is relevant
 - Rubric: 3-5 criteria, total points between 50-100
 ${language ? `- Write everything in ${language}` : "- Match the language of the lesson content"}`;
 
-  const raw = await callLLM(model, systemPrompt, parts.join("\n\n"), { temperature: 0.7, maxTokens: 2000, jsonMode: true });
+  const raw = await callLLM(model, systemPrompt, fullContext, { temperature: 0.7, maxTokens: 2000, jsonMode: true });
   try {
-    return Response.json({ ...JSON.parse(raw), warnings });
+    return Response.json(JSON.parse(raw));
   } catch {
     return new Response("AI returned invalid JSON", { status: 500 });
   }

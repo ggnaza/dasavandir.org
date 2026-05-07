@@ -46,7 +46,7 @@ export async function POST(req: Request) {
     (lesson.content ?? "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim(),
     (lesson.slides_text ?? "").trim(),
     (lesson.document_text ?? "").trim(),
-  ].filter(Boolean).join("\n\n").slice(0, 5000);
+  ].filter(Boolean).join("\n\n").slice(0, 12000);
 
   if (!text) return new Response("This lesson has no text content to generate questions from.", { status: 422 });
 
