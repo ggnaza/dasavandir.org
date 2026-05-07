@@ -1,6 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { verifyTurnstile } from "@/lib/captcha";
+import { sendActivationEmail } from "@/lib/email";
 import { z } from "zod";
 
 const schema = z.object({
@@ -34,6 +36,32 @@ export async function POST(req: Request) {
     console.error("[auth/signup]", error);
     return new Response("Failed to create account", { status: 400 });
   }
-  // session is null when Supabase requires email confirmation
-  return Response.json({ needsConfirmation: !data.session });
+
+  const userId = data.user?.id;
+  if (userId) {
+    const admin = createAdminClient();
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://dasavandir.org";
+
+    // Mark profile as pending and create activation token
+    const { data: tokenRow } = await admin
+      .from("activation_tokens")
+      .insert({ user_id: userId })
+      .select("token")
+      .single();
+
+    if (tokenRow) {
+      await admin.from("profiles").update({ status: "pending" }).eq("id", userId);
+
+      const activationUrl = `${siteUrl}/api/auth/activate?token=${tokenRow.token}`;
+      try {
+        await sendActivationEmail({ to: email, fullName: full_name, activationUrl });
+      } catch (emailErr) {
+        console.error("[signup] activation email failed", emailErr);
+        // Don't block signup if email fails — mark active so user isn't stuck
+        await admin.from("profiles").update({ status: "active" }).eq("id", userId);
+      }
+    }
+  }
+
+  return Response.json({ success: true });
 }
