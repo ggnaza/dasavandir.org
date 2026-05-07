@@ -16,11 +16,17 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     .eq("id", user.id)
     .single();
 
-  if (profile?.role !== "admin") redirect("/learn");
+  const allowedRoles = ["admin", "course_creator", "course_manager"];
+  if (!allowedRoles.includes(profile?.role ?? "")) redirect("/learn");
+
+  const navRole =
+    profile?.role === "admin" ? "admin"
+    : profile?.role === "course_manager" ? "moderator"
+    : "creator";
 
   return (
     <div className="min-h-screen">
-      <Nav role="admin" userName={profile?.full_name} />
+      <Nav role={navRole} userName={profile?.full_name} />
       <main className="max-w-6xl mx-auto px-4 py-8">{children}</main>
     </div>
   );
