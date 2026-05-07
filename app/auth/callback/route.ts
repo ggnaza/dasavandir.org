@@ -47,24 +47,31 @@ export async function GET(request: NextRequest) {
     }
 
     // After OAuth (Google etc.), ensure the profile has the correct role.
-    // Supabase creates a new auth.users entry for OAuth even if the email already
-    // exists as an email/password account, so the trigger may create a 'learner'
-    // profile for an existing admin/creator. We fix that here.
+    // Supabase may create a new auth.users entry for OAuth even when the email
+    // already exists, giving the new profile role='learner'. Fix it here.
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (user?.email) {
         const admin = createAdminClient();
-        const { data: profiles } = await admin
-          .from("profiles")
-          .select("id, role")
-          .eq("email", user.email);
+        const roleOrder = ["admin", "course_creator", "course_manager", "learner"];
 
-        if (profiles && profiles.length > 1) {
-          // Multiple profiles for the same email — find the highest role and apply it
-          const roleOrder = ["admin", "course_creator", "course_manager", "learner"];
-          const best = profiles.sort((a, b) => roleOrder.indexOf(a.role) - roleOrder.indexOf(b.role))[0];
-          if (best.id !== user.id) {
-            await admin.from("profiles").update({ role: best.role }).eq("id", user.id);
+        // Find all auth users with this email (reliable — auth.users always has email)
+        const { data: authData } = await admin.auth.admin.listUsers({ perPage: 1000 });
+        const sameEmailIds = (authData?.users ?? [])
+          .filter(u => u.email?.toLowerCase() === user.email!.toLowerCase())
+          .map(u => u.id);
+
+        if (sameEmailIds.length > 0) {
+          const { data: allProfiles } = await admin
+            .from("profiles")
+            .select("id, role")
+            .in("id", sameEmailIds);
+
+          const bestRole = (allProfiles ?? [])
+            .sort((a, b) => roleOrder.indexOf(a.role) - roleOrder.indexOf(b.role))[0]?.role;
+
+          if (bestRole && bestRole !== "learner") {
+            await admin.from("profiles").update({ role: bestRole }).eq("id", user.id);
           }
         }
       }
