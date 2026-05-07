@@ -13,6 +13,7 @@ export default function SignupPage() {
   const [captchaToken, setCaptchaToken] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const turnstileSiteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
   const supabase = createClient();
 
   async function handleSignup(e: React.FormEvent) {
@@ -96,16 +97,18 @@ export default function SignupPage() {
               className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-500"
             />
           </div>
-          <Turnstile
-            siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY!}
-            onSuccess={setCaptchaToken}
-            onExpire={() => setCaptchaToken("")}
-            onError={() => setCaptchaToken("")}
-          />
+          {turnstileSiteKey && (
+            <Turnstile
+              siteKey={turnstileSiteKey}
+              onSuccess={setCaptchaToken}
+              onExpire={() => setCaptchaToken("")}
+              onError={() => setCaptchaToken("")}
+            />
+          )}
           {error && <p className="text-red-600 text-sm">{error}</p>}
           <button
             type="submit"
-            disabled={loading || !captchaToken}
+            disabled={loading || (!!turnstileSiteKey && !captchaToken)}
             className="w-full bg-brand-600 text-white py-2 rounded-lg hover:bg-brand-700 disabled:opacity-50 font-medium"
           >
             {loading ? "Creating account…" : "Create account"}

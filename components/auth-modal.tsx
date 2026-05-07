@@ -25,6 +25,7 @@ export function AuthModal({ defaultTab = "login", onClose, lang = "en" }: Props)
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [oauthLoading, setOauthLoading] = useState(false);
+  const turnstileSiteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
 
   const close = useCallback(() => onClose(), [onClose]);
 
@@ -75,16 +76,18 @@ export function AuthModal({ defaultTab = "login", onClose, lang = "en" }: Props)
     setLoading(true);
     setError("");
 
-    const captchaRes = await fetch("/api/auth/verify-captcha", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ token: captchaToken }),
-    });
-    if (!captchaRes.ok) {
-      setError("CAPTCHA verification failed. Please try again.");
-      setLoading(false);
-      setCaptchaToken("");
-      return;
+    if (captchaToken) {
+      const captchaRes = await fetch("/api/auth/verify-captcha", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token: captchaToken }),
+      });
+      if (!captchaRes.ok) {
+        setError("CAPTCHA verification failed. Please try again.");
+        setLoading(false);
+        setCaptchaToken("");
+        return;
+      }
     }
 
     const supabase = createClient();
@@ -237,16 +240,18 @@ export function AuthModal({ defaultTab = "login", onClose, lang = "en" }: Props)
                   placeholder={T.passwordMinPlaceholder}
                 />
               </div>
-              <Turnstile
-                siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY!}
-                onSuccess={setCaptchaToken}
-                onExpire={() => setCaptchaToken("")}
-                onError={() => setCaptchaToken("")}
-              />
+              {turnstileSiteKey && (
+                <Turnstile
+                  siteKey={turnstileSiteKey}
+                  onSuccess={setCaptchaToken}
+                  onExpire={() => setCaptchaToken("")}
+                  onError={() => setCaptchaToken("")}
+                />
+              )}
               {error && <p className="text-red-600 text-xs">{error}</p>}
               <button
                 type="submit"
-                disabled={loading || !captchaToken}
+                disabled={loading || (!!turnstileSiteKey && !captchaToken)}
                 className="w-full py-2.5 rounded-lg text-white text-sm font-medium disabled:opacity-50"
                 style={{ backgroundColor: "#EC5328" }}
               >
