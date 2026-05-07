@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+
+type Course = { id: string; title: string };
 
 type AddUserModalProps = {
   isOpen: boolean;
@@ -12,12 +14,21 @@ export function AddUserModal({ isOpen, onClose, onSuccess }: AddUserModalProps) 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [info, setInfo] = useState("");
+  const [courses, setCourses] = useState<Course[]>([]);
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
     email: "",
     role: "learner",
+    courseId: "",
   });
+
+  useEffect(() => {
+    if (!isOpen) return;
+    fetch("/api/admin/courses")
+      .then((r) => r.json())
+      .then((d) => setCourses(d.courses || []));
+  }, [isOpen]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,6 +44,7 @@ export function AddUserModal({ isOpen, onClose, onSuccess }: AddUserModalProps) 
           email: formData.email,
           fullName: `${formData.firstName} ${formData.lastName}`.trim(),
           role: formData.role,
+          courseId: formData.courseId || undefined,
         }),
       });
 
@@ -50,7 +62,7 @@ export function AddUserModal({ isOpen, onClose, onSuccess }: AddUserModalProps) 
         return;
       }
 
-      setFormData({ firstName: "", lastName: "", email: "", role: "learner" });
+      setFormData({ firstName: "", lastName: "", email: "", role: "learner", courseId: "" });
       onSuccess();
       onClose();
     } catch {
@@ -106,8 +118,22 @@ export function AddUserModal({ isOpen, onClose, onSuccess }: AddUserModalProps) 
           >
             <option value="learner">Learner</option>
             <option value="course_creator">Course Creator</option>
+            <option value="course_manager">Course Manager</option>
             <option value="admin">Admin</option>
           </select>
+
+          {formData.role === "learner" && courses.length > 0 && (
+            <select
+              value={formData.courseId}
+              onChange={(e) => setFormData({ ...formData, courseId: e.target.value })}
+              className="w-full border rounded px-3 py-2 text-sm"
+            >
+              <option value="">— Assign to course (optional) —</option>
+              {courses.map((c) => (
+                <option key={c.id} value={c.id}>{c.title}</option>
+              ))}
+            </select>
+          )}
 
           <div className="flex gap-2 pt-4">
             <button

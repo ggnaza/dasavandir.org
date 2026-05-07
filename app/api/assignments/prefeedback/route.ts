@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
-import OpenAI from "openai";
+import { getAIModel, callLLM } from "@/lib/llm";
 import * as pdfParseModule from "pdf-parse";
 const pdfParse = (pdfParseModule as any).default ?? pdfParseModule;
 
@@ -92,14 +92,7 @@ Give constructive improvement suggestions BEFORE the student submits. Do NOT gra
 
 Be encouraging and specific. Use the same language as the draft (Armenian or English). Keep it under 400 words.`;
 
-  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY, timeout: 20_000 });
-
-  const completion = await openai.chat.completions.create({
-    model: "gpt-4o-mini",
-    messages: [{ role: "user", content: prompt }],
-    max_tokens: 600,
-  });
-
-  const feedback = completion.choices[0]?.message?.content ?? "";
+  const model = await getAIModel();
+  const feedback = await callLLM(model, "You are a helpful writing coach.", prompt, { maxTokens: 600 });
   return Response.json({ feedback });
 }

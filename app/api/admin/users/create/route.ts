@@ -8,6 +8,7 @@ const schema = z.object({
   email: z.string().email().max(254),
   fullName: z.string().min(1).max(200),
   role: z.enum(["admin", "course_creator", "course_manager", "learner"]).optional().default("learner"),
+  courseId: z.string().uuid().optional(),
 });
 
 export async function POST(req: Request) {
@@ -24,7 +25,7 @@ export async function POST(req: Request) {
     const parsed = schema.safeParse(await req.json());
     if (!parsed.success) return new Response(JSON.stringify({ error: "Invalid input" }), { status: 400 });
 
-    const { email, fullName, role } = parsed.data;
+    const { email, fullName, role, courseId } = parsed.data;
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 
     // Check if user already exists in profiles
@@ -36,6 +37,12 @@ export async function POST(req: Request) {
 
     if (existingProfile) {
       await admin.from("profiles").update({ role, full_name: fullName }).eq("id", existingProfile.id);
+      if (courseId) {
+        await admin.from("enrollments").upsert(
+          { user_id: existingProfile.id, course_id: courseId },
+          { onConflict: "user_id,course_id" }
+        );
+      }
       return new Response(
         JSON.stringify({ success: true, message: "User already exists — role updated." }),
         { status: 200 }
@@ -81,10 +88,17 @@ export async function POST(req: Request) {
       }
     }
 
+    if (courseId) {
+      await admin.from("enrollments").upsert(
+        { user_id: linkData.user.id, course_id: courseId },
+        { onConflict: "user_id,course_id" }
+      );
+    }
+
     await sendInviteLinkEmail({ to: email, fullName, inviteUrl: linkData.properties.action_link });
 
     await logAudit("create_user", user.id, req, {
-      email, full_name: fullName, role, new_user_id: linkData.user.id,
+      email, full_name: fullName, role, new_user_id: linkData.user.id, course_id: courseId,
     });
 
     return new Response(JSON.stringify({ success: true }), { status: 200 });

@@ -2,7 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { z } from "zod";
-import OpenAI from "openai";
+import { getAIModel, callLLM } from "@/lib/llm";
 
 export const runtime = "nodejs";
 
@@ -111,21 +111,10 @@ If only a file or link was submitted without text, note that manual review may b
   ].filter(Boolean).join("\n\n");
 
   try {
-    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY, timeout: 20_000 });
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: submissionContext },
-      ],
-      response_format: { type: "json_object" },
-      max_tokens: 1500,
-    });
-
+    const model = await getAIModel();
+    const raw = await callLLM(model, systemPrompt, submissionContext, { maxTokens: 1500, jsonMode: true });
     let aiFeedback: any = {};
-    try {
-      aiFeedback = JSON.parse(completion.choices[0].message.content ?? "{}");
-    } catch { /* keep empty object */ }
+    try { aiFeedback = JSON.parse(raw.replace(/```json|```/g, "").trim()); } catch { /* keep empty object */ }
 
     await admin.from("submissions").update({
       ai_feedback: aiFeedback,

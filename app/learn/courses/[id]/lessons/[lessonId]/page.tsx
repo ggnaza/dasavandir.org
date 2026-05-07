@@ -125,7 +125,17 @@ export default async function LessonPage({
     }
   }
 
-  const embedUrl = lesson.video_url ? getEmbedUrl(lesson.video_url) : null;
+  // Self-hosted video: storage path has no http prefix → generate 8-hour signed URL
+  const isStorageVideo = !!lesson.video_url && !lesson.video_url.startsWith("http");
+  let resolvedVideoUrl: string | null = lesson.video_url ?? null;
+  if (isStorageVideo) {
+    const { data: signed } = await admin.storage
+      .from("lesson-videos")
+      .createSignedUrl(lesson.video_url, 28800);
+    resolvedVideoUrl = signed?.signedUrl ?? null;
+  }
+
+  const embedUrl = !isStorageVideo && lesson.video_url ? getEmbedUrl(lesson.video_url) : null;
   const slidesEmbedUrl = lesson.slides_url ? getSlidesEmbedUrl(lesson.slides_url) : null;
 
   const totalLessons = lessons?.length ?? 0;
@@ -153,12 +163,22 @@ export default async function LessonPage({
 
         <h1 className="text-xl sm:text-2xl font-bold mt-2 mb-6">{lesson.title}</h1>
 
-        {lesson.video_url && lesson.chapters?.length > 0 ? (
-          <ChapterView chapters={lesson.chapters} videoUrl={lesson.video_url} />
+        {resolvedVideoUrl && lesson.chapters?.length > 0 ? (
+          <ChapterView chapters={lesson.chapters} videoUrl={resolvedVideoUrl} isStorageVideo={isStorageVideo} />
+        ) : isStorageVideo && resolvedVideoUrl ? (
+          <VideoTracker
+            embedUrl={resolvedVideoUrl}
+            isYouTube={false}
+            isStorageVideo={true}
+            lessonId={params.lessonId}
+            userId={user!.id}
+            isCompleted={isCompleted}
+          />
         ) : embedUrl && (
           <VideoTracker
             embedUrl={embedUrl}
             isYouTube={!!(lesson.video_url && (lesson.video_url.includes("youtube.com") || lesson.video_url.includes("youtu.be")))}
+            isStorageVideo={false}
             lessonId={params.lessonId}
             userId={user!.id}
             isCompleted={isCompleted}

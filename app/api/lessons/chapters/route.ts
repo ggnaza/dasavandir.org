@@ -5,12 +5,20 @@ import { z } from "zod";
 
 const EDITOR_ROLES = ["admin", "course_creator", "course_manager"];
 
+const questionSchema = z.object({
+  question: z.string().max(1000),
+  options: z.array(z.string().max(500)).length(4),
+  correct: z.number().int().min(0).max(3),
+});
+
 const schema = z.object({
   lessonId: z.string().uuid(),
   chapters: z.array(z.object({
-    title: z.string().min(1).max(200),
+    id: z.string(),
+    title: z.string().max(200),
     start: z.number().int().min(0),
     end: z.number().int().min(0),
+    questions: z.array(questionSchema).max(50).default([]),
   })).max(100),
 });
 
