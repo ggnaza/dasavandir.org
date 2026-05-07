@@ -140,7 +140,7 @@ export default async function CourseDetailPage({ params }: { params: { id: strin
                 <h2 className="font-bold text-gray-900">Course modules</h2>
                 <p className="text-sm text-gray-500 mt-0.5">{lessonCount} module{lessonCount !== 1 ? "s" : ""}</p>
               </div>
-              <ModuleList lessons={lessons} />
+              <ModuleList lessons={lessons} courseId={course.id} isEnrolled={isEnrolled} />
             </div>
           )}
         </div>
