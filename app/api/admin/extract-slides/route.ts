@@ -25,8 +25,43 @@ function isAllowedUrl(url: string): boolean {
   }
 }
 
+function extractTextFromShape(shape: any): string {
+  return (shape?.text?.textElements ?? [])
+    .map((te: any) => te.textRun?.content ?? "")
+    .join("")
+    .trim();
+}
+
+function buildStructuredSlidesText(presentation: any): string {
+  const slides: string[] = [];
+
+  for (let i = 0; i < (presentation.slides ?? []).length; i++) {
+    const slide = presentation.slides[i];
+    const lines: string[] = [`[Slide ${i + 1}]`];
+
+    for (const el of slide.pageElements ?? []) {
+      const text = extractTextFromShape(el.shape);
+      if (text) lines.push(text);
+    }
+
+    // Speaker notes
+    const notesPage = slide.slideProperties?.notesPage;
+    if (notesPage) {
+      const notesText = (notesPage.pageElements ?? [])
+        .map((el: any) => extractTextFromShape(el.shape))
+        .filter(Boolean)
+        .join(" ")
+        .trim();
+      if (notesText) lines.push(`Notes: ${notesText}`);
+    }
+
+    if (lines.length > 1) slides.push(lines.join("\n"));
+  }
+
+  return slides.join("\n\n");
+}
+
 export async function POST(req: Request) {
-  // Auth + role check BEFORE any external network call
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return new Response("Unauthorized", { status: 401 });
@@ -55,17 +90,26 @@ export async function POST(req: Request) {
 
   const auth = getOAuthClient();
   auth.setCredentials(token);
-  const drive = google.drive({ version: "v3", auth });
 
   let text = "";
+
+  // Try Slides API first — gives structured per-slide content with speaker notes
   try {
-    const res = await drive.files.export(
-      { fileId, mimeType: "text/plain" },
-      { responseType: "text" }
-    );
-    text = (res.data as string).trim();
+    const slidesApi = google.slides({ version: "v1", auth });
+    const res = await slidesApi.presentations.get({ presentationId: fileId });
+    text = buildStructuredSlidesText(res.data).trim();
   } catch {
-    return new Response("Could not extract — make sure you are connected to Drive and the file is shared", { status: 400 });
+    // Fallback to Drive text export if Slides API fails
+    try {
+      const drive = google.drive({ version: "v3", auth });
+      const res = await drive.files.export(
+        { fileId, mimeType: "text/plain" },
+        { responseType: "text" }
+      );
+      text = (res.data as string).trim();
+    } catch {
+      return new Response("Could not extract — make sure you are connected to Drive and the file is shared", { status: 400 });
+    }
   }
 
   if (!text) return new Response("No text found", { status: 400 });

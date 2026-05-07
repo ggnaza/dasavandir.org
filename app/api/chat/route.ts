@@ -107,44 +107,56 @@ export async function POST(req: Request) {
     const text = (l.content ?? "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
     const slides = (l.slides_text ?? "").trim();
     const doc = (l.document_text ?? "").trim();
-    const combined = [text, slides, doc].filter(Boolean).join("\n").slice(0, 1500);
+    const combined = [text, slides, doc].filter(Boolean).join("\n").slice(0, 3000);
     return combined ? `### ${l.title}\n${combined}` : `### ${l.title}\n(visual/video content)`;
   }
 
   const currentText = (lesson?.content ?? "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
   const currentSlides = (lesson as any)?.slides_text ?? "";
   const currentDoc = (lesson as any)?.document_text ?? "";
-  const currentCombined = [currentText, currentSlides, currentDoc].filter(Boolean).join("\n").slice(0, 4000);
+  const currentCombined = [currentText, currentSlides, currentDoc].filter(Boolean).join("\n").slice(0, 12000);
 
-  const otherLessonsText = (allLessons ?? []).map(lessonToText).join("\n\n").slice(0, 4000);
+  const otherLessonsText = (allLessons ?? []).map(lessonToText).join("\n\n").slice(0, 8000);
 
   const systemPrompt = `You are an AI learning coach for an online course called "${courseTitle}".
 ${courseDesc ? `Course description: ${courseDesc}` : ""}
 
 The learner is currently studying: "${lesson?.title ?? ""}".
 
+=== COURSE MATERIALS (your primary source of truth) ===
+
 Current lesson content:
 ---
-${currentCombined || "(visual/video content — use your knowledge of the topic)"}
+${currentCombined || "(visual/video content — no text available)"}
 ---
 
-Other lessons in this course (for broader context):
+Other lessons in this course:
 ---
 ${otherLessonsText || "(no other lessons yet)"}
 ---
-${courseResourcesText ? `\nCourse supplementary resources (provided by the course creator for your reference):\n---\n${courseResourcesText}\n---` : ""}
-${memoryContext ? `\nWhat you know about this learner from previous sessions:\n---\n${memoryContext}\n---` : ""}
+${courseResourcesText ? `\nSupplementary resources added by the course creator:\n---\n${courseResourcesText}\n---` : ""}
+${memoryContext ? `\nWhat you remember about this learner from previous sessions:\n---\n${memoryContext}\n---` : ""}
 
-Your role:
-- Help the learner using the course materials above and your general knowledge of the subject
+=== YOUR RULES ===
+
+PRIORITY ORDER — follow strictly:
+1. Answer using ONLY the course materials above whenever possible.
+2. If the materials clearly cover the topic, do not add outside information unless the learner asks.
+3. If the materials do NOT cover the topic, you may use your general knowledge — but you MUST clearly label it:
+   - In English: start that part with "This is not from the course materials:"
+   - In Armenian: start with "Սա դասընթացի նյութերից չէ."
+4. When suggesting external resources (books, videos, websites), ALWAYS end with this disclaimer on its own line:
+   - In English: "* These resources are not reviewed or confirmed by the Teach For Armenia team."
+   - In Armenian: "* Այս նյութերը չեն ստուգվել կամ հաստատվել Դասավանդի՛ր Հայաստան թիմի կողմից։"
+
+LANGUAGE: Always respond in the exact same language the learner writes in. If they write in Armenian, respond fully in Armenian. Never switch languages mid-response.
+
+BEHAVIOR:
 - Explain concepts clearly and simply
 - Quiz the learner when they ask
 - Summarize key points on request
-- Encourage and guide without being condescending
-- Keep responses concise and focused
-- Always respond in the same language the learner writes in (Armenian, English, or any other language)
-- When relevant, suggest additional ways to learn: YouTube searches, book titles, key terms to Google, or well-known free resources
-- Always add a disclaimer after any external suggestion. In English: "* These resources are not reviewed or confirmed by the Teach For Armenia team." In Armenian: "* Այս նյութերը չեն ստուգվել կամ հաստատվել Դասավանդի՛ր Հայաստան թիմի կողմից։"`;
+- Encourage without being condescending
+- Keep responses concise and focused`;
 
   const encoder = new TextEncoder();
   let fullReply = "";
@@ -153,7 +165,7 @@ Your role:
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
     const stream = anthropic.messages.stream({
       model,
-      max_tokens: 600,
+      max_tokens: 1000,
       system: systemPrompt,
       messages: messages.map((m: { role: string; content: string }) => ({
         role: m.role as "user" | "assistant",
@@ -233,7 +245,7 @@ Your role:
       { role: "system", content: systemPrompt },
       ...messages,
     ],
-    max_tokens: 600,
+    max_tokens: 1000,
   });
 
   const readable = new ReadableStream({
