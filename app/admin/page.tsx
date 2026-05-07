@@ -1,4 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { redirect } from "next/navigation";
 import Link from "next/link";
 import { BackfillMaterialsButton } from "./backfill-materials-button";
 
@@ -6,6 +8,12 @@ export const dynamic = "force-dynamic";
 
 export default async function AdminDashboard() {
   const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (user) {
+    const admin = createAdminClient();
+    const { data: profile } = await admin.from("profiles").select("role").eq("id", user.id).single();
+    if (profile?.role !== "admin") redirect("/admin/courses");
+  }
 
   const [
     { count: courseCount },

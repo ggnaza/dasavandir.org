@@ -39,9 +39,11 @@ export function Nav({ role, userName, unreadNotifications = 0, lang = "en" }: Na
         ]
       : role === "creator"
       ? [
-          { href: "/learn", label: "My Courses" },
-          { href: "/learn/progress", label: "Progress" },
-          { href: "/courses", label: "Browse" },
+          { href: "/admin/courses", label: "My Courses" },
+          { href: "/admin/ai-builder", label: "✦ AI Builder" },
+          { href: "/admin/submissions", label: "Submissions" },
+          { href: "/admin/learners", label: "Learners" },
+          { href: "/learn", label: "Learn" },
         ]
       : role === "moderator"
       ? [
