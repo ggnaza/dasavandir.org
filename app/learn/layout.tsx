@@ -20,7 +20,10 @@ export default async function LearnLayout({ children }: { children: React.ReactN
   ]);
 
   const lang = getLang(cookies().get("lang")?.value);
-  const navRole = profile?.role === "course_creator" ? "creator" : "learner";
+  const navRole =
+    profile?.role === "admin" ? "admin"
+    : profile?.role === "course_creator" || profile?.role === "course_manager" ? "creator"
+    : "learner";
   const isPending = profile?.status === "pending";
 
   return (
