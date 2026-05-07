@@ -76,7 +76,7 @@ export default async function LessonPage({
     admin.from("quizzes").select("id").eq("lesson_id", params.lessonId).single(),
     admin.from("lesson_files").select("id, file_name, storage_path").eq("lesson_id", params.lessonId).order("created_at"),
     admin.from("assignments").select("id").eq("lesson_id", params.lessonId).single(),
-    admin.from("enrollments").select("id, created_at").eq("user_id", user!.id).eq("course_id", params.id).single(),
+    admin.from("enrollments").select("id").eq("user_id", user!.id).eq("course_id", params.id).single(),
     admin.from("courses").select("allow_shuffled_learning, pre_submission_ai").eq("id", params.id).single(),
   ]);
 
@@ -141,7 +141,7 @@ export default async function LessonPage({
   const totalLessons = lessons?.length ?? 0;
   const completedCount = lessons?.filter((l) => completedIds.has(l.id)).length ?? 0;
 
-  const enrolledAt = enrollment?.created_at ?? null;
+  const enrolledAt: string | null = null;
   const deadlineInfo = deadlineLabel(lesson, enrolledAt);
 
   return (
