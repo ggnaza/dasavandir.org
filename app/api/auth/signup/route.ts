@@ -7,7 +7,7 @@ const schema = z.object({
   email: z.string().email().max(254),
   password: z.string().min(8).max(128),
   full_name: z.string().min(1).max(200),
-  captcha_token: z.string().min(1),
+  captcha_token: z.string().optional().default(""),
 });
 
 export async function POST(req: Request) {
