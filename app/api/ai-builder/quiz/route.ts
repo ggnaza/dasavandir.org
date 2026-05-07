@@ -1,6 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { buildLessonContext } from "@/lib/lesson-ai-context";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { z } from "zod";
 import { getAIModel, callLLM } from "@/lib/llm";
@@ -35,7 +34,7 @@ export async function POST(req: Request) {
 
   const { data: lesson } = await admin
     .from("lessons")
-    .select("title, content, video_url, slides_url, document_url, course_id")
+    .select("title, content, slides_text, document_text, video_url, course_id")
     .eq("id", lessonId)
     .single();
 
@@ -50,16 +49,45 @@ export async function POST(req: Request) {
   const languageMap: Record<string, string> = { hy: "Armenian", en: "English" };
   const language = languageMap[course?.language ?? ""] ?? null;
 
-  const { parts, warnings } = await buildLessonContext(lesson);
+  // Build lesson text from pre-extracted DB fields
+  const contentText = (lesson.content ?? "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+  const slidesText = (lesson.slides_text ?? "").trim();
+  const documentText = (lesson.document_text ?? "").trim();
 
-  if (chapterTitle) {
-    const fmt = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
-    parts.splice(1, 0, `Focus on chapter: "${chapterTitle}" (${fmt(chapterStart ?? 0)} – ${fmt(chapterEnd ?? 0)}). Generate questions specifically about the content in this segment.`);
+  const lessonText = [
+    `Lesson title: ${lesson.title}`,
+    contentText ? `Lesson content:\n${contentText}` : "",
+    slidesText ? `Slide content:\n${slidesText}` : "",
+    documentText ? `Document content:\n${documentText}` : "",
+    lesson.video_url ? `(This lesson also includes a video — AI cannot read video content)` : "",
+  ].filter(Boolean).join("\n\n").slice(0, 12000);
+
+  // Load course-level resources
+  const { data: resources } = await admin
+    .from("course_resources")
+    .select("title, extracted_text")
+    .eq("course_id", lesson.course_id)
+    .order("created_at");
+
+  const resourcesText = (resources ?? [])
+    .filter((r) => r.extracted_text?.trim())
+    .map((r) => `### ${r.title}\n${r.extracted_text!.trim()}`)
+    .join("\n\n")
+    .slice(0, 6000);
+
+  const fullContext = [
+    lessonText,
+    resourcesText ? `Course supplementary resources:\n${resourcesText}` : "",
+  ].filter(Boolean).join("\n\n");
+
+  if (!fullContext.trim() || fullContext.trim() === `Lesson title: ${lesson.title}`) {
+    return new Response("Lesson has no text content to generate questions from. Please extract slides or documents first.", { status: 400 });
   }
 
-  const hasContent = lesson.content || lesson.slides_url || lesson.video_url || lesson.document_url;
-  if (!hasContent) {
-    return new Response("Lesson has no content to generate questions from", { status: 400 });
+  let chapterNote = "";
+  if (chapterTitle) {
+    const fmt = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+    chapterNote = `\nFocus on chapter: "${chapterTitle}" (${fmt(chapterStart ?? 0)} – ${fmt(chapterEnd ?? 0)}). Generate questions specifically about the content in this segment.\n`;
   }
 
   const model = await getAIModel();
@@ -74,7 +102,7 @@ ${language
 }
 Return ONLY valid JSON — no markdown, no explanation.`;
 
-  const userMessage = `${parts.join("\n\n")}
+  const userMessage = `${chapterNote}${fullContext}
 
 Return this exact JSON structure:
 {
@@ -93,7 +121,7 @@ The "correct" field is the 0-based index of the correct option.`;
     const raw = await callLLM(model, systemPrompt, userMessage, { temperature: 0.7, maxTokens: 2000, jsonMode: true });
     try {
       const json = JSON.parse(raw.replace(/```json|```/g, "").trim());
-      return Response.json({ questions: json.questions, warnings });
+      return Response.json({ questions: json.questions });
     } catch {
       return new Response("AI returned invalid response. Please try again.", { status: 500 });
     }
