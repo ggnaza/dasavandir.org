@@ -21,6 +21,13 @@ export default async function LessonPage({
 
   if (!lesson) notFound();
 
+  const signedFiles = await Promise.all(
+    (files ?? []).map(async (f) => {
+      const { data } = await admin.storage.from("lesson-files").createSignedUrl(f.storage_path, 3600);
+      return { id: f.id, file_name: f.file_name, storage_path: f.storage_path, signedUrl: data?.signedUrl ?? "" };
+    })
+  );
+
   const sortedLessons = allLessons ?? [];
   const idx = sortedLessons.findIndex((l) => l.id === params.lessonId);
   const prevDeadlineDate = idx > 0 ? (sortedLessons[idx - 1].deadline_date ?? null) : null;
@@ -44,7 +51,7 @@ export default async function LessonPage({
         courseDeadlineDate={courseDeadlineDate}
       />
 
-      <FileUploader lessonId={params.lessonId} existingFiles={files ?? []} />
+      <FileUploader lessonId={params.lessonId} existingFiles={signedFiles} />
 
       <div className="mt-4 flex gap-3">
         <Link

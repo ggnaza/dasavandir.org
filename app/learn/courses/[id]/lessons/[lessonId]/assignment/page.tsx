@@ -33,6 +33,12 @@ export default async function LearnAssignmentPage({
     admin.from("courses").select("pre_submission_ai").eq("id", params.id).single(),
   ]);
 
+  let existingFileUrl: string | null = null;
+  if (submission?.file_path) {
+    const { data: signed } = await admin.storage.from("lesson-files").createSignedUrl(submission.file_path, 3600);
+    existingFileUrl = signed?.signedUrl ?? null;
+  }
+
   return (
     <div className="max-w-2xl">
       <Link href={`/learn/courses/${params.id}/lessons/${params.lessonId}`} className="text-sm text-gray-500 hover:text-gray-700">
@@ -49,6 +55,7 @@ export default async function LearnAssignmentPage({
       <AssignmentSubmitter
         assignment={assignment}
         existingSubmission={submission}
+        existingFileUrl={existingFileUrl}
         courseId={params.id}
         lessonId={params.lessonId}
         preSubmissionAiEnabled={course?.pre_submission_ai ?? false}
