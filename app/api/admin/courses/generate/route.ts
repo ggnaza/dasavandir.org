@@ -76,10 +76,10 @@ export async function POST(req: Request) {
   const { data: profile } = await admin.from("profiles").select("role").eq("id", user.id).single();
   if (!EDITOR_ROLES.includes(profile?.role ?? "")) return new Response("Forbidden", { status: 403 });
 
-  let materialText = "";
   let language = "en";
   let hint = "";
   let materialUrl: string | null = null;
+  const textParts: string[] = [];
 
   const contentType = req.headers.get("content-type") ?? "";
 
@@ -93,20 +93,25 @@ export async function POST(req: Request) {
     if (url?.trim()) {
       materialUrl = url.trim();
       try {
-        materialText = await extractTextFromUrl(materialUrl);
+        textParts.push(await extractTextFromUrl(materialUrl));
       } catch (e: any) {
         return new Response(e.message, { status: 400 });
       }
-    } else if (file) {
+    }
+
+    if (file) {
       try {
         const buffer = Buffer.from(await file.arrayBuffer());
         const pdfParse = require("pdf-parse/lib/pdf-parse.js");
         const result = await pdfParse(buffer);
-        materialText = (result.text?.trim() ?? "").slice(0, 30000);
+        const pdfText = (result.text?.trim() ?? "").slice(0, 30000);
+        if (pdfText) textParts.push(pdfText);
       } catch {
         return new Response("Could not extract text from the PDF file.", { status: 400 });
       }
-    } else {
+    }
+
+    if (textParts.length === 0) {
       return new Response("No material provided.", { status: 400 });
     }
   } else {
@@ -116,7 +121,7 @@ export async function POST(req: Request) {
     if (body.materialUrl?.trim()) {
       materialUrl = body.materialUrl.trim() as string;
       try {
-        materialText = await extractTextFromUrl(materialUrl);
+        textParts.push(await extractTextFromUrl(materialUrl));
       } catch (e: any) {
         return new Response(e.message, { status: 400 });
       }
@@ -124,6 +129,8 @@ export async function POST(req: Request) {
       return new Response("No material provided.", { status: 400 });
     }
   }
+
+  const materialText = textParts.join("\n\n---\n\n");
 
   if (!materialText.trim()) {
     return new Response("The material appears to be empty or could not be read.", { status: 400 });

@@ -39,7 +39,6 @@ export default function GenerateCoursePage() {
   // Input state
   const [hint, setHint] = useState("");
   const [language, setLanguage] = useState<"en" | "hy">("hy");
-  const [inputMode, setInputMode] = useState<"url" | "file">("url");
   const [materialUrl, setMaterialUrl] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [error, setError] = useState("");
@@ -65,14 +64,17 @@ export default function GenerateCoursePage() {
     setStep("loading");
     setLoadingMsgIndex(0);
 
+    if (!materialUrl.trim() && !file) {
+      setError("Please provide a Google Drive link, a PDF file, or both.");
+      setStep("input");
+      return;
+    }
+
     const form = new FormData();
     form.append("language", language);
     form.append("hint", hint);
-    if (inputMode === "url") {
-      form.append("materialUrl", materialUrl);
-    } else if (file) {
-      form.append("file", file);
-    }
+    if (materialUrl.trim()) form.append("materialUrl", materialUrl.trim());
+    if (file) form.append("file", file);
 
     try {
       const res = await fetch("/api/admin/courses/generate", { method: "POST", body: form });
@@ -190,54 +192,47 @@ export default function GenerateCoursePage() {
             <p className="text-xs text-gray-400 mt-1">Helps the AI focus if your material covers a broad topic.</p>
           </div>
 
-          {/* Material input mode */}
-          <div>
-            <label className="block text-sm font-medium mb-2">Learning material</label>
-            <div className="flex gap-2 mb-3">
-              {(["url", "file"] as const).map((mode) => (
-                <button
-                  key={mode}
-                  type="button"
-                  onClick={() => setInputMode(mode)}
-                  className={`text-xs px-3 py-1.5 rounded-full border ${inputMode === mode ? "bg-brand-600 text-white border-brand-600" : "text-gray-600 border-gray-300 hover:bg-gray-50"}`}
-                >
-                  {mode === "url" ? "Google Drive link" : "Upload PDF"}
-                </button>
-              ))}
+          {/* Material inputs — both can be provided */}
+          <div className="space-y-4">
+            <label className="block text-sm font-medium">Learning material <span className="text-gray-400 font-normal">(one or both)</span></label>
+
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Google Drive link</label>
+              <input
+                type="url"
+                value={materialUrl}
+                onChange={(e) => setMaterialUrl(e.target.value)}
+                placeholder="https://docs.google.com/document/d/…"
+                className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+              />
+              <p className="text-xs text-gray-400 mt-1">
+                Google Docs or Google Slides. Make sure sharing is "Anyone with the link can view".
+              </p>
             </div>
 
-            {inputMode === "url" && (
-              <div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Upload PDF</label>
+              <label className="cursor-pointer inline-flex items-center gap-2 text-sm bg-gray-100 hover:bg-gray-200 px-3 py-2 rounded-lg font-medium">
+                {file ? file.name : "Choose PDF file"}
                 <input
-                  type="url"
-                  required
-                  value={materialUrl}
-                  onChange={(e) => setMaterialUrl(e.target.value)}
-                  placeholder="https://docs.google.com/document/d/…"
-                  className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".pdf"
+                  className="hidden"
+                  onChange={(e) => setFile(e.target.files?.[0] ?? null)}
                 />
-                <p className="text-xs text-gray-400 mt-1">
-                  Google Docs or Google Slides. Make sure sharing is "Anyone with the link can view".
-                </p>
-              </div>
-            )}
-
-            {inputMode === "file" && (
-              <div>
-                <label className="cursor-pointer inline-flex items-center gap-2 text-sm bg-gray-100 hover:bg-gray-200 px-3 py-2 rounded-lg font-medium">
-                  {file ? file.name : "Choose PDF file"}
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept=".pdf"
-                    required
-                    className="hidden"
-                    onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-                  />
-                </label>
-                <p className="text-xs text-gray-400 mt-1">PDF · max 20MB.</p>
-              </div>
-            )}
+              </label>
+              {file && (
+                <button
+                  type="button"
+                  onClick={() => { setFile(null); if (fileInputRef.current) fileInputRef.current.value = ""; }}
+                  className="ml-2 text-xs text-gray-400 hover:text-red-500"
+                >
+                  remove
+                </button>
+              )}
+              <p className="text-xs text-gray-400 mt-1">PDF · max 20MB.</p>
+            </div>
           </div>
 
           {/* Language */}
