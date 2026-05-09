@@ -90,7 +90,7 @@ export async function POST(req: Request) {
       try {
         const res = await fetch(lesson.document_url);
         const buffer = Buffer.from(await res.arrayBuffer());
-        const pdfParse = require("pdf-parse");
+        const pdfParse = require("pdf-parse/lib/pdf-parse.js");
         const data = await pdfParse(buffer);
         const text = data.text?.trim() ?? "";
         if (text) {

@@ -103,7 +103,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       if (urlData?.publicUrl) {
         const res = await fetch(urlData.publicUrl);
         const buffer = Buffer.from(await res.arrayBuffer());
-        const pdfParse = require("pdf-parse");
+        const pdfParse = require("pdf-parse/lib/pdf-parse.js");
         const parsed = await pdfParse(buffer);
         extractedText = (parsed.text?.trim() ?? "").slice(0, 20000);
       }

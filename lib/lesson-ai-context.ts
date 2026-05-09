@@ -1,4 +1,5 @@
-import { PDFParse } from "pdf-parse";
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const pdfParse = require("pdf-parse/lib/pdf-parse.js");
 
 export type LessonContext = {
   parts: string[];
@@ -59,8 +60,13 @@ async function fetchGoogleSlidesText(url: string): Promise<{ text: string | null
 
 async function fetchPdfText(url: string): Promise<{ text: string | null; warning: string | null }> {
   try {
-    const parser = new PDFParse({ url });
-    const result = await parser.getText();
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 10_000);
+    const res = await fetch(url, { cache: "no-store", signal: controller.signal });
+    clearTimeout(timer);
+    if (!res.ok) return { text: null, warning: `PDF could not be downloaded (HTTP ${res.status}).` };
+    const buffer = Buffer.from(await res.arrayBuffer());
+    const result = await pdfParse(buffer);
     const text = result.text?.trim().slice(0, 5000);
     if (!text) return { text: null, warning: "PDF was empty or could not be parsed." };
     return { text, warning: null };
