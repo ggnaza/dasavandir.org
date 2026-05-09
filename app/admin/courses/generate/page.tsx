@@ -213,11 +213,11 @@ export default function GenerateCoursePage() {
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Upload PDF</label>
               <label className="cursor-pointer inline-flex items-center gap-2 text-sm bg-gray-100 hover:bg-gray-200 px-3 py-2 rounded-lg font-medium">
-                {file ? file.name : "Choose PDF file"}
+                {file ? file.name : "Choose file"}
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept=".pdf"
+                  accept=".pdf,.docx,.rtf,.txt,.xlsx,.xls,.csv"
                   className="hidden"
                   onChange={(e) => setFile(e.target.files?.[0] ?? null)}
                 />
@@ -231,7 +231,7 @@ export default function GenerateCoursePage() {
                   remove
                 </button>
               )}
-              <p className="text-xs text-gray-400 mt-1">PDF · max 20MB.</p>
+              <p className="text-xs text-gray-400 mt-1">PDF, Word (.docx), Excel (.xlsx), RTF, TXT · max 20MB.</p>
             </div>
           </div>
 
