@@ -100,7 +100,7 @@ export async function POST(req: Request) {
     } else if (file) {
       try {
         const buffer = Buffer.from(await file.arrayBuffer());
-        const pdfParse = require("pdf-parse");
+        const pdfParse = require("pdf-parse/lib/pdf-parse.js");
         const result = await pdfParse(buffer);
         materialText = (result.text?.trim() ?? "").slice(0, 30000);
       } catch {
