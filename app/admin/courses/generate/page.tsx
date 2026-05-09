@@ -211,7 +211,7 @@ export default function GenerateCoursePage() {
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Upload PDF</label>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Upload document</label>
               <label className="cursor-pointer inline-flex items-center gap-2 text-sm bg-gray-100 hover:bg-gray-200 px-3 py-2 rounded-lg font-medium">
                 {file ? file.name : "Choose file"}
                 <input
