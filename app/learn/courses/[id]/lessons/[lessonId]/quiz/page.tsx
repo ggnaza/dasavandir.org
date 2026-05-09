@@ -29,14 +29,21 @@ export default async function LearnQuizPage({
 
   if (!quiz) notFound();
 
-  const { data: lastResponse } = await admin
-    .from("quiz_responses")
-    .select("*")
-    .eq("user_id", user!.id)
-    .eq("quiz_id", quiz.id)
-    .order("submitted_at", { ascending: false })
-    .limit(1)
-    .single();
+  const [{ data: lastResponse }, { count: attemptCount }] = await Promise.all([
+    admin
+      .from("quiz_responses")
+      .select("*")
+      .eq("user_id", user!.id)
+      .eq("quiz_id", quiz.id)
+      .order("submitted_at", { ascending: false })
+      .limit(1)
+      .single(),
+    admin
+      .from("quiz_responses")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", user!.id)
+      .eq("quiz_id", quiz.id),
+  ]);
 
   // If quiz uses question bank, pick random questions
   let questions = quiz.questions ?? [];
@@ -70,10 +77,10 @@ export default async function LearnQuizPage({
       </div>
       <QuizTaker
         quiz={quizForTaker}
-        userId={user!.id}
         lastResponse={lastResponse ?? null}
         courseId={params.id}
         lessonId={params.lessonId}
+        attemptCount={attemptCount ?? 0}
       />
     </div>
   );

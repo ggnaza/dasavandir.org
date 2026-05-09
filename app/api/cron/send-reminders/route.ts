@@ -5,11 +5,9 @@ import { sendLessonReminderEmail } from "@/lib/email";
 // Vercel Cron calls this daily with Authorization: Bearer <CRON_SECRET>
 export async function GET(req: Request) {
   const cronSecret = process.env.CRON_SECRET;
-  if (cronSecret) {
-    const auth = req.headers.get("authorization");
-    if (auth !== `Bearer ${cronSecret}`) {
-      return new Response("Unauthorized", { status: 401 });
-    }
+  const auth = req.headers.get("authorization");
+  if (!cronSecret || auth !== `Bearer ${cronSecret}`) {
+    return new Response("Unauthorized", { status: 401 });
   }
 
   const admin = createAdminClient();

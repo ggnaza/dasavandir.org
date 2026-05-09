@@ -1,25 +1,24 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
 
 type Question = { question: string; options: string[]; correct: number };
-type Quiz = { id: string; questions: Question[] };
+type Quiz = { id: string; questions: Question[]; max_attempts?: number | null };
 type Response = { answers: number[]; score: number };
 
 export function QuizTaker({
   quiz,
-  userId,
   lastResponse,
   courseId,
   lessonId,
+  attemptCount,
 }: {
   quiz: Quiz;
-  userId: string;
   lastResponse: Response | null;
   courseId: string;
   lessonId: string;
+  attemptCount: number;
 }) {
   const router = useRouter();
   const [answers, setAnswers] = useState<(number | null)[]>(
@@ -28,34 +27,61 @@ export function QuizTaker({
   const [submitted, setSubmitted] = useState(!!lastResponse);
   const [score, setScore] = useState<number | null>(lastResponse?.score ?? null);
   const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [localAttemptCount, setLocalAttemptCount] = useState(attemptCount);
+
+  const maxAttempts = quiz.max_attempts ?? null;
+  const attemptsExhausted = maxAttempts !== null && localAttemptCount >= maxAttempts;
 
   const total = quiz.questions.length;
   const allAnswered = answers.every((a) => a !== null);
 
   async function handleSubmit() {
     setSubmitting(true);
+    setError(null);
     const correct = quiz.questions.filter((q, i) => answers[i] === q.correct).length;
     const pct = Math.round((correct / total) * 100);
-    const supabase = createClient();
-    await supabase.from("quiz_responses").insert({
-      quiz_id: quiz.id,
-      user_id: userId,
-      answers,
-      score: pct,
+
+    const res = await fetch("/api/lessons/quiz-submit", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        quizId: quiz.id,
+        lessonId,
+        courseId,
+        answers,
+        score: pct,
+      }),
     });
+
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      if (res.status === 429) {
+        setError(`You have reached the maximum number of attempts (${body.maxAttempts ?? maxAttempts}).`);
+      } else {
+        setError("Failed to submit quiz. Please try again.");
+      }
+      setSubmitting(false);
+      return;
+    }
+
     setScore(pct);
     setSubmitted(true);
+    setLocalAttemptCount((c) => c + 1);
     setSubmitting(false);
     router.refresh();
   }
 
   function retake() {
+    if (attemptsExhausted) return;
     setAnswers(Array(total).fill(null));
     setSubmitted(false);
     setScore(null);
+    setError(null);
   }
 
   if (submitted && score !== null) {
+    const nowExhausted = maxAttempts !== null && localAttemptCount >= maxAttempts;
     return (
       <div className="bg-white border rounded-xl p-8 text-center">
         <div className={`text-5xl font-bold mb-2 ${score >= 80 ? "text-green-600" : "text-orange-500"}`}>
@@ -69,6 +95,11 @@ export function QuizTaker({
         )}
         {score < 80 && (
           <p className="text-sm text-orange-600 mb-5">Score: {score}% — try again to reach 80%.</p>
+        )}
+        {maxAttempts && (
+          <p className="text-sm text-gray-400 mb-4">
+            Attempt {localAttemptCount} of {maxAttempts}
+          </p>
         )}
         <div className="space-y-3 text-left mb-6">
           {quiz.questions.map((q, i) => {
@@ -89,9 +120,14 @@ export function QuizTaker({
           })}
         </div>
         <div className="flex gap-3 justify-center">
-          <button onClick={retake} className="text-sm border rounded-lg px-4 py-2 hover:bg-gray-50">
-            Retake quiz
-          </button>
+          {!nowExhausted && (
+            <button onClick={retake} className="text-sm border rounded-lg px-4 py-2 hover:bg-gray-50">
+              Retake quiz
+            </button>
+          )}
+          {nowExhausted && score < 80 && (
+            <p className="text-sm text-red-600">No more attempts remaining.</p>
+          )}
           <Link
             href={`/learn/courses/${courseId}/lessons/${lessonId}`}
             className="text-sm bg-brand-600 text-white px-4 py-2 rounded-lg hover:bg-brand-700"
@@ -103,8 +139,30 @@ export function QuizTaker({
     );
   }
 
+  if (attemptsExhausted) {
+    return (
+      <div className="bg-white border rounded-xl p-8 text-center">
+        <p className="text-gray-700 font-medium mb-2">No more attempts remaining.</p>
+        <p className="text-sm text-gray-500 mb-6">
+          You have used all {maxAttempts} allowed attempt{maxAttempts !== 1 ? "s" : ""} for this quiz.
+        </p>
+        <Link
+          href={`/learn/courses/${courseId}/lessons/${lessonId}`}
+          className="text-sm bg-brand-600 text-white px-4 py-2 rounded-lg hover:bg-brand-700"
+        >
+          Back to lesson
+        </Link>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-5">
+      {maxAttempts && (
+        <p className="text-sm text-gray-400">
+          Attempt {localAttemptCount + 1} of {maxAttempts}
+        </p>
+      )}
       {quiz.questions.map((q, qi) => (
         <div key={qi} className="bg-white border rounded-xl p-5">
           <p className="font-medium mb-3">{qi + 1}. {q.question}</p>
@@ -133,6 +191,8 @@ export function QuizTaker({
           </div>
         </div>
       ))}
+
+      {error && <p className="text-red-600 text-sm">{error}</p>}
 
       <button
         onClick={handleSubmit}

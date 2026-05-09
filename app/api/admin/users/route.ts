@@ -44,19 +44,32 @@ export async function POST(req: Request) {
   }
 }
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
     const { admin } = await checkAdmin();
-    const { data: users, error } = await admin
+
+    const url = new URL(req.url);
+    const PAGE_SIZE = 50;
+    const page = Math.max(1, parseInt(url.searchParams.get("page") ?? "1", 10));
+    const search = (url.searchParams.get("search") ?? "").trim();
+
+    let query = admin
       .from("profiles")
-      .select("id, full_name, email, role, status, created_at")
-      .order("created_at", { ascending: false });
+      .select("id, full_name, email, role, status, created_at", { count: "exact" })
+      .order("created_at", { ascending: false })
+      .range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1);
+
+    if (search) {
+      query = query.or(`full_name.ilike.%${search}%,email.ilike.%${search}%`);
+    }
+
+    const { data: users, error, count } = await query;
 
     if (error) {
       console.error("[users/list]", error);
       return new Response(JSON.stringify({ error: "Failed to fetch users" }), { status: 500 });
     }
-    return new Response(JSON.stringify({ users }), { status: 200 });
+    return new Response(JSON.stringify({ users, total: count ?? 0, page, pageSize: PAGE_SIZE }), { status: 200 });
   } catch (err: any) {
     const isAuthError = err.message === "Unauthorized" || err.message === "Forbidden";
     return new Response(JSON.stringify({ error: err.message }), { status: isAuthError ? 403 : 500 });

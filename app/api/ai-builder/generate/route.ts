@@ -33,13 +33,19 @@ export async function POST(req: Request) {
 
   let sourceText = "";
 
+  const MAX_FILE_BYTES = 10 * 1024 * 1024; // 10 MB
+
   const contentType = req.headers.get("content-type") ?? "";
   if (contentType.includes("multipart/form-data")) {
     const form = await req.formData();
     const file = form.get("file") as File | null;
     const text = form.get("text") as string | null;
-    if (file) sourceText = await extractText(file);
-    else if (text) sourceText = text;
+    if (file) {
+      if (file.size > MAX_FILE_BYTES) {
+        return new Response("File too large (max 10 MB)", { status: 413 });
+      }
+      sourceText = await extractText(file);
+    } else if (text) sourceText = text;
   } else {
     const body = await req.json();
     sourceText = body.text ?? "";
