@@ -208,7 +208,7 @@ export function HomeClient({ courses, lang }: Props) {
       <footer style={{ backgroundColor: "#323131" }}>
         <div className="max-w-6xl mx-auto px-6 py-10 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div>
-            <span className="text-xl font-bold" style={{ color: "#EC5328" }}>Dasavandir.org</span>
+            <span className="text-xl font-bold" style={{ color: "#EC5328" }}>Դasavandir.org</span>
             <p className="text-gray-400 text-xs mt-1">{T.builtBy}</p>
           </div>
           <div className="flex gap-6 text-sm text-gray-400">

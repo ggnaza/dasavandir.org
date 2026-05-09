@@ -61,7 +61,12 @@ export function Nav({ role, userName, unreadNotifications = 0, lang = "en" }: Na
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4 sm:gap-6">
           <Link href="/" className="flex items-center gap-1 shrink-0">
-            <span className="text-xl font-bold" style={{ color: "#EC5328" }}>Դasavandir</span>
+            <span
+              className="text-xl font-bold"
+              style={{ color: role === "learner" || role === "moderator" ? "#2563eb" : "#EC5328" }}
+            >
+              Դasavandir
+            </span>
             <span className="text-xs text-gray-400 mt-1">.org</span>
           </Link>
           {/* Desktop nav */}
