@@ -100,8 +100,9 @@ export async function POST(req: Request) {
     } else if (file) {
       try {
         const buffer = Buffer.from(await file.arrayBuffer());
-        const pdfParse = require("pdf-parse");
-        const result = await pdfParse(buffer);
+        const { PDFParse } = require("pdf-parse");
+        const parser = new PDFParse({ data: buffer });
+        const result = await parser.getText();
         materialText = (result.text?.trim() ?? "").slice(0, 30000);
       } catch {
         return new Response("Could not extract text from the PDF file.", { status: 400 });

@@ -10,10 +10,10 @@ async function extractText(file: File): Promise<string> {
   const buffer = Buffer.from(await file.arrayBuffer());
 
   if (file.type === "application/pdf" || file.name.endsWith(".pdf")) {
-    // @ts-ignore
-    const pdfParse = require("pdf-parse");
-    const data = await pdfParse(buffer);
-    return data.text;
+    const { PDFParse } = require("pdf-parse");
+    const parser = new PDFParse({ data: buffer });
+    const data = await parser.getText();
+    return data.text ?? "";
   }
 
   return buffer.toString("utf-8");
