@@ -31,6 +31,7 @@ type Lesson = {
   audio_url: string | null;
   document_url: string | null;
   slides_url: string | null;
+  slide_audio_urls: string[] | null;
   what_you_learn: string | null;
   skills: string[] | null;
   order: number;
@@ -70,6 +71,8 @@ export function LessonEditor({
   const [deadlineError, setDeadlineError] = useState("");
   const [generatingAudio, setGeneratingAudio] = useState(false);
   const [audioError, setAudioError] = useState("");
+  const [generatingSlideAudio, setGeneratingSlideAudio] = useState(false);
+  const [slideAudioUrls, setSlideAudioUrls] = useState<string[]>(lesson.slide_audio_urls ?? []);
   // Video source mode: "link" = external URL, "upload" = Supabase Storage path
   const [videoMode, setVideoMode] = useState<"link" | "upload">(
     lesson.video_url && !lesson.video_url.startsWith("http") ? "upload" : "link"
@@ -112,6 +115,21 @@ export function LessonEditor({
     const { audioUrl: url } = await res.json();
     setAudioUrl(url);
     setGeneratingAudio(false);
+    router.refresh();
+  }
+
+  async function handleGenerateSlideAudio() {
+    setGeneratingSlideAudio(true);
+    setAudioError("");
+    const res = await fetch("/api/ai-builder/audio", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ lessonId: lesson.id, slides: true }),
+    });
+    if (!res.ok) { setAudioError(await res.text()); setGeneratingSlideAudio(false); return; }
+    const { slideAudioUrls: urls } = await res.json();
+    setSlideAudioUrls(urls);
+    setGeneratingSlideAudio(false);
     router.refresh();
   }
 
@@ -503,6 +521,39 @@ export function LessonEditor({
         {audioError && <p className="text-xs text-red-500">{audioError}</p>}
         {audioUrl && !generatingAudio && (
           <audio controls className="w-full h-10" src={audioUrl} />
+        )}
+
+        {/* Slide-by-slide audio — only available when slides are linked */}
+        {slidesUrl && slidesUrl.includes("docs.google.com/presentation") && (
+          <div className="border-t pt-3 space-y-2">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium">Slide-by-slide audio</p>
+                <p className="text-xs text-gray-400">One audio clip per slide — learners hear narration as they advance through slides.</p>
+              </div>
+              <button
+                type="button"
+                onClick={handleGenerateSlideAudio}
+                disabled={generatingSlideAudio}
+                className="text-sm bg-brand-600 text-white px-4 py-1.5 rounded-lg hover:bg-brand-700 disabled:opacity-50 font-medium shrink-0"
+              >
+                {generatingSlideAudio ? "Generating…" : slideAudioUrls.length > 0 ? "Regenerate slides" : "Generate slide audio"}
+              </button>
+            </div>
+            {generatingSlideAudio && (
+              <p className="text-xs text-gray-400">Generating audio for each slide — this may take a minute…</p>
+            )}
+            {slideAudioUrls.length > 0 && !generatingSlideAudio && (
+              <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                {slideAudioUrls.map((url, i) => url && (
+                  <div key={i} className="flex items-center gap-2">
+                    <span className="text-xs text-gray-500 w-14 shrink-0">Slide {i + 1}</span>
+                    <audio controls className="h-8 flex-1 min-w-0" src={url} />
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         )}
       </div>
 

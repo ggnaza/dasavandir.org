@@ -9,6 +9,7 @@ import { LessonFiles } from "./lesson-files";
 import { SessionTracker } from "./session-tracker";
 import { VideoTracker } from "./video-tracker";
 import { ChapterView } from "./chapter-view";
+import { SlideAudioPlayer } from "./slide-audio-player";
 
 function getSlidesEmbedUrl(url: string): string | null {
   try {
@@ -200,7 +201,9 @@ export default async function LessonPage({
           </div>
         )}
 
-        {lesson.audio_url && (
+        {Array.isArray(lesson.slide_audio_urls) && lesson.slide_audio_urls.length > 0 ? (
+          <SlideAudioPlayer urls={lesson.slide_audio_urls as string[]} />
+        ) : lesson.audio_url ? (
           <div className="bg-white border rounded-xl px-5 py-4 mb-4 flex items-center gap-3">
             <span className="text-xl shrink-0">🎧</span>
             <div className="flex-1 min-w-0">
@@ -208,7 +211,7 @@ export default async function LessonPage({
               <audio controls className="w-full h-9" src={lesson.audio_url} />
             </div>
           </div>
-        )}
+        ) : null}
 
         {lesson.content && (
           <div className="bg-white border rounded-xl p-4 sm:p-6 mb-6">
