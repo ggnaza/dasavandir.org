@@ -11,7 +11,7 @@ const tools = [
     description:
       "Paste notes, upload a PDF, or pick files from Google Drive — AI turns your material into a full course with lessons, content, and quizzes in ~30 seconds.",
     cta: "Start building →",
-    href: "/admin/ai-builder",
+    href: "/admin/courses/generate",
     badge: "Recommended",
     badgeColor: "bg-brand-100 text-brand-700",
   },
@@ -47,7 +47,7 @@ const tools = [
     description:
       "Connect your Google Drive and select Docs, Slides, or text files directly — no copy-pasting needed. Works inside the AI Course Builder.",
     cta: "Open AI Builder →",
-    href: "/admin/ai-builder",
+    href: "/admin/courses/generate",
     badge: null,
     badgeColor: "",
   },

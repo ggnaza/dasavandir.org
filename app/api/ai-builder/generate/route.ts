@@ -4,6 +4,7 @@ import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { getAIModel, callLLM } from "@/lib/llm";
 
 export const runtime = "nodejs";
+export const maxDuration = 120;
 
 async function extractText(file: File): Promise<string> {
   const buffer = Buffer.from(await file.arrayBuffer());
