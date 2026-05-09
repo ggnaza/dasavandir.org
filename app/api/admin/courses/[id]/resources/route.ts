@@ -74,9 +74,13 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   const { data: profile } = await admin.from("profiles").select("role").eq("id", user.id).single();
   if (!EDITOR_ROLES.includes(profile?.role ?? "")) return new Response("Forbidden", { status: 403 });
 
-  // Verify course exists and user has access
+  // Verify course exists and user owns / has been granted access
   const { data: course } = await admin.from("courses").select("id, created_by").eq("id", params.id).single();
   if (!course) return new Response("Not found", { status: 404 });
+
+  const { assertCourseOwner } = await import("@/lib/assert-course-owner");
+  const ownerError = await assertCourseOwner(params.id, user.id);
+  if (ownerError) return ownerError;
 
   const parsed = addResourceSchema.safeParse(await req.json());
   if (!parsed.success) return new Response("Invalid input", { status: 400 });
