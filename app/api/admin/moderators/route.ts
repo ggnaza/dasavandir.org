@@ -68,17 +68,14 @@ export async function POST(req: Request) {
   const ownerErr = await assertCourseOwner(course_id, user.id);
   if (ownerErr) return ownerErr;
 
-  // Find the target user by email directly (avoids 1000-user cap of listUsers)
-  const { data: targetAuthUser, error: lookupErr } = await admin.auth.admin.getUserByEmail(email);
-  if (lookupErr || !targetAuthUser) return new Response("No account found with that email", { status: 404 });
-
+  // Look up user by email via profiles table (avoids the 1000-user cap of listUsers)
   const { data: targetProfile } = await admin
     .from("profiles")
-    .select("id, role")
-    .eq("id", targetAuthUser.id)
+    .select("id, role, full_name")
+    .eq("email", email)
     .single();
 
-  if (!targetProfile) return new Response("User profile not found", { status: 404 });
+  if (!targetProfile) return new Response("No account found with that email", { status: 404 });
 
   // Upgrade to course_manager if they're currently a learner
   if (targetProfile.role === "learner") {
@@ -100,7 +97,7 @@ export async function POST(req: Request) {
 
   await sendModeratorAddedEmail({
     to: email,
-    fullName: targetAuthUser.user_metadata?.full_name ?? "",
+    fullName: targetProfile.full_name ?? "",
     courseTitle: course?.title ?? "",
     courseUrl,
   }).catch((err) => console.error("[moderators/email]", err));

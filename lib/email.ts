@@ -1,6 +1,11 @@
 import { Resend } from "resend";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+// Lazy-initialize so the constructor doesn't run at module load during Next.js build
+let _resend: Resend | null = null;
+function getResend() {
+  if (!_resend) _resend = new Resend(process.env.RESEND_API_KEY);
+  return _resend;
+}
 
 const FROM = "Dasavandir <info@dasavandir.org>";
 
@@ -14,7 +19,7 @@ export async function sendActivationEmail({
   activationUrl: string;
 }) {
   const name = fullName || "there";
-  return resend.emails.send({
+  return getResend().emails.send({
     from: FROM,
     to,
     subject: "Activate your Dasavandir account",
@@ -71,7 +76,7 @@ export async function sendInvitationEmail({
   signupUrl: string;
 }) {
   const name = firstName || "there";
-  return resend.emails.send({
+  return getResend().emails.send({
     from: FROM,
     to,
     subject: `You're invited to "${courseTitle}"`,
@@ -89,7 +94,7 @@ export async function sendInviteLinkEmail({
   inviteUrl: string;
 }) {
   const name = fullName || "there";
-  return resend.emails.send({
+  return getResend().emails.send({
     from: FROM,
     to,
     subject: "You've been invited to Dasavandir",
@@ -146,7 +151,7 @@ export async function sendModeratorAddedEmail({
   courseUrl: string;
 }) {
   const name = fullName || "there";
-  return resend.emails.send({
+  return getResend().emails.send({
     from: FROM,
     to,
     subject: `You've been added as a moderator for "${courseTitle}"`,
@@ -205,7 +210,7 @@ export async function sendNewLessonEmail({
   lessonUrl: string;
 }) {
   const name = firstName || "there";
-  return resend.emails.send({
+  return getResend().emails.send({
     from: FROM,
     to,
     subject: `New lesson available: "${lessonTitle}"`,
@@ -264,7 +269,7 @@ export async function sendLessonReminderEmail({
       ? "Almost finished!"
       : "A reminder for you";
 
-  return resend.emails.send({
+  return getResend().emails.send({
     from: FROM,
     to,
     subject,
