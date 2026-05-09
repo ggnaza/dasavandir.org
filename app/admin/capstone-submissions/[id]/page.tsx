@@ -14,6 +14,12 @@ export default async function CapstoneSubmissionPage({ params }: { params: { id:
 
   if (!submission) notFound();
 
+  let submissionFileUrl: string | null = null;
+  if (submission.file_path) {
+    const { data: signed } = await admin.storage.from("lesson-files").createSignedUrl(submission.file_path, 3600);
+    submissionFileUrl = signed?.signedUrl ?? null;
+  }
+
   const capstone = submission.capstones as any;
   const course = capstone?.courses as any;
   const profile = submission.profiles as any;
@@ -30,7 +36,7 @@ export default async function CapstoneSubmissionPage({ params }: { params: { id:
         </p>
       </div>
 
-      <CapstoneReviewer submission={submission} rubric={capstone?.rubric ?? []} />
+      <CapstoneReviewer submission={submission} rubric={capstone?.rubric ?? []} fileUrl={submissionFileUrl} />
     </div>
   );
 }

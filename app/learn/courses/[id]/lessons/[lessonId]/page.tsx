@@ -137,6 +137,14 @@ export default async function LessonPage({
   const embedUrl = !isStorageVideo && lesson.video_url ? getEmbedUrl(lesson.video_url) : null;
   const slidesEmbedUrl = lesson.slides_url ? getSlidesEmbedUrl(lesson.slides_url) : null;
 
+  // Generate signed URLs for lesson file attachments (bucket is private)
+  const signedFiles = await Promise.all(
+    (files ?? []).map(async (f) => {
+      const { data } = await admin.storage.from("lesson-files").createSignedUrl(f.storage_path, 3600);
+      return { id: f.id, file_name: f.file_name, signedUrl: data?.signedUrl ?? "" };
+    })
+  );
+
   const totalLessons = lessons?.length ?? 0;
   const completedCount = lessons?.filter((l) => completedIds.has(l.id)).length ?? 0;
 
@@ -216,10 +224,7 @@ export default async function LessonPage({
           </div>
         )}
 
-        <LessonFiles
-          files={files ?? []}
-          bucketUrl={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/lesson-files`}
-        />
+        <LessonFiles files={signedFiles} />
 
         <div className="flex flex-wrap gap-3 mb-4">
           {quiz && (

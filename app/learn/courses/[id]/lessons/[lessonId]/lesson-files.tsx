@@ -1,8 +1,8 @@
 "use client";
 
-type LessonFile = { id: string; file_name: string; storage_path: string };
+type LessonFile = { id: string; file_name: string; signedUrl: string };
 
-export function LessonFiles({ files, bucketUrl }: { files: LessonFile[]; bucketUrl: string }) {
+export function LessonFiles({ files }: { files: LessonFile[] }) {
   if (!files.length) return null;
 
   return (
@@ -12,7 +12,7 @@ export function LessonFiles({ files, bucketUrl }: { files: LessonFile[]; bucketU
         {files.map((file) => (
           <li key={file.id}>
             <a
-              href={`${bucketUrl}/${file.storage_path}`}
+              href={file.signedUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-2 text-sm text-brand-600 hover:underline"

@@ -9,9 +9,11 @@ type AiFeedback = { feedback: AiFeedbackItem[]; overall_comment: string; total_s
 export function SubmissionReviewer({
   submission,
   rubric,
+  fileUrl,
 }: {
   submission: any;
   rubric: RubricItem[];
+  fileUrl?: string | null;
 }) {
   const router = useRouter();
   const ai = submission.ai_feedback as AiFeedback | null;
@@ -57,9 +59,9 @@ export function SubmissionReviewer({
             {submission.content}
           </div>
         )}
-        {submission.file_name && submission.file_path && (
+        {submission.file_name && fileUrl && (
           <a
-            href={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/lesson-files/${submission.file_path}`}
+            href={fileUrl}
             target="_blank" rel="noopener noreferrer"
             className="flex items-center gap-2 text-sm text-brand-600 hover:underline"
           >

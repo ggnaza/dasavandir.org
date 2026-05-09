@@ -6,7 +6,7 @@ type RubricItem = { criterion: string; description: string; max_points: number }
 type AiFeedbackItem = { criterion: string; score: number; max_points: number; feedback: string };
 type AiFeedback = { feedback: AiFeedbackItem[]; overall_comment: string; total_score: number; total_possible: number };
 
-export function CapstoneReviewer({ submission, rubric }: { submission: any; rubric: RubricItem[] }) {
+export function CapstoneReviewer({ submission, rubric, fileUrl }: { submission: any; rubric: RubricItem[]; fileUrl?: string | null }) {
   const router = useRouter();
   const ai = submission.ai_feedback as AiFeedback | null;
 
@@ -52,7 +52,7 @@ export function CapstoneReviewer({ submission, rubric }: { submission: any; rubr
         )}
         {submission.file_name && submission.file_path && (
           <a
-            href={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/lesson-files/${submission.file_path}`}
+            href={fileUrl ?? "#"}
             target="_blank" rel="noopener noreferrer"
             className="flex items-center gap-2 text-sm text-brand-600 hover:underline"
           >

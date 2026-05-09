@@ -13,9 +13,9 @@ type Submission = {
 };
 
 export function AssignmentSubmitter({
-  assignment, existingSubmission, courseId, lessonId, preSubmissionAiEnabled,
+  assignment, existingSubmission, existingFileUrl, courseId, lessonId, preSubmissionAiEnabled,
 }: {
-  assignment: any; existingSubmission: Submission | null; courseId: string; lessonId: string; preSubmissionAiEnabled?: boolean;
+  assignment: any; existingSubmission: Submission | null; existingFileUrl?: string | null; courseId: string; lessonId: string; preSubmissionAiEnabled?: boolean;
 }) {
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -164,9 +164,9 @@ export function AssignmentSubmitter({
         <div className="bg-white border rounded-xl p-5 space-y-3">
           <h2 className="font-semibold text-sm">Your submission</h2>
           {sub.content && <p className="text-sm text-gray-600 whitespace-pre-wrap">{sub.content}</p>}
-          {sub.file_name && sub.file_path && (
+          {sub.file_name && existingFileUrl && (
             <a
-              href={supabase.storage.from("lesson-files").getPublicUrl(sub.file_path).data.publicUrl}
+              href={existingFileUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-2 text-sm text-brand-600 hover:underline"

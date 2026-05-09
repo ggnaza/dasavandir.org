@@ -35,6 +35,12 @@ export default async function LearnCapstonePage({ params }: { params: { id: stri
     .eq("user_id", user!.id)
     .single();
 
+  let existingFileUrl: string | null = null;
+  if (existingSubmission?.file_path) {
+    const { data: signed } = await admin.storage.from("lesson-files").createSignedUrl(existingSubmission.file_path, 3600);
+    existingFileUrl = signed?.signedUrl ?? null;
+  }
+
   const completedIds = new Set((progress ?? []).map((p) => p.lesson_id));
   const allLessonsCompleted =
     (lessons ?? []).length === 0 || (lessons ?? []).every((l) => completedIds.has(l.id));
@@ -58,6 +64,7 @@ export default async function LearnCapstonePage({ params }: { params: { id: stri
       <CapstoneSubmitter
         capstone={capstone}
         existingSubmission={existingSubmission ?? null}
+        existingFileUrl={existingFileUrl}
         courseId={params.id}
         allLessonsCompleted={allLessonsCompleted}
       />

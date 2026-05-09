@@ -3,7 +3,7 @@ import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
-type LessonFile = { id: string; file_name: string; storage_path: string };
+type LessonFile = { id: string; file_name: string; storage_path: string; signedUrl: string };
 
 type Props = {
   lessonId: string;
@@ -52,11 +52,18 @@ export function FileUploader({ lessonId, existingFiles }: Props) {
 
     if (!res.ok) {
       setError(await res.text());
-    } else {
-      const newFile = await res.json();
-      setFiles((prev) => [...prev, newFile]);
-      router.refresh();
+      setUploading(false);
+      return;
     }
+
+    const newFile = await res.json();
+
+    // Get a signed URL for the newly uploaded file
+    const signedRes = await fetch(`/api/storage/signed-url?path=${encodeURIComponent(path)}`);
+    const signedData = signedRes.ok ? await signedRes.json() : { url: "" };
+
+    setFiles((prev) => [...prev, { ...newFile, signedUrl: signedData.url }]);
+    router.refresh();
 
     setUploading(false);
     if (inputRef.current) inputRef.current.value = "";
@@ -75,12 +82,6 @@ export function FileUploader({ lessonId, existingFiles }: Props) {
 
     setFiles((prev) => prev.filter((f) => f.id !== file.id));
     router.refresh();
-  }
-
-  function getPublicUrl(path: string) {
-    const supabase = createClient();
-    const { data } = supabase.storage.from("lesson-files").getPublicUrl(path);
-    return data.publicUrl;
   }
 
   return (
@@ -109,7 +110,7 @@ export function FileUploader({ lessonId, existingFiles }: Props) {
         {files.map((file) => (
           <li key={file.id} className="flex items-center justify-between text-sm bg-gray-50 rounded-lg px-3 py-2">
             <a
-              href={getPublicUrl(file.storage_path)}
+              href={file.signedUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="text-brand-600 hover:underline truncate max-w-xs"
