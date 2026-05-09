@@ -35,17 +35,14 @@ export async function GET(req: Request) {
   if (!accessRows || accessRows.length === 0) return Response.json([]);
 
   const ids = accessRows.map((r) => r.manager_id);
-  const { data: profiles } = await admin.from("profiles").select("id, full_name").in("id", ids);
-  const { data: authData } = await admin.auth.admin.listUsers({ perPage: 1000 });
-
-  const userMap = new Map(authData?.users.map((u) => [u.id, u.email]) ?? []);
-  const profileMap = new Map((profiles ?? []).map((p) => [p.id, p.full_name]));
+  const { data: profiles } = await admin.from("profiles").select("id, full_name, email").in("id", ids);
+  const profileMap = new Map((profiles ?? []).map((p) => [p.id, { full_name: p.full_name, email: p.email }]));
 
   return Response.json(accessRows.map((row) => ({
     manager_id: row.manager_id,
     created_at: row.created_at,
-    full_name: profileMap.get(row.manager_id) ?? null,
-    email: userMap.get(row.manager_id) ?? null,
+    full_name: profileMap.get(row.manager_id)?.full_name ?? null,
+    email: profileMap.get(row.manager_id)?.email ?? null,
   })));
 }
 
@@ -71,12 +68,9 @@ export async function POST(req: Request) {
   const ownerErr = await assertCourseOwner(course_id, user.id);
   if (ownerErr) return ownerErr;
 
-  // Find the target user by email
-  const { data: authData } = await admin.auth.admin.listUsers({ perPage: 1000 });
-  const targetAuthUser = authData?.users.find(
-    (u) => u.email?.toLowerCase() === email.toLowerCase()
-  );
-  if (!targetAuthUser) return new Response("No account found with that email", { status: 404 });
+  // Find the target user by email directly (avoids 1000-user cap of listUsers)
+  const { data: targetAuthUser, error: lookupErr } = await admin.auth.admin.getUserByEmail(email);
+  if (lookupErr || !targetAuthUser) return new Response("No account found with that email", { status: 404 });
 
   const { data: targetProfile } = await admin
     .from("profiles")

@@ -1,7 +1,6 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
 
 type Props = {
   lessonId: string;
@@ -12,7 +11,7 @@ type Props = {
   quizPassed: boolean;  // true if no quiz OR score >= 80
 };
 
-export function MarkCompleteButton({ lessonId, userId, isCompleted, courseId, hasQuiz, quizPassed }: Props) {
+export function MarkCompleteButton({ lessonId, userId: _userId, isCompleted, courseId, hasQuiz, quizPassed }: Props) {
   const router = useRouter();
   const [done, setDone] = useState(isCompleted);
   const [loading, setLoading] = useState(false);
@@ -23,14 +22,12 @@ export function MarkCompleteButton({ lessonId, userId, isCompleted, courseId, ha
   async function toggle() {
     if (isBlocked) return;
     setLoading(true);
-    const supabase = createClient();
-    if (done) {
-      await supabase.from("progress").delete().eq("user_id", userId).eq("lesson_id", lessonId);
-      setDone(false);
-    } else {
-      await supabase.from("progress").insert({ user_id: userId, lesson_id: lessonId });
-      setDone(true);
-    }
+    const res = await fetch("/api/lessons/progress", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ lessonId, courseId, completed: !done }),
+    });
+    if (res.ok) setDone(!done);
     setLoading(false);
     router.refresh();
   }

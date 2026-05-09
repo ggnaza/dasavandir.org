@@ -69,30 +69,29 @@ export default async function LessonPage({
   const admin = createAdminClient();
   const { data: { user } } = await supabase.auth.getUser();
 
-  const [{ data: lesson }, { data: lessons }, { data: allProgress }, { data: quiz }, { data: files }, { data: assignment }, { data: enrollment }, { data: course }] = await Promise.all([
+  // First batch: everything except progress (progress needs lesson IDs scoped to this course)
+  const [{ data: lesson }, { data: lessons }, { data: quiz }, { data: files }, { data: assignment }, { data: enrollment }, { data: course }] = await Promise.all([
     admin.from("lessons").select("*").eq("id", params.lessonId).single(),
     admin.from("lessons").select("id, title, order, deadline_days, deadline_date").eq("course_id", params.id).order("order"),
-    admin.from("progress").select("lesson_id").eq("user_id", user!.id),
     admin.from("quizzes").select("id").eq("lesson_id", params.lessonId).single(),
     admin.from("lesson_files").select("id, file_name, storage_path").eq("lesson_id", params.lessonId).order("created_at"),
     admin.from("assignments").select("id").eq("lesson_id", params.lessonId).single(),
-    admin.from("enrollments").select("id").eq("user_id", user!.id).eq("course_id", params.id).single(),
+    admin.from("enrollments").select("id, created_at").eq("user_id", user!.id).eq("course_id", params.id).single(),
     admin.from("courses").select("allow_shuffled_learning, pre_submission_ai").eq("id", params.id).single(),
   ]);
 
   if (!lesson) notFound();
 
+  // Not enrolled → redirect to course page; never auto-enroll based on unrelated progress
   if (!enrollment) {
-    const hasProgress = (allProgress ?? []).length > 0;
-    if (hasProgress) {
-      await admin.from("enrollments").upsert(
-        { user_id: user!.id, course_id: params.id },
-        { onConflict: "user_id,course_id" }
-      );
-    } else {
-      redirect(`/courses/${params.id}`);
-    }
+    redirect(`/courses/${params.id}`);
   }
+
+  // Progress scoped to lessons in THIS course only (prevents cross-course leakage)
+  const courseLessonIds = (lessons ?? []).map((l) => l.id);
+  const { data: allProgress } = courseLessonIds.length
+    ? await admin.from("progress").select("lesson_id").eq("user_id", user!.id).in("lesson_id", courseLessonIds)
+    : { data: [] };
 
   // Check quiz score for 80% gate
   let quizPassed = true; // default pass if no quiz
@@ -141,7 +140,7 @@ export default async function LessonPage({
   const totalLessons = lessons?.length ?? 0;
   const completedCount = lessons?.filter((l) => completedIds.has(l.id)).length ?? 0;
 
-  const enrolledAt: string | null = null;
+  const enrolledAt: string | null = enrollment?.created_at ?? null;
   const deadlineInfo = deadlineLabel(lesson, enrolledAt);
 
   return (
@@ -318,7 +317,10 @@ export default async function LessonPage({
                   <span className={`w-5 h-5 rounded-full flex items-center justify-center text-xs shrink-0 font-medium ${done ? "bg-green-100 text-green-700" : locked ? "bg-gray-50 text-gray-300" : "bg-gray-100 text-gray-400"}`}>
                     {done ? "✓" : locked ? "🔒" : i + 1}
                   </span>
-                  <span className="truncate flex-1">{l.title}</span>
+                  <span className="flex-1 min-w-0">
+                    <span className="truncate block">{l.title}</span>
+                    {locked && <span className="text-xs text-gray-300 block">Complete previous lesson first</span>}
+                  </span>
                   {dl?.overdue && !done && <span className="text-red-500 text-xs shrink-0">!</span>}
                 </Tag>
               );

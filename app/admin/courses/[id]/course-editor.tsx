@@ -28,6 +28,9 @@ export function CourseEditor({ course, lessonDeadlineDates = [] }: {
   const router = useRouter();
   const imageInputRef = useRef<HTMLInputElement>(null);
   const [title, setTitle] = useState(course.title);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [deleting, setDeleting] = useState(false);
   const [description, setDescription] = useState(course.description ?? "");
   const [published, setPublished] = useState(course.published);
   const [isPaid, setIsPaid] = useState(course.is_paid ?? false);
@@ -119,7 +122,7 @@ export function CourseEditor({ course, lessonDeadlineDates = [] }: {
   }
 
   async function handleDelete() {
-    if (!confirm("Delete this course and all its lessons? This cannot be undone.")) return;
+    setDeleting(true);
     const supabase = createClient();
     await supabase.from("courses").delete().eq("id", course.id);
     router.push("/admin/courses");
@@ -399,9 +402,47 @@ export function CourseEditor({ course, lessonDeadlineDates = [] }: {
       </div>
 
       <div className="flex items-center justify-between pt-2">
-        <button type="button" onClick={handleDelete} className="text-sm text-red-500 hover:underline">
+        <button type="button" onClick={() => setShowDeleteModal(true)} className="text-sm text-red-500 hover:underline">
           Delete course
         </button>
+
+        {showDeleteModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+            <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+              <h2 className="text-lg font-bold mb-2 text-red-600">Delete course</h2>
+              <p className="text-sm text-gray-600 mb-4">
+                This will permanently delete <strong>{course.title}</strong> and all its lessons, quizzes, and learner progress. This cannot be undone.
+              </p>
+              <p className="text-sm text-gray-700 mb-2">
+                Type <strong>{course.title}</strong> to confirm:
+              </p>
+              <input
+                type="text"
+                value={deleteConfirmText}
+                onChange={(e) => setDeleteConfirmText(e.target.value)}
+                placeholder={course.title}
+                className="w-full border rounded-lg px-3 py-2 text-sm mb-4 focus:outline-none focus:ring-2 focus:ring-red-400"
+              />
+              <div className="flex gap-3 justify-end">
+                <button
+                  type="button"
+                  onClick={() => { setShowDeleteModal(false); setDeleteConfirmText(""); }}
+                  className="text-sm border rounded-lg px-4 py-2 hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={deleteConfirmText !== course.title || deleting}
+                  onClick={handleDelete}
+                  className="text-sm bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 disabled:opacity-40"
+                >
+                  {deleting ? "Deleting…" : "Delete permanently"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
         <button
           type="submit"
           disabled={saving || uploadingImage}
