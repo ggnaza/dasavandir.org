@@ -277,6 +277,66 @@ export async function sendLessonReminderEmail({
   });
 }
 
+export async function sendAnnouncementEmail({
+  to,
+  firstName,
+  announcementTitle,
+  announcementBody,
+  courseTitle,
+  announcementsUrl,
+}: {
+  to: string;
+  firstName: string;
+  announcementTitle: string;
+  announcementBody: string;
+  courseTitle: string;
+  announcementsUrl: string;
+}) {
+  const name = firstName || "there";
+  const preview = announcementBody.length > 200 ? announcementBody.slice(0, 200) + "…" : announcementBody;
+  return getResend().emails.send({
+    from: FROM,
+    to,
+    subject: `📢 ${announcementTitle} — ${courseTitle}`,
+    html: `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f5;padding:40px 16px">
+    <tr><td align="center">
+      <table width="520" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.08)">
+        <tr>
+          <td style="background:#EC5328;padding:32px 40px">
+            <p style="margin:0;color:#fff;font-size:22px;font-weight:700;letter-spacing:-0.3px">Դasavandir<span style="font-weight:400;opacity:0.7">.org</span></p>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:40px 40px 32px">
+            <p style="margin:0 0 6px;font-size:12px;font-weight:600;color:#EC5328;text-transform:uppercase;letter-spacing:0.06em">📢 Announcement · ${esc(courseTitle)}</p>
+            <h1 style="margin:0 0 16px;font-size:22px;font-weight:700;color:#111827">${esc(announcementTitle)}</h1>
+            <p style="margin:0 0 12px;font-size:15px;color:#374151;line-height:1.6">Hi ${esc(name)},</p>
+            <p style="margin:0 0 24px;font-size:15px;color:#374151;line-height:1.6;white-space:pre-wrap">${esc(preview)}</p>
+            <a href="${announcementsUrl}"
+               style="display:inline-block;background:#EC5328;color:#ffffff;padding:14px 28px;border-radius:8px;text-decoration:none;font-size:15px;font-weight:600;letter-spacing:-0.1px">
+              View announcement →
+            </a>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:24px 40px;border-top:1px solid #f0f0f0">
+            <p style="margin:0;font-size:13px;color:#9ca3af;line-height:1.6">
+              Built by <a href="https://dasavandir.org" style="color:#EC5328;text-decoration:none">Teach For Armenia</a>
+            </p>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`,
+  });
+}
+
 function esc(s: string) {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
