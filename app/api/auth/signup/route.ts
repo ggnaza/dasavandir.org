@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { ensureProfile } from "@/lib/auth/ensure-profile";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { verifyTurnstile } from "@/lib/captcha";
 import { sendActivationEmail } from "@/lib/email";
@@ -57,13 +58,12 @@ export async function POST(req: Request) {
     const admin = createAdminClient();
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://dasavandir.org";
 
-    // Defensive: ensure profile exists even if the DB trigger silently failed.
+    // Defensive: ensure profile exists (see lib/auth/ensure-profile.ts and CLAUDE.md).
     // The trigger has an EXCEPTION handler that turns failures into warnings,
     // so the profile may not exist after signUp.
-    await admin.from("profiles").upsert(
-      { id: userId, email, full_name, role: "learner", status: "pending" },
-      { onConflict: "id" }
-    );
+    await ensureProfile(admin, { id: userId, email, user_metadata: { full_name } });
+    // Mark as pending (ensureProfile defaults to 'active'; signups need activation)
+    await admin.from("profiles").update({ status: "pending", full_name }).eq("id", userId);
 
     // Mark profile as pending and create activation token
     const { data: tokenRow } = await admin

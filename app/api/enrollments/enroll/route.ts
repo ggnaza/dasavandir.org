@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { ensureProfile } from "@/lib/auth/ensure-profile";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 
 export async function POST(req: Request) {
@@ -16,19 +17,31 @@ export async function POST(req: Request) {
   const admin = createAdminClient();
 
   // Verify course exists and is published
-  const { data: course } = await admin
+  const { data: course, error: courseErr } = await admin
     .from("courses")
     .select("id")
     .eq("id", courseId)
     .eq("published", true)
     .single();
 
-  if (!course) return new Response("Course not found", { status: 404 });
+  if (courseErr || !course) return new Response("Course not found", { status: 404 });
+
+  // Defensive: ensure the user's profile exists (see lib/auth/ensure-profile.ts and CLAUDE.md).
+  // Legacy users may be missing a profile row, which would FK-violate the enrollment insert.
+  await ensureProfile(admin, user);
 
   // Upsert enrollment (safe to call multiple times)
-  await admin
+  const { error: enrollErr } = await admin
     .from("enrollments")
     .upsert({ user_id: user.id, course_id: courseId }, { onConflict: "user_id,course_id" });
+
+  if (enrollErr) {
+    console.error("[enrollments/enroll]", enrollErr);
+    return new Response(
+      JSON.stringify({ error: enrollErr.message || "Failed to enroll" }),
+      { status: 500, headers: { "Content-Type": "application/json" } }
+    );
+  }
 
   return Response.json({ enrolled: true });
 }

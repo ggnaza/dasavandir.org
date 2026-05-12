@@ -1,5 +1,6 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { ensureProfile } from "@/lib/auth/ensure-profile";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(request: NextRequest) {
@@ -65,18 +66,8 @@ export async function GET(request: NextRequest) {
         const admin = createAdminClient();
         const roleOrder = ["admin", "course_creator", "course_manager", "learner"];
 
-        // Defensive: ensure a profile exists. The DB trigger has an EXCEPTION
-        // handler that turns failures into warnings, so the row may be missing.
-        await admin.from("profiles").upsert(
-          {
-            id: user.id,
-            email: user.email,
-            full_name: user.user_metadata?.full_name ?? user.user_metadata?.name ?? null,
-            role: "learner",
-            status: "active",
-          },
-          { onConflict: "id", ignoreDuplicates: true }
-        );
+        // Defensive: ensure a profile exists (see lib/auth/ensure-profile.ts and CLAUDE.md)
+        await ensureProfile(admin, user);
 
         // Find all auth users with this email (reliable — auth.users always has email)
         const { data: authData } = await admin.auth.admin.listUsers({ perPage: 1000 });
