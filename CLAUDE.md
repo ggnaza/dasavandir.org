@@ -38,4 +38,11 @@ Use the helper `ensureProfile(admin, user)` in `lib/auth/ensure-profile.ts` for 
 - Sequential-learning gate (`!allow_shuffled_learning`) blocks access to a lesson if any prior lesson is incomplete. Server-side enforced in `app/learn/courses/[id]/lessons/[lessonId]/page.tsx`.
 
 ## Always do this after code changes
-Per user instructions in MEMORY.md: after code changes, run `gh pr create` and `gh pr merge` automatically.
+After code changes, always run `gh pr create` and `gh pr merge` automatically.
+
+**Default target branch is `staging`** — all PRs must use `--base staging` unless the user explicitly says "merge to main" or "push to main". Never use `--base main` by default.
+
+The workflow is:
+1. Claude makes changes → PR merges to `staging`
+2. User tests on `staging.dasavandir.org`
+3. User says "looks good, push to main" → Claude opens a PR from `staging` to `main` and merges it
