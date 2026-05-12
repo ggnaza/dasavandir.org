@@ -9,6 +9,16 @@ export async function GET(request: NextRequest) {
   const type = searchParams.get("type");
   const next = searchParams.get("next") ?? "/learn";
 
+  // Supabase redirects here with error params when OAuth fails (e.g. trigger error)
+  const oauthError = searchParams.get("error");
+  const oauthErrorDescription = searchParams.get("error_description");
+  if (oauthError || oauthErrorDescription) {
+    const msg = oauthErrorDescription || oauthError || "Sign-in failed";
+    return NextResponse.redirect(
+      new URL(`/auth/login?error=${encodeURIComponent(msg)}`, request.url)
+    );
+  }
+
   const redirectTo = new URL(next, request.url);
 
   const supabase = createServerClient(
@@ -54,6 +64,19 @@ export async function GET(request: NextRequest) {
       if (user?.email) {
         const admin = createAdminClient();
         const roleOrder = ["admin", "course_creator", "course_manager", "learner"];
+
+        // Defensive: ensure a profile exists. The DB trigger has an EXCEPTION
+        // handler that turns failures into warnings, so the row may be missing.
+        await admin.from("profiles").upsert(
+          {
+            id: user.id,
+            email: user.email,
+            full_name: user.user_metadata?.full_name ?? user.user_metadata?.name ?? null,
+            role: "learner",
+            status: "active",
+          },
+          { onConflict: "id", ignoreDuplicates: true }
+        );
 
         // Find all auth users with this email (reliable — auth.users always has email)
         const { data: authData } = await admin.auth.admin.listUsers({ perPage: 1000 });
