@@ -41,15 +41,23 @@ export async function POST(req: Request) {
   if (!enrollment) return new Response("Not enrolled in this course", { status: 403 });
 
   if (completed) {
-    await admin
+    const { error } = await admin
       .from("progress")
       .upsert({ user_id: user.id, lesson_id: lessonId }, { onConflict: "user_id,lesson_id" });
+    if (error) {
+      console.error("[lessons/progress] upsert failed", error);
+      return Response.json({ error: "Failed to save progress" }, { status: 500 });
+    }
   } else {
-    await admin
+    const { error } = await admin
       .from("progress")
       .delete()
       .eq("user_id", user.id)
       .eq("lesson_id", lessonId);
+    if (error) {
+      console.error("[lessons/progress] delete failed", error);
+      return Response.json({ error: "Failed to update progress" }, { status: 500 });
+    }
   }
 
   return Response.json({ ok: true });

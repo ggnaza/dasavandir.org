@@ -150,7 +150,7 @@ export default function UsersPage() {
                       <td className="px-6 py-4 text-sm">
                         {isPending ? (
                           <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-800">
-                            Pending
+                            Not activated
                           </span>
                         ) : (
                           <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">

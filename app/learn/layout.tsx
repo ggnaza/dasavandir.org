@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { Nav } from "@/components/nav";
+import { ResendActivationButton } from "./resend-activation-button";
 import { cookies } from "next/headers";
 import { getLang } from "@/lib/i18n";
 
@@ -32,6 +33,8 @@ export default async function LearnLayout({ children }: { children: React.ReactN
       {isPending && (
         <div className="bg-amber-50 border-b border-amber-200 px-4 py-3 text-center text-sm text-amber-800">
           <strong>Check your email</strong> — we sent an activation link to <strong>{user.email}</strong>. Your account will be deleted if not activated within 24 hours.
+          {" · "}
+          <ResendActivationButton email={user.email ?? ""} />
         </div>
       )}
       <main className="max-w-5xl mx-auto px-3 sm:px-4 py-4 sm:py-8">{children}</main>
