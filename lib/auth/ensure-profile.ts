@@ -26,7 +26,7 @@ export async function ensureProfile(
     (user.user_metadata as { full_name?: string; name?: string } | undefined)?.name ??
     null;
 
-  await admin.from("profiles").upsert(
+  const { error } = await admin.from("profiles").upsert(
     {
       id: user.id,
       email: user.email ?? null,
@@ -36,4 +36,12 @@ export async function ensureProfile(
     },
     { onConflict: "id", ignoreDuplicates: true }
   );
+
+  if (error) {
+    console.error("[ensureProfile] upsert failed — profile may be missing, FK errors likely downstream", {
+      userId: user.id,
+      email: user.email,
+      error: error.message,
+    });
+  }
 }
