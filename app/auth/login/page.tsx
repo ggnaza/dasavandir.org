@@ -8,9 +8,10 @@ import { Suspense } from "react";
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const callbackError = searchParams.get("error");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
+  const [error, setError] = useState(callbackError ? decodeURIComponent(callbackError) : "");
   const [loading, setLoading] = useState(false);
   const [mode, setMode] = useState<"login" | "forgot" | "resend">("login");
   const [successMsg, setSuccessMsg] = useState("");

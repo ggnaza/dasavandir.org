@@ -105,13 +105,19 @@ export function AuthModal({ defaultTab = "login", onClose, lang = "en" }: Props)
 
   async function handleOAuth(provider: "google") {
     setOauthLoading(true);
+    setError("");
     const supabase = createClient();
-    await supabase.auth.signInWithOAuth({
+    const { error } = await supabase.auth.signInWithOAuth({
       provider,
       options: {
         redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL ?? window.location.origin}/auth/callback`,
       },
     });
+    if (error) {
+      setError(error.message);
+      setOauthLoading(false);
+    }
+    // On success the browser navigates away — no need to reset oauthLoading
   }
 
   return (
