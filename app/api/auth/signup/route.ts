@@ -34,7 +34,22 @@ export async function POST(req: Request) {
 
   if (error) {
     console.error("[auth/signup]", error);
-    return new Response("Failed to create account", { status: 400 });
+    const msg = error.message?.toLowerCase() ?? "";
+    if (msg.includes("already registered") || msg.includes("already been registered") || msg.includes("user already exists")) {
+      return new Response("An account with this email already exists. Try signing in instead.", { status: 400 });
+    }
+    if (msg.includes("invalid email")) {
+      return new Response("Please enter a valid email address.", { status: 400 });
+    }
+    if (msg.includes("password")) {
+      return new Response("Password does not meet requirements.", { status: 400 });
+    }
+    return new Response(error.message || "Failed to create account", { status: 400 });
+  }
+
+  // Supabase returns a fake success with empty identities when email is already registered + confirmations enabled
+  if (data.user && data.user.identities?.length === 0) {
+    return new Response("An account with this email already exists. Try signing in instead.", { status: 400 });
   }
 
   const userId = data.user?.id;
