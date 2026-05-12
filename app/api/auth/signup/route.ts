@@ -57,6 +57,14 @@ export async function POST(req: Request) {
     const admin = createAdminClient();
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://dasavandir.org";
 
+    // Defensive: ensure profile exists even if the DB trigger silently failed.
+    // The trigger has an EXCEPTION handler that turns failures into warnings,
+    // so the profile may not exist after signUp.
+    await admin.from("profiles").upsert(
+      { id: userId, email, full_name, role: "learner", status: "pending" },
+      { onConflict: "id" }
+    );
+
     // Mark profile as pending and create activation token
     const { data: tokenRow } = await admin
       .from("activation_tokens")
