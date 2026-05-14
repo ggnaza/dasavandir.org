@@ -183,7 +183,11 @@ export default async function LessonPage({
   const totalLessons = lessons?.length ?? 0;
   const completedCount = lessons?.filter((l) => completedIds.has(l.id)).length ?? 0;
 
+<<<<<<< HEAD
   const enrolledAt: string | null = null; // created_at not present on enrollments table
+=======
+  const enrolledAt: string | null = effectiveEnrollment?.created_at ?? null;
+>>>>>>> origin/staging
   const deadlineInfo = deadlineLabel(lesson, enrolledAt);
 
   return (
