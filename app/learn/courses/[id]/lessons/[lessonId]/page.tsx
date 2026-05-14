@@ -77,15 +77,49 @@ export default async function LessonPage({
     admin.from("quizzes").select("id").eq("lesson_id", params.lessonId).single(),
     admin.from("lesson_files").select("id, file_name, storage_path").eq("lesson_id", params.lessonId).order("created_at"),
     admin.from("assignments").select("id").eq("lesson_id", params.lessonId).single(),
-    admin.from("enrollments").select("id, created_at").eq("user_id", user!.id).eq("course_id", params.id).single(),
+    admin.from("enrollments").select("id").eq("user_id", user!.id).eq("course_id", params.id).single(),
     admin.from("courses").select("allow_shuffled_learning, pre_submission_ai").eq("id", params.id).single(),
   ]);
 
   if (!lesson) notFound();
 
-  // Not enrolled → redirect to course page; never auto-enroll based on unrelated progress
-  if (!enrollment) {
-    redirect(`/courses/${params.id}`);
+  // Resolve effective enrollment — process pending invitations if not yet enrolled
+  let effectiveEnrollment = enrollment;
+  if (!effectiveEnrollment) {
+    const userEmail = user!.email?.toLowerCase();
+    if (userEmail) {
+      const { data: pendingInvites } = await admin
+        .from("invitations")
+        .select("id, course_id")
+        .eq("email", userEmail)
+        .eq("course_id", params.id)
+        .eq("status", "pending");
+      if (pendingInvites && pendingInvites.length > 0) {
+        await Promise.all(
+          pendingInvites.map((inv) =>
+            Promise.all([
+              admin.from("enrollments").upsert(
+                { user_id: user!.id, course_id: inv.course_id },
+                { onConflict: "user_id,course_id" }
+              ),
+              admin.from("invitations").update({ status: "accepted" }).eq("id", inv.id),
+            ])
+          )
+        );
+        const { data: newEnrollment } = await admin
+          .from("enrollments")
+          .select("id")
+          .eq("user_id", user!.id)
+          .eq("course_id", params.id)
+          .single();
+        if (!newEnrollment) redirect(`/courses/${params.id}`);
+        effectiveEnrollment = newEnrollment;
+      } else {
+        redirect(`/courses/${params.id}`);
+      }
+    } else {
+      redirect(`/courses/${params.id}`);
+    }
   }
 
   // Progress scoped to lessons in THIS course only (prevents cross-course leakage)
@@ -149,7 +183,7 @@ export default async function LessonPage({
   const totalLessons = lessons?.length ?? 0;
   const completedCount = lessons?.filter((l) => completedIds.has(l.id)).length ?? 0;
 
-  const enrolledAt: string | null = enrollment?.created_at ?? null;
+  const enrolledAt: string | null = null; // created_at not present on enrollments table
   const deadlineInfo = deadlineLabel(lesson, enrolledAt);
 
   return (

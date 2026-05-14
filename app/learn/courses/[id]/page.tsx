@@ -18,6 +18,30 @@ export default async function LearnCoursePage({ params }: { params: { id: string
 
   if (!course) notFound();
 
+  // Process any pending invitations for this course before checking enrollment
+  const userEmail = user!.email?.toLowerCase();
+  if (userEmail) {
+    const { data: pendingInvites } = await admin
+      .from("invitations")
+      .select("id, course_id")
+      .eq("email", userEmail)
+      .eq("course_id", params.id)
+      .eq("status", "pending");
+    if (pendingInvites && pendingInvites.length > 0) {
+      await Promise.all(
+        pendingInvites.map((inv) =>
+          Promise.all([
+            admin.from("enrollments").upsert(
+              { user_id: user!.id, course_id: inv.course_id },
+              { onConflict: "user_id,course_id" }
+            ),
+            admin.from("invitations").update({ status: "accepted" }).eq("id", inv.id),
+          ])
+        )
+      );
+    }
+  }
+
   // Check enrollment — auto-enroll if user already has progress (migration compat)
   const { data: enrollment } = await admin
     .from("enrollments")
