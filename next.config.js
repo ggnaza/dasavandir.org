@@ -28,7 +28,7 @@ const nextConfig = {
               "img-src 'self' data: blob: *.supabase.co",
               "media-src 'self' blob: *.supabase.co https://drive.google.com",
               "font-src 'self'",
-              "frame-src 'self' https://www.youtube.com https://player.vimeo.com https://drive.google.com https://docs.google.com https://challenges.cloudflare.com",
+              "frame-src 'self' https://www.youtube.com https://player.vimeo.com https://drive.google.com https://docs.google.com https://www.canva.com https://challenges.cloudflare.com",
               "connect-src 'self' *.supabase.co wss://*.supabase.co https://api.openai.com https://challenges.cloudflare.com",
             ].join("; "),
           },

@@ -364,7 +364,8 @@ export function LessonEditor({
           className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-500"
         />
         <p className="text-xs text-gray-400 mt-1">
-          Google Slides: File → Share → Publish to web → Embed → paste the link here
+          Google Slides: File → Share → Publish to web → Embed → paste the link here.<br />
+          Canva: Share → More → Embed → copy the embed link (ends with <code>/view</code>).
         </p>
         {slidesUrl && slidesUrl.includes("docs.google.com/presentation") && (
           <p className="text-xs text-green-600 mt-1">✓ AI coach will read this presentation on save</p>
