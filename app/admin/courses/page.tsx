@@ -1,6 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import Link from "next/link";
 import { DeleteCourseButton } from "./delete-course-button";
+import { CloneCourseButton } from "./clone-course-button";
 
 export const dynamic = "force-dynamic";
 
@@ -80,6 +81,7 @@ export default async function CoursesPage() {
               >
                 Edit →
               </Link>
+              <CloneCourseButton courseId={course.id} />
               <DeleteCourseButton courseId={course.id} />
             </div>
           </div>
