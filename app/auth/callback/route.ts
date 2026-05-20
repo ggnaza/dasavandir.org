@@ -1,5 +1,4 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
-import { createAdminClient } from "@/lib/supabase/admin";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(request: NextRequest) {
@@ -46,38 +45,9 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(new URL(`/auth/login?error=${encodeURIComponent(error.message)}`, request.url));
     }
 
-    // After OAuth (Google etc.), ensure the profile has the correct role.
-    // Supabase may create a new auth.users entry for OAuth even when the email
-    // already exists, giving the new profile role='learner'. Fix it here.
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user?.email) {
-        const admin = createAdminClient();
-        const roleOrder = ["admin", "course_creator", "course_manager", "learner"];
-
-        // Find all auth users with this email (reliable — auth.users always has email)
-        const { data: authData } = await admin.auth.admin.listUsers({ perPage: 1000 });
-        const sameEmailIds = (authData?.users ?? [])
-          .filter(u => u.email?.toLowerCase() === user.email!.toLowerCase())
-          .map(u => u.id);
-
-        if (sameEmailIds.length > 0) {
-          const { data: allProfiles } = await admin
-            .from("profiles")
-            .select("id, role")
-            .in("id", sameEmailIds);
-
-          const bestRole = (allProfiles ?? [])
-            .sort((a, b) => roleOrder.indexOf(a.role) - roleOrder.indexOf(b.role))[0]?.role;
-
-          if (bestRole && bestRole !== "learner") {
-            await admin.from("profiles").update({ role: bestRole }).eq("id", user.id);
-          }
-        }
-      }
-    } catch (e) {
-      console.error("[callback] role-sync error", e);
-    }
+    // Role-sync for OAuth logins is handled by the handle_new_user DB trigger,
+    // which picks the highest-priority role from any existing profile with the
+    // same email at INSERT time. No application-level listUsers scan needed.
 
     return supabaseResponse;
   }

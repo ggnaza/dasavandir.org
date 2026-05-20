@@ -18,14 +18,25 @@ create table if not exists profiles (
   created_at timestamptz default now()
 );
 
+create index if not exists profiles_email_idx on profiles (email);
+
 create or replace function handle_new_user()
 returns trigger as $$
 declare
-  v_existing_role text;
+  v_best_role text;
 begin
-  select role into v_existing_role
+  -- Pick highest-priority role from any existing profile with the same email.
+  -- Priority: admin(1) > course_creator(2) > course_manager(3) > learner(4)
+  select role into v_best_role
   from profiles
   where email = NEW.email
+  order by
+    case role
+      when 'admin'          then 1
+      when 'course_creator' then 2
+      when 'course_manager' then 3
+      else                       4
+    end
   limit 1;
 
   insert into profiles (id, full_name, email, role, status)
@@ -33,7 +44,7 @@ begin
     NEW.id,
     coalesce(NEW.raw_user_meta_data->>'full_name', NEW.raw_user_meta_data->>'name'),
     NEW.email,
-    coalesce(v_existing_role, NEW.raw_user_meta_data->>'role', 'learner'),
+    coalesce(v_best_role, NEW.raw_user_meta_data->>'role', 'learner'),
     'active'
   )
   on conflict (id) do update
