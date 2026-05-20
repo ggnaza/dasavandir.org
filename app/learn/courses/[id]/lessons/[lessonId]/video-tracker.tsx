@@ -48,9 +48,10 @@ export function VideoTracker({ embedUrl, isYouTube, isStorageVideo, lessonId, us
     return () => video.removeEventListener("timeupdate", handleTimeUpdate);
   }, [isStorageVideo, isCompleted]);
 
-  // YouTube IFrame API
+  // YouTube IFrame API — always initialize the player so the video is watchable,
+  // but skip completion-tracking when the lesson is already done.
   useEffect(() => {
-    if (!isYouTube || isCompleted) return;
+    if (!isYouTube) return;
 
     function initPlayer() {
       if (!containerRef.current) return;
@@ -63,7 +64,7 @@ export function VideoTracker({ embedUrl, isYouTube, isStorageVideo, lessonId, us
         width: "100%",
         height: "100%",
         playerVars: { autoplay: 0, modestbranding: 1 },
-        events: { onStateChange: () => checkYTProgress() },
+        events: isCompleted ? {} : { onStateChange: () => checkYTProgress() },
       });
     }
 
@@ -79,11 +80,15 @@ export function VideoTracker({ embedUrl, isYouTube, isStorageVideo, lessonId, us
       }
     }
 
-    const interval = setInterval(checkYTProgress, 5000);
-    return () => {
-      clearInterval(interval);
-      playerRef.current?.destroy?.();
-    };
+    if (!isCompleted) {
+      const interval = setInterval(checkYTProgress, 5000);
+      return () => {
+        clearInterval(interval);
+        playerRef.current?.destroy?.();
+      };
+    }
+
+    return () => { playerRef.current?.destroy?.(); };
   }, []);
 
   async function checkYTProgress() {

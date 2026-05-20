@@ -243,7 +243,7 @@ export function QuizEditor({ lessonId, courseId, existing, bankQuestionCount }: 
         </div>
         <button
           onClick={handleSave}
-          disabled={saving || questions.length === 0}
+          disabled={saving || (questions.length === 0 && !useBank)}
           className="bg-brand-600 text-white px-5 py-2 rounded-lg hover:bg-brand-700 disabled:opacity-50 text-sm font-medium"
         >
           {saving ? "Saving…" : saved ? "Saved ✓" : "Save quiz"}

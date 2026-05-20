@@ -18,6 +18,14 @@ function getSlidesEmbedUrl(url: string): string | null {
       const match = u.pathname.match(/\/presentation\/d\/([^/]+)/);
       if (match) return `https://docs.google.com/presentation/d/${match[1]}/embed?start=false&loop=false&delayms=3000`;
     }
+    // Canva share links need ?embed appended to allow iframe embedding
+    if (u.hostname.includes("canva.com")) {
+      if (!u.searchParams.has("embed")) {
+        u.searchParams.set("embed", "");
+        return u.toString().replace("embed=", "embed");
+      }
+      return url;
+    }
     return url;
   } catch { return null; }
 }
@@ -27,7 +35,14 @@ function getEmbedUrl(url: string): string | null {
     const u = new URL(url);
     if (u.hostname.includes("youtube.com")) {
       const v = u.searchParams.get("v");
-      return v ? `https://www.youtube.com/embed/${v}` : null;
+      if (v) return `https://www.youtube.com/embed/${v}`;
+      // YouTube Shorts: /shorts/VIDEO_ID
+      const shortsMatch = u.pathname.match(/\/shorts\/([^/?]+)/);
+      if (shortsMatch) return `https://www.youtube.com/embed/${shortsMatch[1]}`;
+      // Already an embed URL: /embed/VIDEO_ID
+      const embedMatch = u.pathname.match(/\/embed\/([^/?]+)/);
+      if (embedMatch) return url;
+      return null;
     }
     if (u.hostname.includes("youtu.be")) return `https://www.youtube.com/embed${u.pathname}`;
     if (u.hostname.includes("vimeo.com")) return `https://player.vimeo.com/video${u.pathname}`;
