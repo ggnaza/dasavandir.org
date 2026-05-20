@@ -15,6 +15,7 @@ export const translations = {
     myProgress: "My Progress",
     browse: "Browse",
     notifications: "Notifications",
+    announcements: "Announcements",
     discussions: "Discussions",
     capstone: "Capstone project",
 
@@ -122,6 +123,7 @@ export const translations = {
     myProgress: "Իմ Առաջընթացը",
     browse: "Դիտել",
     notifications: "Ծանուցումներ",
+    announcements: "Հայտարարություններ",
     discussions: "Քննարկումներ",
     capstone: "Ավարտական Աշխատանք",
 

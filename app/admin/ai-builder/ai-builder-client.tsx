@@ -43,17 +43,21 @@ export function AiBuilderClient({ driveConnected, justConnected, driveError }: P
     if (file && !overrideText) form.append("file", file);
     else form.append("text", content);
 
-    const res = await fetch("/api/ai-builder/generate", { method: "POST", body: form });
+    try {
+      const res = await fetch("/api/ai-builder/generate", { method: "POST", body: form });
 
-    if (!res.ok) {
-      setError(await res.text());
-      setGenerating(false);
-      return;
+      if (!res.ok) {
+        setError(await res.text());
+        setGenerating(false);
+        return;
+      }
+
+      const data = await res.json();
+      setCourse({ ...data, lessons: data.lessons.map((l: Lesson) => ({ ...l, enabled: true })) });
+      setStep("review");
+    } catch {
+      setError("Generation failed. Please try again.");
     }
-
-    const data = await res.json();
-    setCourse({ ...data, lessons: data.lessons.map((l: Lesson) => ({ ...l, enabled: true })) });
-    setStep("review");
     setGenerating(false);
   }
 

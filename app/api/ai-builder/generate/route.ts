@@ -4,15 +4,15 @@ import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { getAIModel, callLLM } from "@/lib/llm";
 
 export const runtime = "nodejs";
+export const maxDuration = 120;
 
 async function extractText(file: File): Promise<string> {
   const buffer = Buffer.from(await file.arrayBuffer());
 
   if (file.type === "application/pdf" || file.name.endsWith(".pdf")) {
-    // @ts-ignore
-    const pdfParse = require("pdf-parse");
+    const pdfParse = require("pdf-parse/lib/pdf-parse.js");
     const data = await pdfParse(buffer);
-    return data.text;
+    return data.text ?? "";
   }
 
   return buffer.toString("utf-8");
@@ -33,13 +33,19 @@ export async function POST(req: Request) {
 
   let sourceText = "";
 
+  const MAX_FILE_BYTES = 10 * 1024 * 1024; // 10 MB
+
   const contentType = req.headers.get("content-type") ?? "";
   if (contentType.includes("multipart/form-data")) {
     const form = await req.formData();
     const file = form.get("file") as File | null;
     const text = form.get("text") as string | null;
-    if (file) sourceText = await extractText(file);
-    else if (text) sourceText = text;
+    if (file) {
+      if (file.size > MAX_FILE_BYTES) {
+        return new Response("File too large (max 10 MB)", { status: 413 });
+      }
+      sourceText = await extractText(file);
+    } else if (text) sourceText = text;
   } else {
     const body = await req.json();
     sourceText = body.text ?? "";

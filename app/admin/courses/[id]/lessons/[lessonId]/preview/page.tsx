@@ -56,7 +56,13 @@ export default async function LessonPreviewPage({
 
   const embedUrl = !isStorageVideo && lesson.video_url ? getEmbedUrl(lesson.video_url) : null;
   const slidesEmbedUrl = lesson.slides_url ? getSlidesEmbedUrl(lesson.slides_url) : null;
-  const bucketUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/lesson-files`;
+
+  const signedFiles = await Promise.all(
+    (files ?? []).map(async (f) => {
+      const { data } = await admin.storage.from("lesson-files").createSignedUrl(f.storage_path, 3600);
+      return { ...f, signedUrl: data?.signedUrl ?? "" };
+    })
+  );
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -118,14 +124,14 @@ export default async function LessonPreviewPage({
         )}
 
         {/* Files */}
-        {files && files.length > 0 && (
+        {signedFiles.length > 0 && (
           <div className="bg-white border rounded-xl p-4 mb-6">
             <p className="text-sm font-semibold mb-3">Lesson files</p>
             <div className="space-y-2">
-              {files.map((f) => (
+              {signedFiles.map((f) => (
                 <a
                   key={f.id}
-                  href={`${bucketUrl}/${f.storage_path}`}
+                  href={f.signedUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center gap-2 text-sm text-brand-600 hover:underline"

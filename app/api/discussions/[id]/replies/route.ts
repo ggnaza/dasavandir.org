@@ -48,7 +48,8 @@ export async function POST(
   ]);
 
   if (!profile) return new Response("Unauthorized", { status: 401 });
-  if (!enrollment && profile.role !== "admin")
+  const STAFF_ROLES = ["admin", "course_creator", "course_manager"];
+  if (!enrollment && !STAFF_ROLES.includes(profile.role))
     return new Response("Not enrolled", { status: 403 });
 
   const { data, error } = await admin.from("discussion_replies").insert({

@@ -49,14 +49,19 @@ export async function POST(req: Request) {
   const courseDesc = (lesson?.courses as any)?.description ?? "";
   const effectiveCourseId = courseId ?? lesson?.course_id;
 
+  // Always resolve courseId — fall back to the lesson's own course_id
+  const resolvedCourseId = effectiveCourseId ?? lesson?.course_id;
+
   // Verify the user is enrolled in this course (or is an admin/creator)
-  if (effectiveCourseId) {
+  if (resolvedCourseId) {
     const [{ data: enrollment }, { data: profile }] = await Promise.all([
-      admin.from("enrollments").select("id").eq("user_id", user.id).eq("course_id", effectiveCourseId).maybeSingle(),
+      admin.from("enrollments").select("id").eq("user_id", user.id).eq("course_id", resolvedCourseId).maybeSingle(),
       admin.from("profiles").select("role").eq("id", user.id).single(),
     ]);
     const isStaff = ["admin", "course_creator", "course_manager"].includes(profile?.role ?? "");
     if (!enrollment && !isStaff) return new Response("Not enrolled in this course", { status: 403 });
+  } else {
+    return new Response("Course not found", { status: 404 });
   }
 
   // Load all other lessons for context

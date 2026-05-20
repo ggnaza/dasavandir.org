@@ -18,6 +18,12 @@ export default async function SubmissionReviewPage({ params }: { params: { id: s
 
   if (!submission) notFound();
 
+  let submissionFileUrl: string | null = null;
+  if (submission.file_path) {
+    const { data: signed } = await admin.storage.from("lesson-files").createSignedUrl(submission.file_path, 3600);
+    submissionFileUrl = signed?.signedUrl ?? null;
+  }
+
   const assignment = submission.assignments as any;
   const lesson = assignment?.lessons as any;
   const course = lesson?.courses as any;
@@ -35,7 +41,7 @@ export default async function SubmissionReviewPage({ params }: { params: { id: s
         </p>
       </div>
 
-      <SubmissionReviewer submission={submission} rubric={assignment?.rubric ?? []} />
+      <SubmissionReviewer submission={submission} rubric={assignment?.rubric ?? []} fileUrl={submissionFileUrl} />
     </div>
   );
 }

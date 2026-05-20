@@ -1,4 +1,6 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { ensureProfile } from "@/lib/auth/ensure-profile";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(request: NextRequest) {
@@ -7,6 +9,16 @@ export async function GET(request: NextRequest) {
   const tokenHash = searchParams.get("token_hash");
   const type = searchParams.get("type");
   const next = searchParams.get("next") ?? "/learn";
+
+  // Supabase redirects here with error params when OAuth fails (e.g. trigger error)
+  const oauthError = searchParams.get("error");
+  const oauthErrorDescription = searchParams.get("error_description");
+  if (oauthError || oauthErrorDescription) {
+    const msg = oauthErrorDescription || oauthError || "Sign-in failed";
+    return NextResponse.redirect(
+      new URL(`/auth/login?error=${encodeURIComponent(msg)}`, request.url)
+    );
+  }
 
   const redirectTo = new URL(next, request.url);
 
@@ -45,9 +57,18 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(new URL(`/auth/login?error=${encodeURIComponent(error.message)}`, request.url));
     }
 
-    // Role-sync for OAuth logins is handled by the handle_new_user DB trigger,
-    // which picks the highest-priority role from any existing profile with the
-    // same email at INSERT time. No application-level listUsers scan needed.
+    // Defensive: ensure a profile row exists in case the handle_new_user trigger
+    // silently failed. Role-sync (picking the best role across same-email profiles)
+    // is handled by the trigger itself — no listUsers scan needed here.
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const admin = createAdminClient();
+        await ensureProfile(admin, user);
+      }
+    } catch (e) {
+      console.error("[callback] ensureProfile error", e);
+    }
 
     return supabaseResponse;
   }

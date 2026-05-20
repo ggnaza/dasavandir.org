@@ -10,6 +10,53 @@ const EDITOR_ROLES = ["admin", "course_creator", "course_manager"];
 const GOOGLE_DOCS_RE = /^https:\/\/docs\.google\.com\/document\/d\/([a-zA-Z0-9_-]+)/;
 const GOOGLE_SLIDES_RE = /^https:\/\/docs\.google\.com\/presentation\/d\/([a-zA-Z0-9_-]+)/;
 
+async function extractTextFromFile(file: File): Promise<string> {
+  const buffer = Buffer.from(await file.arrayBuffer());
+  const name = file.name.toLowerCase();
+
+  if (name.endsWith(".pdf")) {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const pdfParse = require("pdf-parse/lib/pdf-parse.js");
+    const result = await pdfParse(buffer);
+    return (result.text?.trim() ?? "").slice(0, 30000);
+  }
+
+  if (name.endsWith(".docx")) {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const mammoth = require("mammoth");
+    const result = await mammoth.extractRawText({ buffer });
+    return (result.value?.trim() ?? "").slice(0, 30000);
+  }
+
+  if (name.endsWith(".xlsx") || name.endsWith(".xls") || name.endsWith(".csv")) {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const XLSX = require("xlsx");
+    const workbook = XLSX.read(buffer, { type: "buffer" });
+    const lines: string[] = [];
+    for (const sheetName of workbook.SheetNames) {
+      const sheet = workbook.Sheets[sheetName];
+      lines.push(`[Sheet: ${sheetName}]`);
+      lines.push(XLSX.utils.sheet_to_csv(sheet));
+    }
+    return lines.join("\n").slice(0, 30000);
+  }
+
+  if (name.endsWith(".rtf")) {
+    // Strip RTF control codes and return plain text
+    const raw = buffer.toString("latin1");
+    const text = raw
+      .replace(/\{[^{}]*\}/g, " ")
+      .replace(/\\[a-z]+\d*\s?/gi, " ")
+      .replace(/[{}\\]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+    return text.slice(0, 30000);
+  }
+
+  // Plain text fallback (.txt, .md, etc.)
+  return buffer.toString("utf-8").trim().slice(0, 30000);
+}
+
 async function extractTextFromUrl(url: string): Promise<string> {
   const docsMatch = url.match(GOOGLE_DOCS_RE);
   if (docsMatch) {
@@ -76,10 +123,10 @@ export async function POST(req: Request) {
   const { data: profile } = await admin.from("profiles").select("role").eq("id", user.id).single();
   if (!EDITOR_ROLES.includes(profile?.role ?? "")) return new Response("Forbidden", { status: 403 });
 
-  let materialText = "";
   let language = "en";
   let hint = "";
   let materialUrl: string | null = null;
+  const textParts: string[] = [];
 
   const contentType = req.headers.get("content-type") ?? "";
 
@@ -93,20 +140,22 @@ export async function POST(req: Request) {
     if (url?.trim()) {
       materialUrl = url.trim();
       try {
-        materialText = await extractTextFromUrl(materialUrl);
+        textParts.push(await extractTextFromUrl(materialUrl));
       } catch (e: any) {
         return new Response(e.message, { status: 400 });
       }
-    } else if (file) {
+    }
+
+    if (file) {
       try {
-        const buffer = Buffer.from(await file.arrayBuffer());
-        const pdfParse = require("pdf-parse");
-        const result = await pdfParse(buffer);
-        materialText = (result.text?.trim() ?? "").slice(0, 30000);
+        const fileText = await extractTextFromFile(file);
+        if (fileText) textParts.push(fileText);
       } catch {
-        return new Response("Could not extract text from the PDF file.", { status: 400 });
+        return new Response("Could not extract text from the uploaded file.", { status: 400 });
       }
-    } else {
+    }
+
+    if (textParts.length === 0) {
       return new Response("No material provided.", { status: 400 });
     }
   } else {
@@ -116,7 +165,7 @@ export async function POST(req: Request) {
     if (body.materialUrl?.trim()) {
       materialUrl = body.materialUrl.trim() as string;
       try {
-        materialText = await extractTextFromUrl(materialUrl);
+        textParts.push(await extractTextFromUrl(materialUrl));
       } catch (e: any) {
         return new Response(e.message, { status: 400 });
       }
@@ -124,6 +173,8 @@ export async function POST(req: Request) {
       return new Response("No material provided.", { status: 400 });
     }
   }
+
+  const materialText = textParts.join("\n\n---\n\n");
 
   if (!materialText.trim()) {
     return new Response("The material appears to be empty or could not be read.", { status: 400 });

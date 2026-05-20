@@ -2,8 +2,17 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { getAIModel, callLLM } from "@/lib/llm";
+import { z } from "zod";
 
 export const runtime = "nodejs";
+
+const submitSchema = z.object({
+  capstone_id: z.string().uuid(),
+  content: z.string().max(50000).optional(),
+  file_path: z.string().max(500).optional(),
+  file_name: z.string().max(300).optional(),
+  link_url: z.string().url().max(2000).optional(),
+});
 
 export async function POST(req: Request) {
   const supabase = createClient();
@@ -18,7 +27,9 @@ export async function POST(req: Request) {
   const { allowed: dailyOk } = await checkRateLimit(`capstone-daily:${user.id}`, 10, 24 * 60 * 60_000);
   if (!dailyOk) return rateLimitResponse({ limit: 10, windowSecs: 86400 });
 
-  const { capstone_id, content, file_path, file_name, link_url } = await req.json();
+  const parsed = submitSchema.safeParse(await req.json());
+  if (!parsed.success) return new Response("Invalid input", { status: 400 });
+  const { capstone_id, content, file_path, file_name, link_url } = parsed.data;
   if (!content && !file_path && !link_url)
     return new Response("Submission is empty", { status: 400 });
 

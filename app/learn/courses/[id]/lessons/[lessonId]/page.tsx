@@ -9,6 +9,7 @@ import { LessonFiles } from "./lesson-files";
 import { SessionTracker } from "./session-tracker";
 import { VideoTracker } from "./video-tracker";
 import { ChapterView } from "./chapter-view";
+import { SlideAudioPlayer } from "./slide-audio-player";
 
 function getSlidesEmbedUrl(url: string): string | null {
   try {
@@ -16,6 +17,14 @@ function getSlidesEmbedUrl(url: string): string | null {
     if (u.hostname.includes("docs.google.com")) {
       const match = u.pathname.match(/\/presentation\/d\/([^/]+)/);
       if (match) return `https://docs.google.com/presentation/d/${match[1]}/embed?start=false&loop=false&delayms=3000`;
+    }
+    // Canva share links need ?embed appended to allow iframe embedding
+    if (u.hostname.includes("canva.com")) {
+      if (!u.searchParams.has("embed")) {
+        u.searchParams.set("embed", "");
+        return u.toString().replace("embed=", "embed");
+      }
+      return url;
     }
     return url;
   } catch { return null; }
@@ -26,7 +35,14 @@ function getEmbedUrl(url: string): string | null {
     const u = new URL(url);
     if (u.hostname.includes("youtube.com")) {
       const v = u.searchParams.get("v");
-      return v ? `https://www.youtube.com/embed/${v}` : null;
+      if (v) return `https://www.youtube.com/embed/${v}`;
+      // YouTube Shorts: /shorts/VIDEO_ID
+      const shortsMatch = u.pathname.match(/\/shorts\/([^/?]+)/);
+      if (shortsMatch) return `https://www.youtube.com/embed/${shortsMatch[1]}`;
+      // Already an embed URL: /embed/VIDEO_ID
+      const embedMatch = u.pathname.match(/\/embed\/([^/?]+)/);
+      if (embedMatch) return url;
+      return null;
     }
     if (u.hostname.includes("youtu.be")) return `https://www.youtube.com/embed${u.pathname}`;
     if (u.hostname.includes("vimeo.com")) return `https://player.vimeo.com/video${u.pathname}`;
@@ -69,10 +85,10 @@ export default async function LessonPage({
   const admin = createAdminClient();
   const { data: { user } } = await supabase.auth.getUser();
 
-  const [{ data: lesson }, { data: lessons }, { data: allProgress }, { data: quiz }, { data: files }, { data: assignment }, { data: enrollment }, { data: course }] = await Promise.all([
+  // First batch: everything except progress (progress needs lesson IDs scoped to this course)
+  const [{ data: lesson }, { data: lessons }, { data: quiz }, { data: files }, { data: assignment }, { data: enrollment }, { data: course }] = await Promise.all([
     admin.from("lessons").select("*").eq("id", params.lessonId).single(),
     admin.from("lessons").select("id, title, order, deadline_days, deadline_date").eq("course_id", params.id).order("order"),
-    admin.from("progress").select("lesson_id").eq("user_id", user!.id),
     admin.from("quizzes").select("id").eq("lesson_id", params.lessonId).single(),
     admin.from("lesson_files").select("id, file_name, storage_path").eq("lesson_id", params.lessonId).order("created_at"),
     admin.from("assignments").select("id").eq("lesson_id", params.lessonId).single(),
@@ -82,17 +98,50 @@ export default async function LessonPage({
 
   if (!lesson) notFound();
 
-  if (!enrollment) {
-    const hasProgress = (allProgress ?? []).length > 0;
-    if (hasProgress) {
-      await admin.from("enrollments").upsert(
-        { user_id: user!.id, course_id: params.id },
-        { onConflict: "user_id,course_id" }
-      );
+  // Resolve effective enrollment — process pending invitations if not yet enrolled
+  let effectiveEnrollment = enrollment;
+  if (!effectiveEnrollment) {
+    const userEmail = user!.email?.toLowerCase();
+    if (userEmail) {
+      const { data: pendingInvites } = await admin
+        .from("invitations")
+        .select("id, course_id")
+        .eq("email", userEmail)
+        .eq("course_id", params.id)
+        .eq("status", "pending");
+      if (pendingInvites && pendingInvites.length > 0) {
+        await Promise.all(
+          pendingInvites.map((inv) =>
+            Promise.all([
+              admin.from("enrollments").upsert(
+                { user_id: user!.id, course_id: inv.course_id },
+                { onConflict: "user_id,course_id" }
+              ),
+              admin.from("invitations").update({ status: "accepted" }).eq("id", inv.id),
+            ])
+          )
+        );
+        const { data: newEnrollment } = await admin
+          .from("enrollments")
+          .select("id")
+          .eq("user_id", user!.id)
+          .eq("course_id", params.id)
+          .single();
+        if (!newEnrollment) redirect(`/courses/${params.id}`);
+        effectiveEnrollment = newEnrollment;
+      } else {
+        redirect(`/courses/${params.id}`);
+      }
     } else {
       redirect(`/courses/${params.id}`);
     }
   }
+
+  // Progress scoped to lessons in THIS course only (prevents cross-course leakage)
+  const courseLessonIds = (lessons ?? []).map((l) => l.id);
+  const { data: allProgress } = courseLessonIds.length
+    ? await admin.from("progress").select("lesson_id").eq("user_id", user!.id).in("lesson_id", courseLessonIds)
+    : { data: [] };
 
   // Check quiz score for 80% gate
   let quizPassed = true; // default pass if no quiz
@@ -138,10 +187,18 @@ export default async function LessonPage({
   const embedUrl = !isStorageVideo && lesson.video_url ? getEmbedUrl(lesson.video_url) : null;
   const slidesEmbedUrl = lesson.slides_url ? getSlidesEmbedUrl(lesson.slides_url) : null;
 
+  // Generate signed URLs for lesson file attachments (bucket is private)
+  const signedFiles = await Promise.all(
+    (files ?? []).map(async (f) => {
+      const { data } = await admin.storage.from("lesson-files").createSignedUrl(f.storage_path, 3600);
+      return { id: f.id, file_name: f.file_name, signedUrl: data?.signedUrl ?? "" };
+    })
+  );
+
   const totalLessons = lessons?.length ?? 0;
   const completedCount = lessons?.filter((l) => completedIds.has(l.id)).length ?? 0;
 
-  const enrolledAt: string | null = null;
+  const enrolledAt: string | null = null; // created_at not present on enrollments table
   const deadlineInfo = deadlineLabel(lesson, enrolledAt);
 
   return (
@@ -201,7 +258,9 @@ export default async function LessonPage({
           </div>
         )}
 
-        {lesson.audio_url && (
+        {Array.isArray(lesson.slide_audio_urls) && lesson.slide_audio_urls.length > 0 ? (
+          <SlideAudioPlayer urls={lesson.slide_audio_urls as string[]} />
+        ) : lesson.audio_url ? (
           <div className="bg-white border rounded-xl px-5 py-4 mb-4 flex items-center gap-3">
             <span className="text-xl shrink-0">🎧</span>
             <div className="flex-1 min-w-0">
@@ -209,7 +268,7 @@ export default async function LessonPage({
               <audio controls className="w-full h-9" src={lesson.audio_url} />
             </div>
           </div>
-        )}
+        ) : null}
 
         {lesson.content && (
           <div className="bg-white border rounded-xl p-4 sm:p-6 mb-6">
@@ -217,10 +276,7 @@ export default async function LessonPage({
           </div>
         )}
 
-        <LessonFiles
-          files={files ?? []}
-          bucketUrl={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/lesson-files`}
-        />
+        <LessonFiles files={signedFiles} />
 
         <div className="flex flex-wrap gap-3 mb-4">
           {quiz && (
@@ -318,7 +374,10 @@ export default async function LessonPage({
                   <span className={`w-5 h-5 rounded-full flex items-center justify-center text-xs shrink-0 font-medium ${done ? "bg-green-100 text-green-700" : locked ? "bg-gray-50 text-gray-300" : "bg-gray-100 text-gray-400"}`}>
                     {done ? "✓" : locked ? "🔒" : i + 1}
                   </span>
-                  <span className="truncate flex-1">{l.title}</span>
+                  <span className="flex-1 min-w-0">
+                    <span className="truncate block">{l.title}</span>
+                    {locked && <span className="text-xs text-gray-300 block">Complete previous lesson first</span>}
+                  </span>
                   {dl?.overdue && !done && <span className="text-red-500 text-xs shrink-0">!</span>}
                 </Tag>
               );

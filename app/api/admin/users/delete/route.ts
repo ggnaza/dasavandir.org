@@ -19,6 +19,11 @@ export async function POST(req: Request) {
 
   const { userId } = parsed.data;
 
+  // Prevent an admin from deleting their own account
+  if (userId === user.id) {
+    return new Response(JSON.stringify({ error: "You cannot delete your own account." }), { status: 400 });
+  }
+
   const { error: deleteError } = await admin.auth.admin.deleteUser(userId);
   if (deleteError) {
     console.error("[users/delete]", deleteError);

@@ -32,5 +32,5 @@ export async function GET(req: Request) {
     admin.from("activation_tokens").delete().eq("token", token),
   ]);
 
-  return NextResponse.redirect(`${siteUrl}/learn?activated=true`);
+  return NextResponse.redirect(`${siteUrl}/auth/login?activated=true`);
 }
