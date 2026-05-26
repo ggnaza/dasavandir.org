@@ -98,9 +98,9 @@ export function LessonContentEditor({ value, onChange }: Props) {
   return (
     <div>
       <label className="block text-sm font-medium mb-1">Content</label>
-      <div className="border rounded-xl overflow-hidden bg-white">
+      <div className="border rounded-xl bg-white">
         {/* Toolbar */}
-        <div className="flex flex-wrap items-center gap-1 px-3 py-2 border-b bg-gray-50">
+        <div className="relative flex flex-wrap items-center gap-1 px-3 py-2 border-b bg-gray-50 rounded-t-xl">
 
           {/* Heading size */}
           <select
@@ -261,7 +261,9 @@ export function LessonContentEditor({ value, onChange }: Props) {
         </div>
 
         {/* Editor body */}
-        <EditorContent editor={editor} />
+        <div className="rounded-b-xl overflow-hidden">
+          <EditorContent editor={editor} />
+        </div>
       </div>
       <p className="text-xs text-gray-400 mt-1">Use the toolbar above to format text — no markdown needed.</p>
     </div>
