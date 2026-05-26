@@ -9,7 +9,9 @@ import { Table } from "@tiptap/extension-table";
 import { TableRow } from "@tiptap/extension-table-row";
 import { TableCell } from "@tiptap/extension-table-cell";
 import { TableHeader } from "@tiptap/extension-table-header";
+import Image from "@tiptap/extension-image";
 import { useEffect, useRef, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
 
 const COLORS = [
   "#000000", "#374151", "#6B7280", "#EF4444", "#F97316",
@@ -21,6 +23,9 @@ type Props = { value: string; onChange: (val: string) => void };
 export function LessonContentEditor({ value, onChange }: Props) {
   const [mounted, setMounted] = useState(false);
   const initialised = useRef(false);
+  const [imagePopover, setImagePopover] = useState(false);
+  const [imageUrl, setImageUrl] = useState("");
+  const [imageUploading, setImageUploading] = useState(false);
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -35,6 +40,7 @@ export function LessonContentEditor({ value, onChange }: Props) {
       TableRow,
       TableCell,
       TableHeader,
+      Image.configure({ inline: false, allowBase64: false }),
     ],
     content: value,
     immediatelyRender: false,
@@ -53,6 +59,29 @@ export function LessonContentEditor({ value, onChange }: Props) {
       initialised.current = true;
     }
   }, [editor, value]);
+
+  function insertImageUrl() {
+    if (!imageUrl.trim() || !editor) return;
+    editor.chain().focus().setImage({ src: imageUrl.trim() }).run();
+    setImageUrl("");
+    setImagePopover(false);
+  }
+
+  async function handleImageFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file || !editor) return;
+    if (file.size > 10 * 1024 * 1024) { alert("Max image size is 10MB."); return; }
+    setImageUploading(true);
+    const supabase = createClient();
+    const path = `images/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
+    const { error } = await supabase.storage.from("lesson-documents").upload(path, file, { upsert: true });
+    if (error) { alert(error.message); setImageUploading(false); return; }
+    const { data } = supabase.storage.from("lesson-documents").getPublicUrl(path);
+    editor.chain().focus().setImage({ src: data.publicUrl }).run();
+    setImageUploading(false);
+    setImagePopover(false);
+    e.target.value = "";
+  }
 
   if (!mounted || !editor) return (
     <div>
@@ -171,6 +200,63 @@ export function LessonContentEditor({ value, onChange }: Props) {
               />
               +
             </label>
+          </div>
+
+          <div className="w-px h-5 bg-gray-300 mx-1" />
+
+          {/* Image */}
+          <div className="relative">
+            <button
+              type="button"
+              title="Insert image"
+              onClick={() => setImagePopover((v) => !v)}
+              className={btn(imagePopover)}
+            >
+              🖼 Image
+            </button>
+            {imagePopover && (
+              <div className="absolute top-full left-0 mt-1 z-20 bg-white border rounded-xl shadow-lg p-3 w-72 space-y-2">
+                <p className="text-xs font-medium text-gray-600">Insert image</p>
+                <div className="flex gap-2">
+                  <input
+                    type="url"
+                    value={imageUrl}
+                    onChange={(e) => setImageUrl(e.target.value)}
+                    placeholder="Paste image URL…"
+                    className="flex-1 border rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-brand-500"
+                    onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), insertImageUrl())}
+                  />
+                  <button
+                    type="button"
+                    onClick={insertImageUrl}
+                    className="text-xs bg-brand-600 text-white px-3 py-1.5 rounded-lg hover:bg-brand-700"
+                  >
+                    Insert
+                  </button>
+                </div>
+                <div className="text-xs text-gray-400 text-center">— or —</div>
+                <label className="cursor-pointer flex items-center gap-2 border-2 border-dashed rounded-lg p-2 hover:bg-gray-50 transition">
+                  <span className="text-sm">📁</span>
+                  <span className="text-xs text-gray-600">
+                    {imageUploading ? "Uploading…" : "Upload from computer"}
+                  </span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    disabled={imageUploading}
+                    onChange={handleImageFile}
+                  />
+                </label>
+                <button
+                  type="button"
+                  onClick={() => { setImagePopover(false); setImageUrl(""); }}
+                  className="text-xs text-gray-400 hover:text-gray-600 w-full text-center"
+                >
+                  Cancel
+                </button>
+              </div>
+            )}
           </div>
         </div>
 

@@ -11,6 +11,19 @@ import { VideoTracker } from "./video-tracker";
 import { ChapterView } from "./chapter-view";
 import { SlideAudioPlayer } from "./slide-audio-player";
 
+function getLinkIcon(url: string): string {
+  if (url.includes("docs.google.com/spreadsheets")) return "📊";
+  if (url.includes("docs.google.com/document")) return "📝";
+  if (url.includes("docs.google.com/presentation")) return "📊";
+  if (url.includes("docs.google.com/forms")) return "📋";
+  if (url.includes("drive.google.com")) return "📁";
+  if (url.includes("canva.com")) return "🎨";
+  if (url.match(/\.(pdf)$/i)) return "📄";
+  if (url.match(/\.(mp4|mov|avi|webm)$/i)) return "🎬";
+  if (url.match(/\.(jpg|jpeg|png|gif|webp)$/i)) return "🖼";
+  return "🔗";
+}
+
 function getSlidesEmbedUrl(url: string): string | null {
   try {
     const u = new URL(url);
@@ -277,6 +290,27 @@ export default async function LessonPage({
         )}
 
         <LessonFiles files={signedFiles} />
+
+        {Array.isArray(lesson.links) && lesson.links.length > 0 && (
+          <div className="bg-white border rounded-xl p-5 mb-6">
+            <h3 className="font-medium text-sm mb-3">Resources</h3>
+            <ul className="space-y-2">
+              {(lesson.links as { label: string; url: string }[]).map((link, i) => (
+                <li key={i}>
+                  <a
+                    href={link.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 text-sm text-brand-600 hover:underline"
+                  >
+                    {getLinkIcon(link.url)}
+                    {link.label || link.url}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         <div className="flex flex-wrap gap-3 mb-4">
           {quiz && (
