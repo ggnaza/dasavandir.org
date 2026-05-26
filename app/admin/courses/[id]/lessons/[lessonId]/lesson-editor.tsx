@@ -23,6 +23,8 @@ function PreviewModal({ courseId, lessonId, onClose }: { courseId: string; lesso
   );
 }
 
+type LessonLink = { label: string; url: string };
+
 type Lesson = {
   id: string;
   title: string;
@@ -38,6 +40,7 @@ type Lesson = {
   chapters: any[] | null;
   deadline_days: number | null;
   deadline_date: string | null;
+  links: LessonLink[] | null;
 };
 
 export function LessonEditor({
@@ -66,6 +69,8 @@ export function LessonEditor({
   const [deadlineMode, setDeadlineMode] = useState<"none" | "days" | "date">(
     lesson.deadline_date ? "date" : lesson.deadline_days ? "days" : "none"
   );
+  const [links, setLinks] = useState<LessonLink[]>(lesson.links ?? []);
+  const [linkUploading, setLinkUploading] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [deadlineError, setDeadlineError] = useState("");
@@ -101,6 +106,24 @@ export function LessonEditor({
     }).catch(() => {});
     setUploadingDoc(false);
     router.refresh();
+  }
+
+  async function handleLinkFileUpload(e: React.ChangeEvent<HTMLInputElement>, index: number) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 50 * 1024 * 1024) { alert("Max file size is 50MB."); return; }
+    setLinkUploading(index);
+    const supabase = createClient();
+    const path = `${lesson.id}/links/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
+    const { error } = await supabase.storage.from("lesson-documents").upload(path, file, { upsert: true });
+    if (error) { alert(error.message); setLinkUploading(null); return; }
+    const { data } = supabase.storage.from("lesson-documents").getPublicUrl(path);
+    const next = [...links];
+    next[index] = { ...next[index], url: data.publicUrl };
+    if (!next[index].label) next[index] = { ...next[index], label: file.name };
+    setLinks(next);
+    setLinkUploading(null);
+    e.target.value = "";
   }
 
   async function handleGenerateAudio() {
@@ -227,6 +250,7 @@ export function LessonEditor({
         skills: skills.filter((s) => s.trim()),
         deadline_days: deadlineMode === "days" && deadlineDays ? parseInt(deadlineDays) : null,
         deadline_date: deadlineMode === "date" && deadlineDate ? deadlineDate : null,
+        links: links.filter((l) => l.url.trim()),
         ...(duration_seconds !== null ? { duration_seconds } : {}),
       })
       .eq("id", lesson.id);
@@ -407,6 +431,73 @@ export function LessonEditor({
             </button>
           </div>
         )}
+      </div>
+
+      {/* Links & Resources */}
+      <div className="border rounded-xl p-4 space-y-3 bg-gray-50">
+        <div>
+          <p className="text-sm font-medium">Links &amp; Resources <span className="text-gray-400 font-normal">(optional)</span></p>
+          <p className="text-xs text-gray-400">Google Docs, Sheets, Slides, external URLs, or uploaded files. Shown to learners below the lesson content.</p>
+        </div>
+        <div className="space-y-2">
+          {links.map((link, i) => (
+            <div key={i} className="flex flex-col gap-1.5 bg-white border rounded-lg p-3">
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={link.label}
+                  onChange={(e) => {
+                    const next = [...links];
+                    next[i] = { ...next[i], label: e.target.value };
+                    setLinks(next);
+                  }}
+                  placeholder="Label (e.g. Worksheet, Reading…)"
+                  className="flex-1 border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                />
+                <button
+                  type="button"
+                  onClick={() => setLinks(links.filter((_, idx) => idx !== i))}
+                  className="text-gray-400 hover:text-red-500 text-lg leading-none px-1"
+                  title="Remove"
+                >
+                  ×
+                </button>
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="url"
+                  value={link.url}
+                  onChange={(e) => {
+                    const next = [...links];
+                    next[i] = { ...next[i], url: e.target.value };
+                    setLinks(next);
+                  }}
+                  placeholder="https://…"
+                  className="flex-1 border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 bg-white font-mono"
+                />
+                <label className="cursor-pointer text-xs text-brand-600 hover:underline shrink-0 flex items-center gap-1 border border-brand-200 rounded-lg px-2 py-1.5 hover:bg-brand-50 transition">
+                  {linkUploading === i ? "Uploading…" : "Upload file"}
+                  <input
+                    type="file"
+                    className="hidden"
+                    disabled={linkUploading !== null}
+                    onChange={(e) => handleLinkFileUpload(e, i)}
+                  />
+                </label>
+              </div>
+              {link.url && (
+                <p className="text-xs text-green-600 truncate">✓ {link.url}</p>
+              )}
+            </div>
+          ))}
+        </div>
+        <button
+          type="button"
+          onClick={() => setLinks([...links, { label: "", url: "" }])}
+          className="text-sm text-brand-600 hover:underline font-medium"
+        >
+          + Add another
+        </button>
       </div>
 
       {/* Module preview info */}

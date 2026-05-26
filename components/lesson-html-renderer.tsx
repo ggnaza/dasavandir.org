@@ -17,7 +17,8 @@ export function LessonHtmlRenderer({ content }: { content: string }) {
         prose-code:bg-gray-100 prose-code:px-1 prose-code:rounded prose-code:text-sm prose-code:font-mono
         prose-pre:bg-gray-100 prose-pre:p-4 prose-pre:rounded-lg prose-pre:overflow-x-auto
         prose-a:text-brand-600 prose-a:underline
-        prose-hr:border-gray-200"
+        prose-hr:border-gray-200
+        prose-img:rounded-lg prose-img:max-w-full prose-img:my-4"
       dangerouslySetInnerHTML={{ __html: clean }}
     />
   );
