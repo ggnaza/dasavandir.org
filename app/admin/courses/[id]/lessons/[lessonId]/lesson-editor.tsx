@@ -113,13 +113,13 @@ export function LessonEditor({
     if (!file) return;
     if (file.size > 50 * 1024 * 1024) { alert("Max file size is 50MB."); return; }
     setLinkUploading(index);
-    const supabase = createClient();
-    const path = `${lesson.id}/links/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
-    const { error } = await supabase.storage.from("lesson-documents").upload(path, file, { upsert: true });
-    if (error) { alert(error.message); setLinkUploading(null); return; }
-    const { data } = supabase.storage.from("lesson-documents").getPublicUrl(path);
+    const formData = new FormData();
+    formData.append("file", file);
+    const res = await fetch("/api/admin/upload-image", { method: "POST", body: formData });
+    if (!res.ok) { alert(await res.text()); setLinkUploading(null); return; }
+    const { url } = await res.json();
     const next = [...links];
-    next[index] = { ...next[index], url: data.publicUrl };
+    next[index] = { ...next[index], url };
     if (!next[index].label) next[index] = { ...next[index], label: file.name };
     setLinks(next);
     setLinkUploading(null);
