@@ -11,7 +11,6 @@ import { TableCell } from "@tiptap/extension-table-cell";
 import { TableHeader } from "@tiptap/extension-table-header";
 import Image from "@tiptap/extension-image";
 import { useEffect, useRef, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
 
 const COLORS = [
   "#000000", "#374151", "#6B7280", "#EF4444", "#F97316",
@@ -72,12 +71,12 @@ export function LessonContentEditor({ value, onChange }: Props) {
     if (!file || !editor) return;
     if (file.size > 10 * 1024 * 1024) { alert("Max image size is 10MB."); return; }
     setImageUploading(true);
-    const supabase = createClient();
-    const path = `images/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
-    const { error } = await supabase.storage.from("lesson-documents").upload(path, file, { upsert: true });
-    if (error) { alert(error.message); setImageUploading(false); return; }
-    const { data } = supabase.storage.from("lesson-documents").getPublicUrl(path);
-    editor.chain().focus().setImage({ src: data.publicUrl }).run();
+    const formData = new FormData();
+    formData.append("file", file);
+    const res = await fetch("/api/admin/upload-image", { method: "POST", body: formData });
+    if (!res.ok) { alert(await res.text()); setImageUploading(false); return; }
+    const { url } = await res.json();
+    editor.chain().focus().setImage({ src: url }).run();
     setImageUploading(false);
     setImagePopover(false);
     e.target.value = "";
