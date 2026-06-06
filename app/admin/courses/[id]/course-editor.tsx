@@ -9,6 +9,7 @@ type Course = {
   description: string | null;
   published: boolean;
   cover_image_url: string | null;
+  course_type: "program" | "internal" | null;
   access_type: "public" | "private" | "paid" | null;
   is_paid: boolean | null;
   price_amd: number | null;
@@ -34,6 +35,7 @@ export function CourseEditor({ course, lessonDeadlineDates = [] }: {
   const [deleting, setDeleting] = useState(false);
   const [description, setDescription] = useState(course.description ?? "");
   const [published, setPublished] = useState(course.published);
+  const [courseType, setCourseType] = useState<"program" | "internal">(course.course_type ?? "program");
   const [accessType, setAccessType] = useState<"public" | "private" | "paid">(
     course.access_type ?? (course.is_paid ? "paid" : "private")
   );
@@ -106,6 +108,7 @@ export function CourseEditor({ course, lessonDeadlineDates = [] }: {
         description,
         published,
         cover_image_url: coverUrl || null,
+        course_type: courseType,
         access_type: accessType,
         is_paid: accessType === "paid",
         price_amd: accessType === "paid" && priceAmd ? parseInt(priceAmd) : null,
@@ -250,6 +253,27 @@ export function CourseEditor({ course, lessonDeadlineDates = [] }: {
           >
             + Add outcome
           </button>
+        </div>
+      </div>
+
+      {/* Course type */}
+      <div className="border rounded-lg p-4 space-y-3">
+        <p className="text-sm font-medium">Course type</p>
+        <div className="flex items-center gap-4">
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input type="radio" name="course_type" checked={courseType === "program"} onChange={() => setCourseType("program")} className="w-4 h-4" />
+            <div>
+              <span className="text-sm font-medium">Program</span>
+              <p className="text-xs text-gray-500">External or learner-facing course</p>
+            </div>
+          </label>
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input type="radio" name="course_type" checked={courseType === "internal"} onChange={() => setCourseType("internal")} className="w-4 h-4" />
+            <div>
+              <span className="text-sm font-medium">Internal</span>
+              <p className="text-xs text-gray-500">Staff onboarding or internal training</p>
+            </div>
+          </label>
         </div>
       </div>
 

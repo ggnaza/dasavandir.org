@@ -11,6 +11,7 @@ export default function CourseAdminLayout({ children, params }: { children: Reac
     { label: "Students", href: `${base}/learners` },
     { label: "Gradebook", href: `${base}/gradebook` },
     { label: "Invitations", href: `${base}/invitations` },
+    { label: "Collaborators", href: `${base}/collaborators` },
     { label: "Moderators", href: `${base}/moderators` },
     { label: "Announcements", href: `${base}/announcements` },
     { label: "Question Bank", href: `${base}/question-bank` },
