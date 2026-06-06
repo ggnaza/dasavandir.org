@@ -95,29 +95,36 @@ jobs:
       - name: Install Claude Code CLI
         run: npm install -g @anthropic-ai/claude-code
 
-      - name: Run Claude Code to implement task
+      - name: Write Claude prompt to file
         env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           TASK_NAME: ${{ matrix.task.name }}
           TASK_NOTES: ${{ matrix.task.notes }}
         run: |
-          cat > /tmp/prompt.txt << 'ENDPROMPT'
-You are working on the Dasavandir LMS — a Next.js 14 app with Supabase, Tailwind, and TypeScript.
+          node -e "
+            const fs = require('fs');
+            const lines = [
+              'You are working on the Dasavandir LMS — a Next.js 14 app with Supabase, Tailwind, and TypeScript.',
+              '',
+              'Implement the Asana task below. Follow existing code patterns closely.',
+              '',
+              'Rules:',
+              '- Only edit/create source files — do NOT run git commands or create PRs',
+              '- Do NOT add comments explaining what you changed',
+              '- Do NOT add features beyond what is described',
+              '- After making changes, stop',
+              '',
+              'Task: ' + process.env.TASK_NAME,
+              '',
+              'Description:',
+              process.env.TASK_NOTES || '(no description provided)'
+            ];
+            fs.writeFileSync('/tmp/claude-prompt.txt', lines.join('\n'));
+          "
 
-Implement the Asana task below. Follow existing code patterns closely.
-
-Rules:
-- Only edit/create source files — do NOT run git commands or create PRs
-- Do NOT add comments explaining what you changed
-- Do NOT add features beyond what is described
-- After making changes, stop
-ENDPROMPT
-          echo "" >> /tmp/prompt.txt
-          echo "Task: $TASK_NAME" >> /tmp/prompt.txt
-          echo "" >> /tmp/prompt.txt
-          echo "Description:" >> /tmp/prompt.txt
-          echo "$TASK_NOTES" >> /tmp/prompt.txt
-          claude --dangerously-skip-permissions -p "$(cat /tmp/prompt.txt)"
+      - name: Run Claude Code to implement task
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: claude --dangerously-skip-permissions -p "$(cat /tmp/claude-prompt.txt)"
 
       - name: Check for changes
         id: changes
@@ -135,12 +142,19 @@ ENDPROMPT
           TASK_GID: ${{ steps.branch.outputs.task_gid }}
           BRANCH: ${{ steps.branch.outputs.branch }}
         run: |
+          node -e "
+            const fs = require('fs');
+            const msg = [
+              'feat(agent): ' + process.env.TASK_NAME,
+              '',
+              'Implements Asana task ' + process.env.TASK_GID,
+              '',
+              'Co-Authored-By: Dasavandir Build Agent <agent@dasavandir.org>'
+            ].join('\n');
+            fs.writeFileSync('/tmp/commit-msg.txt', msg);
+          "
           git add -A
-          git commit -m "feat(agent): ${TASK_NAME}
-
-Implements Asana task ${TASK_GID}
-
-Co-Authored-By: Dasavandir Build Agent <agent@dasavandir.org>"
+          git commit -F /tmp/commit-msg.txt
           git push origin "$BRANCH"
 
       - name: Create PR
@@ -153,17 +167,21 @@ Co-Authored-By: Dasavandir Build Agent <agent@dasavandir.org>"
           TASK_GID: ${{ steps.branch.outputs.task_gid }}
           BRANCH: ${{ steps.branch.outputs.branch }}
         run: |
-          cat > /tmp/pr-body.txt << ENDBODY
-## Asana task
-[${TASK_NAME}](https://app.asana.com/0/0/${TASK_GID}/f)
-
-## Description
-${TASK_NOTES}
-
----
-Implemented by the Dasavandir Build Agent
-<!-- asana-task-gid: ${TASK_GID} -->
-ENDBODY
+          node -e "
+            const fs = require('fs');
+            const body = [
+              '## Asana task',
+              '[' + process.env.TASK_NAME + '](https://app.asana.com/0/0/' + process.env.TASK_GID + '/f)',
+              '',
+              '## Description',
+              process.env.TASK_NOTES || '(no description)',
+              '',
+              '---',
+              'Implemented by the Dasavandir Build Agent',
+              '<!-- asana-task-gid: ' + process.env.TASK_GID + ' -->'
+            ].join('\n');
+            fs.writeFileSync('/tmp/pr-body.txt', body);
+          "
           PR_URL=$(gh pr create \
             --base staging \
             --head "$BRANCH" \
@@ -186,4 +204,4 @@ ENDBODY
           ASANA_ACCESS_TOKEN: ${{ secrets.ASANA_ACCESS_TOKEN }}
           TASK_GID: ${{ steps.branch.outputs.task_gid }}
         run: |
-          node .github/scripts/asana-update.js comment "$TASK_GID" "Build agent ran but made no file changes. Add more detail to the task description and set Build = ai-build again to retry."
+          node .github/scripts/asana-update.js comment "$TASK_GID" "Build agent ran but made no file changes. Add more detail and set Build = ai-build again to retry."
