@@ -18,6 +18,7 @@ type Course = {
   hours_to_complete: number | null;
   outcomes: string[] | null;
   pre_submission_ai: boolean | null;
+  ai_coach_enabled: boolean | null;
   deadline_days: number | null;
   deadline_date: string | null;
   allow_shuffled_learning: boolean | null;
@@ -48,6 +49,7 @@ export function CourseEditor({ course, lessonDeadlineDates = [] }: {
   const [uploadingImage, setUploadingImage] = useState(false);
   const [imageError, setImageError] = useState("");
   const [preSubmissionAi, setPreSubmissionAi] = useState(course.pre_submission_ai ?? false);
+  const [aiCoachEnabled, setAiCoachEnabled] = useState(course.ai_coach_enabled ?? true);
   const [allowShuffled, setAllowShuffled] = useState(course.allow_shuffled_learning ?? false);
   const [deadlineDays, setDeadlineDays] = useState(course.deadline_days?.toString() ?? "");
   const [deadlineDate, setDeadlineDate] = useState(course.deadline_date ?? "");
@@ -117,6 +119,7 @@ export function CourseEditor({ course, lessonDeadlineDates = [] }: {
         hours_to_complete: hours ? parseInt(hours) : null,
         outcomes: outcomes.filter((o) => o.trim()),
         pre_submission_ai: preSubmissionAi,
+        ai_coach_enabled: aiCoachEnabled,
         allow_shuffled_learning: allowShuffled,
         deadline_days: deadlineMode === "days" && deadlineDays ? parseInt(deadlineDays) : null,
         deadline_date: deadlineMode === "date" && deadlineDate ? deadlineDate : null,
@@ -405,6 +408,25 @@ export function CourseEditor({ course, lessonDeadlineDates = [] }: {
           </label>
           <p className="text-xs text-gray-500 mt-0.5">
             By default, learners must complete lessons in order. Enable this to let them jump between any lesson freely.
+          </p>
+        </div>
+      </div>
+
+      {/* AI Coach */}
+      <div className="flex items-start gap-3 bg-brand-50 border border-brand-200 rounded-xl p-4">
+        <input
+          type="checkbox"
+          id="ai_coach_enabled"
+          checked={aiCoachEnabled}
+          onChange={(e) => setAiCoachEnabled(e.target.checked)}
+          className="w-4 h-4 mt-0.5"
+        />
+        <div>
+          <label htmlFor="ai_coach_enabled" className="text-sm font-semibold text-brand-900 cursor-pointer">
+            ✦ Enable AI Coach
+          </label>
+          <p className="text-xs text-brand-700 mt-0.5">
+            Shows the AI Coach button on every lesson. Learners can ask questions, get summaries, and be quizzed — all grounded in the course materials.
           </p>
         </div>
       </div>

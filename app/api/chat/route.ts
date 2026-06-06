@@ -54,12 +54,17 @@ export async function POST(req: Request) {
 
   // Verify the user is enrolled in this course (or is an admin/creator)
   if (resolvedCourseId) {
-    const [{ data: enrollment }, { data: profile }] = await Promise.all([
+    const [{ data: enrollment }, { data: profile }, { data: courseSettings }] = await Promise.all([
       admin.from("enrollments").select("id").eq("user_id", user.id).eq("course_id", resolvedCourseId).maybeSingle(),
       admin.from("profiles").select("role").eq("id", user.id).single(),
+      admin.from("courses").select("ai_coach_enabled").eq("id", resolvedCourseId).single(),
     ]);
     const isStaff = ["admin", "course_creator", "course_manager"].includes(profile?.role ?? "");
     if (!enrollment && !isStaff) return new Response("Not enrolled in this course", { status: 403 });
+    // Block if AI Coach is disabled for this course (admins/creators can still test it)
+    if (courseSettings?.ai_coach_enabled === false && !isStaff) {
+      return new Response("AI Coach is not enabled for this course", { status: 403 });
+    }
   } else {
     return new Response("Course not found", { status: 404 });
   }
