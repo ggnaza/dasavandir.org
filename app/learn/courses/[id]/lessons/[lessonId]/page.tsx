@@ -106,7 +106,7 @@ export default async function LessonPage({
     admin.from("lesson_files").select("id, file_name, storage_path").eq("lesson_id", params.lessonId).order("created_at"),
     admin.from("assignments").select("id").eq("lesson_id", params.lessonId).single(),
     admin.from("enrollments").select("id").eq("user_id", user!.id).eq("course_id", params.id).single(),
-    admin.from("courses").select("allow_shuffled_learning, pre_submission_ai").eq("id", params.id).single(),
+    admin.from("courses").select("allow_shuffled_learning, pre_submission_ai, ai_coach_enabled").eq("id", params.id).single(),
   ]);
 
   if (!lesson) notFound();
@@ -173,6 +173,7 @@ export default async function LessonPage({
   const completedIds = new Set((allProgress ?? []).map((p) => p.lesson_id));
   const isCompleted = completedIds.has(params.lessonId);
   const allowShuffled = course?.allow_shuffled_learning ?? false;
+  const aiCoachEnabled = course?.ai_coach_enabled ?? true;
 
   const currentIndex = lessons?.findIndex((l) => l.id === params.lessonId) ?? 0;
   const prevLesson = lessons?.[currentIndex - 1];
@@ -375,7 +376,7 @@ export default async function LessonPage({
           </div>
         )}
 
-        <AiCoach lessonId={params.lessonId} courseId={params.id} userId={user!.id} />
+        {aiCoachEnabled && <AiCoach lessonId={params.lessonId} courseId={params.id} userId={user!.id} />}
       </div>
 
       {/* Sticky sidebar — hidden on mobile, shown on lg+ */}
