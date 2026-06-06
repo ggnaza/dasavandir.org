@@ -6,24 +6,13 @@ import { AuthModal } from "@/components/auth-modal";
 import type { Lang } from "@/lib/i18n";
 import { translations } from "@/lib/i18n";
 
-type Course = {
-  id: string;
-  title: string;
-  description: string | null;
-  cover_image_url: string | null;
-  is_paid: boolean;
-  price_amd: number | null;
-  language: string;
-};
-
 type ModalTab = "login" | "signup";
 
 interface Props {
-  courses: Course[];
   lang: Lang;
 }
 
-export function HomeClient({ courses, lang }: Props) {
+export function HomeClient({ lang }: Props) {
   const T = translations[lang];
   const [modal, setModal] = useState<ModalTab | null>(null);
 
@@ -136,56 +125,6 @@ export function HomeClient({ courses, lang }: Props) {
         </div>
       </section>
 
-      {/* Courses section */}
-      {courses.length > 0 && (
-        <section className="py-20 bg-white">
-          <div className="max-w-6xl mx-auto px-6">
-            <div className="flex items-center justify-between mb-2">
-              <h2 className="text-3xl font-bold" style={{ color: "#323131" }}>{T.exploreCoursesTitle}</h2>
-              <Link href="/courses" className="text-sm font-semibold hover:underline" style={{ color: "#EC5328" }}>
-                {T.seeAll}
-              </Link>
-            </div>
-            <p className="text-gray-500 text-sm mb-10">{T.exploreCoursesSub}</p>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {courses.map((course) => (
-                <div
-                  key={course.id}
-                  onClick={() => setModal("login")}
-                  className="border rounded-2xl overflow-hidden hover:shadow-md transition flex flex-col bg-white cursor-pointer"
-                >
-                  {course.cover_image_url ? (
-                    <img src={course.cover_image_url} alt={course.title} className="w-full h-36 object-cover" />
-                  ) : (
-                    <div className="w-full h-36 flex items-center justify-center text-4xl" style={{ backgroundColor: "#323131" }}>🎓</div>
-                  )}
-                  <div className="p-5 flex flex-col flex-1">
-                    <div className="flex items-start justify-between gap-2 mb-1">
-                      <h3 className="font-bold text-gray-900 text-sm leading-snug">{course.title}</h3>
-                      <div className="flex flex-col items-end gap-1 shrink-0">
-                        {course.is_paid ? (
-                          <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-orange-100 text-orange-700">
-                            {course.price_amd ? `${course.price_amd.toLocaleString()} ֏` : T.paid}
-                          </span>
-                        ) : (
-                          <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-green-100 text-green-700">{T.free}</span>
-                        )}
-                        <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">
-                          {course.language === "en" ? T.languageEnglish : T.languageArmenian}
-                        </span>
-                      </div>
-                    </div>
-                    {course.description && (
-                      <p className="text-xs text-gray-500 line-clamp-2">{course.description}</p>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-      )}
 
       {/* CTA */}
       <section className="py-20 relative overflow-hidden" style={{ backgroundColor: "#EC5328" }}>

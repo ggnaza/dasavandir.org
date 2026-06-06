@@ -7,17 +7,6 @@ import { HomeClient } from "./home-client";
 
 export const dynamic = "force-dynamic";
 
-async function getPublishedCourses() {
-  const admin = createAdminClient();
-  const { data } = await admin
-    .from("courses")
-    .select("id, title, description, cover_image_url, is_paid, price_amd, language")
-    .eq("published", true)
-    .order("created_at", { ascending: false })
-    .limit(6);
-  return data ?? [];
-}
-
 export default async function Home() {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -29,7 +18,6 @@ export default async function Home() {
   }
 
   const lang = getLang(cookies().get("lang")?.value);
-  const courses = await getPublishedCourses();
 
-  return <HomeClient courses={courses} lang={lang} />;
+  return <HomeClient lang={lang} />;
 }
