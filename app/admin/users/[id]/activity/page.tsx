@@ -69,13 +69,17 @@ export default async function UserActivityPage({ params }: { params: { id: strin
     .eq("id", params.id)
     .single();
 
-  const { data: logs } = await admin
-    .from("audit_logs")
-    .select("id, action, meta, created_at")
-    .eq("actor_id", params.id)
-    .order("created_at", { ascending: false })
-    .limit(200);
+  const [{ data: logs }, { data: { user: authUser } }] = await Promise.all([
+    admin
+      .from("audit_logs")
+      .select("id, action, meta, created_at")
+      .eq("actor_id", params.id)
+      .order("created_at", { ascending: false })
+      .limit(200),
+    admin.auth.admin.getUserById(params.id),
+  ]);
 
+  const lastSignInAt: string | null = authUser?.last_sign_in_at ?? null;
   const loginLogs = (logs ?? []).filter((l) => l.action === "login");
   const otherLogs = (logs ?? []).filter((l) => l.action !== "login");
 
@@ -102,7 +106,18 @@ export default async function UserActivityPage({ params }: { params: { id: strin
 
         <div className="bg-white border rounded-xl overflow-hidden">
           {loginLogs.length === 0 ? (
-            <p className="px-5 py-6 text-sm text-gray-400 text-center">No logins recorded yet.</p>
+            <div className="px-5 py-6 text-center">
+              {lastSignInAt ? (
+                <>
+                  <p className="text-sm text-gray-500">
+                    Last seen: <span className="font-medium text-gray-700">{toArmenianTime(lastSignInAt)}</span>
+                  </p>
+                  <p className="text-xs text-gray-400 mt-1">Full login history is tracked from today onward.</p>
+                </>
+              ) : (
+                <p className="text-sm text-gray-400">No logins recorded yet.</p>
+              )}
+            </div>
           ) : (
             <div className="divide-y">
               {loginLogs.map((log) => (
