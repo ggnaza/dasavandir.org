@@ -1,6 +1,7 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ensureProfile } from "@/lib/auth/ensure-profile";
+import { logAudit } from "@/lib/audit-log";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(request: NextRequest) {
@@ -65,6 +66,7 @@ export async function GET(request: NextRequest) {
       if (user) {
         const admin = createAdminClient();
         await ensureProfile(admin, user);
+        await logAudit("login", user.id, request);
       }
     } catch (e) {
       console.error("[callback] ensureProfile error", e);
