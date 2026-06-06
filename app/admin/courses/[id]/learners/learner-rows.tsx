@@ -10,6 +10,7 @@ type Learner = {
   totalLessons: number;
   pct: number;
   completedIds: string[];
+  totalSeconds: number;
 };
 
 type Lesson = {
@@ -22,6 +23,15 @@ function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 }
 
+function formatTime(seconds: number): string {
+  if (seconds === 0) return "—";
+  const m = Math.round(seconds / 60);
+  if (m < 60) return `${m}m`;
+  const h = Math.floor(m / 60);
+  const rem = m % 60;
+  return rem === 0 ? `${h}h` : `${h}h ${rem}m`;
+}
+
 export function LearnerRows({ learners, lessons, courseId }: { learners: Learner[]; lessons: Lesson[]; courseId: string }) {
   return (
     <div className="divide-y">
@@ -31,12 +41,12 @@ export function LearnerRows({ learners, lessons, courseId }: { learners: Learner
           href={`/admin/courses/${courseId}/learners/${l.userId}`}
           className="grid grid-cols-12 gap-3 items-center px-5 py-4 hover:bg-gray-50 transition text-left"
         >
-          <div className="col-span-4">
+          <div className="col-span-3">
             <p className="text-sm font-medium text-gray-900 truncate">{l.name}</p>
             <p className="text-xs text-gray-400 truncate">{l.email}</p>
           </div>
 
-          <div className="col-span-5">
+          <div className="col-span-4">
             <div className="flex items-center gap-2">
               <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
                 <div
@@ -49,6 +59,10 @@ export function LearnerRows({ learners, lessons, courseId }: { learners: Learner
               </span>
             </div>
           </div>
+
+          <span className="col-span-2 text-xs font-medium text-gray-600 text-right">
+            {formatTime(l.totalSeconds)}
+          </span>
 
           <span className="col-span-2 text-xs text-gray-400 text-right">
             {l.enrolledAt ? formatDate(l.enrolledAt) : "—"}
