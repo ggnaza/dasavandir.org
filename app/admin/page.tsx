@@ -27,28 +27,43 @@ export default async function AdminDashboard() {
     supabase.from("courses").select("*", { count: "exact", head: true }),
     supabase.from("profiles").select("*", { count: "exact", head: true }).eq("role", "learner"),
     supabase.from("lessons").select("*", { count: "exact", head: true }),
-    // All login events in the last 90 days
+    // Login events — just IDs, no join (actor_id → auth.users, not profiles)
     admin
       .from("audit_logs")
-      .select("actor_id, profiles(id, full_name, role)")
+      .select("actor_id")
       .eq("action", "login")
       .gte("created_at", new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString()),
-    // All courses with creator info
+    // Courses — just created_by IDs
     admin
       .from("courses")
-      .select("created_by, profiles!courses_created_by_fkey(id, full_name, role)")
+      .select("created_by")
       .not("created_by", "is", null),
   ]);
+
+  // Collect all unique user IDs we need profile info for
+  const loginIds = Array.from(new Set((loginLogs ?? []).map((r) => r.actor_id).filter(Boolean)));
+  const creatorIds = Array.from(new Set((courseRows ?? []).map((r) => r.created_by).filter(Boolean)));
+  const allIds = Array.from(new Set([...loginIds, ...creatorIds]));
+
+  const profileMap: Record<string, { full_name: string; role: string }> = {};
+  if (allIds.length > 0) {
+    const { data: profiles } = await admin
+      .from("profiles")
+      .select("id, full_name, role")
+      .in("id", allIds);
+    for (const p of profiles ?? []) {
+      profileMap[p.id] = { full_name: p.full_name ?? "Unknown", role: p.role ?? "" };
+    }
+  }
 
   // ── Top users by login count ──────────────────────────────
   const loginMap: Record<string, { name: string; role: string; count: number }> = {};
   for (const row of loginLogs ?? []) {
     if (!row.actor_id) continue;
-    const p = row.profiles as any;
     if (!loginMap[row.actor_id]) {
       loginMap[row.actor_id] = {
-        name: p?.full_name ?? "Unknown",
-        role: p?.role ?? "",
+        name: profileMap[row.actor_id]?.full_name ?? "Unknown",
+        role: profileMap[row.actor_id]?.role ?? "",
         count: 0,
       };
     }
@@ -63,11 +78,10 @@ export default async function AdminDashboard() {
   const creatorMap: Record<string, { name: string; role: string; count: number }> = {};
   for (const row of courseRows ?? []) {
     if (!row.created_by) continue;
-    const p = row.profiles as any;
     if (!creatorMap[row.created_by]) {
       creatorMap[row.created_by] = {
-        name: p?.full_name ?? "Unknown",
-        role: p?.role ?? "",
+        name: profileMap[row.created_by]?.full_name ?? "Unknown",
+        role: profileMap[row.created_by]?.role ?? "",
         count: 0,
       };
     }
@@ -128,14 +142,14 @@ export default async function AdminDashboard() {
             </div>
           </div>
           {topByLogins.length === 0 ? (
-            <p className="text-xs text-gray-400 text-center py-4">No login data yet. Logins are tracked from now on.</p>
+            <p className="text-xs text-gray-400 text-center py-4">No login data yet — tracking started today.</p>
           ) : (
             <ol className="space-y-2">
               {topByLogins.map((u, i) => (
                 <li key={u.id} className="flex items-center gap-3">
                   <span className="text-xs text-gray-400 w-4 shrink-0">{i + 1}</span>
                   <Link
-                    href={`/admin/users/${u.id}`}
+                    href={`/admin/users/${u.id}/activity`}
                     className="flex-1 text-sm font-medium text-gray-800 hover:text-brand-600 truncate"
                   >
                     {u.name}
@@ -162,14 +176,14 @@ export default async function AdminDashboard() {
             </div>
           </div>
           {topByCreations.length === 0 ? (
-            <p className="text-xs text-gray-400 text-center py-4">No courses created yet.</p>
+            <p className="text-xs text-gray-400 text-center py-4">No courses with a creator recorded.</p>
           ) : (
             <ol className="space-y-2">
               {topByCreations.map((u, i) => (
                 <li key={u.id} className="flex items-center gap-3">
                   <span className="text-xs text-gray-400 w-4 shrink-0">{i + 1}</span>
                   <Link
-                    href={`/admin/users/${u.id}`}
+                    href={`/admin/users/${u.id}/activity`}
                     className="flex-1 text-sm font-medium text-gray-800 hover:text-brand-600 truncate"
                   >
                     {u.name}
@@ -179,7 +193,7 @@ export default async function AdminDashboard() {
                       {u.role.replace("_", " ")}
                     </span>
                   )}
-                  <span className="text-sm font-semibold text-gray-700 shrink-0 w-8 text-right">
+                  <span className="text-sm font-semibold text-gray-700 shrink-0 text-right">
                     {u.count} {u.count === 1 ? "course" : "courses"}
                   </span>
                 </li>
