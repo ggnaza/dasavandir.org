@@ -6,6 +6,32 @@ import { BackfillMaterialsButton } from "./backfill-materials-button";
 
 export const dynamic = "force-dynamic";
 
+// Returns Mon 00:00 and Sun 23:59:59 UTC for the current Armenia week (UTC+4)
+function getCurrentWeekRangeUTC(): { start: string; end: string } {
+  const OFFSET_MS = 4 * 60 * 60 * 1000; // Armenia = UTC+4
+  const nowArmenia = new Date(Date.now() + OFFSET_MS);
+  const dow = nowArmenia.getUTCDay(); // 0=Sun … 6=Sat
+  const daysSinceMon = dow === 0 ? 6 : dow - 1;
+  const monArmenia = new Date(nowArmenia);
+  monArmenia.setUTCDate(nowArmenia.getUTCDate() - daysSinceMon);
+  monArmenia.setUTCHours(0, 0, 0, 0);
+  const sunArmenia = new Date(monArmenia);
+  sunArmenia.setUTCDate(monArmenia.getUTCDate() + 6);
+  sunArmenia.setUTCHours(23, 59, 59, 999);
+  return {
+    start: new Date(monArmenia.getTime() - OFFSET_MS).toISOString(),
+    end: new Date(sunArmenia.getTime() - OFFSET_MS).toISOString(),
+  };
+}
+
+function formatDuration(ms: number): string {
+  const totalMins = Math.round(ms / 60000);
+  if (totalMins < 60) return `${totalMins}m`;
+  const h = Math.floor(totalMins / 60);
+  const m = totalMins % 60;
+  return m === 0 ? `${h}h` : `${h}h ${m}m`;
+}
+
 export default async function AdminDashboard() {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -16,6 +42,7 @@ export default async function AdminDashboard() {
   }
 
   const admin = createAdminClient();
+  const { start: weekStart, end: weekEnd } = getCurrentWeekRangeUTC();
 
   const [
     { count: courseCount },
@@ -23,27 +50,35 @@ export default async function AdminDashboard() {
     { count: lessonCount },
     { data: loginLogs },
     { data: courseRows },
+    { data: editEvents },
   ] = await Promise.all([
     supabase.from("courses").select("*", { count: "exact", head: true }),
     supabase.from("profiles").select("*", { count: "exact", head: true }).eq("role", "learner"),
     supabase.from("lessons").select("*", { count: "exact", head: true }),
-    // Login events — just IDs, no join (actor_id → auth.users, not profiles)
     admin
       .from("audit_logs")
       .select("actor_id")
       .eq("action", "login")
       .gte("created_at", new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString()),
-    // Courses — just created_by IDs
     admin
       .from("courses")
       .select("created_by")
       .not("created_by", "is", null),
+    // Edit open/save events for the current Mon–Sun week
+    admin
+      .from("audit_logs")
+      .select("actor_id, action, created_at")
+      .in("action", ["lesson_edit_open", "lesson_edit_save"])
+      .gte("created_at", weekStart)
+      .lte("created_at", weekEnd)
+      .order("created_at", { ascending: true }),
   ]);
 
-  // Collect all unique user IDs we need profile info for
+  // ── Collect all unique user IDs for profile lookup ────────
   const loginIds = Array.from(new Set((loginLogs ?? []).map((r) => r.actor_id).filter(Boolean)));
   const creatorIds = Array.from(new Set((courseRows ?? []).map((r) => r.created_by).filter(Boolean)));
-  const allIds = Array.from(new Set([...loginIds, ...creatorIds]));
+  const editIds = Array.from(new Set((editEvents ?? []).map((r) => r.actor_id).filter(Boolean)));
+  const allIds = Array.from(new Set([...loginIds, ...creatorIds, ...editIds]));
 
   const profileMap: Record<string, { full_name: string; role: string }> = {};
   if (allIds.length > 0) {
@@ -92,6 +127,35 @@ export default async function AdminDashboard() {
     .sort((a, b) => b.count - a.count)
     .slice(0, 5);
 
+  // ── Top editors by time this week ─────────────────────────
+  // Pair each open with the next save by the same user; cap session at 2h.
+  const lastOpen: Record<string, number> = {};
+  const editTimeMs: Record<string, number> = {};
+
+  for (const ev of editEvents ?? []) {
+    if (!ev.actor_id) continue;
+    const ts = new Date(ev.created_at).getTime();
+    if (ev.action === "lesson_edit_open") {
+      lastOpen[ev.actor_id] = ts;
+    } else if (ev.action === "lesson_edit_save") {
+      const open = lastOpen[ev.actor_id];
+      const SESSION_CAP = 2 * 60 * 60 * 1000;
+      const duration = open ? Math.min(ts - open, SESSION_CAP) : 10 * 60 * 1000;
+      editTimeMs[ev.actor_id] = (editTimeMs[ev.actor_id] ?? 0) + duration;
+      delete lastOpen[ev.actor_id];
+    }
+  }
+
+  const topEditors = Object.entries(editTimeMs)
+    .map(([id, ms]) => ({
+      id,
+      name: profileMap[id]?.full_name ?? "Unknown",
+      role: profileMap[id]?.role ?? "",
+      ms,
+    }))
+    .sort((a, b) => b.ms - a.ms)
+    .slice(0, 5);
+
   const stats = [
     { label: "Courses", value: courseCount ?? 0, href: "/admin/courses" },
     { label: "Learners", value: learnerCount ?? 0, href: "#" },
@@ -104,6 +168,12 @@ export default async function AdminDashboard() {
     course_manager: "bg-cyan-100 text-cyan-700",
     learner: "bg-gray-100 text-gray-600",
   };
+
+  // Mon dd Mon format for header
+  const monLabel = new Date(new Date(weekStart).getTime() + 4 * 3600000)
+    .toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "Asia/Yerevan" });
+  const sunLabel = new Date(new Date(weekEnd).getTime() + 4 * 3600000)
+    .toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "Asia/Yerevan" });
 
   return (
     <div>
@@ -131,7 +201,8 @@ export default async function AdminDashboard() {
       </div>
 
       {/* ── Most Active Users ─────────────────────────────── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+
         {/* By logins */}
         <div className="bg-white border rounded-xl p-5">
           <div className="flex items-center gap-2 mb-4">
@@ -148,10 +219,7 @@ export default async function AdminDashboard() {
               {topByLogins.map((u, i) => (
                 <li key={u.id} className="flex items-center gap-3">
                   <span className="text-xs text-gray-400 w-4 shrink-0">{i + 1}</span>
-                  <Link
-                    href={`/admin/users/${u.id}/activity`}
-                    className="flex-1 text-sm font-medium text-gray-800 hover:text-brand-600 truncate"
-                  >
+                  <Link href={`/admin/users/${u.id}/activity`} className="flex-1 text-sm font-medium text-gray-800 hover:text-brand-600 truncate">
                     {u.name}
                   </Link>
                   {u.role && (
@@ -182,10 +250,7 @@ export default async function AdminDashboard() {
               {topByCreations.map((u, i) => (
                 <li key={u.id} className="flex items-center gap-3">
                   <span className="text-xs text-gray-400 w-4 shrink-0">{i + 1}</span>
-                  <Link
-                    href={`/admin/users/${u.id}/activity`}
-                    className="flex-1 text-sm font-medium text-gray-800 hover:text-brand-600 truncate"
-                  >
+                  <Link href={`/admin/users/${u.id}/activity`} className="flex-1 text-sm font-medium text-gray-800 hover:text-brand-600 truncate">
                     {u.name}
                   </Link>
                   {u.role && (
@@ -201,6 +266,38 @@ export default async function AdminDashboard() {
             </ol>
           )}
         </div>
+
+        {/* By editing time this week */}
+        <div className="bg-white border rounded-xl p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <span className="text-lg">⏱️</span>
+            <div>
+              <h2 className="font-semibold text-sm leading-tight">Most Time Editing</h2>
+              <p className="text-xs text-gray-400">This week · {monLabel} – {sunLabel}</p>
+            </div>
+          </div>
+          {topEditors.length === 0 ? (
+            <p className="text-xs text-gray-400 text-center py-4">No editing sessions recorded this week yet.</p>
+          ) : (
+            <ol className="space-y-2">
+              {topEditors.map((u, i) => (
+                <li key={u.id} className="flex items-center gap-3">
+                  <span className="text-xs text-gray-400 w-4 shrink-0">{i + 1}</span>
+                  <Link href={`/admin/users/${u.id}/activity`} className="flex-1 text-sm font-medium text-gray-800 hover:text-brand-600 truncate">
+                    {u.name}
+                  </Link>
+                  {u.role && (
+                    <span className={`text-xs px-1.5 py-0.5 rounded font-medium shrink-0 ${ROLE_BADGE[u.role] ?? "bg-gray-100 text-gray-600"}`}>
+                      {u.role.replace("_", " ")}
+                    </span>
+                  )}
+                  <span className="text-sm font-semibold text-brand-600 shrink-0">{formatDuration(u.ms)}</span>
+                </li>
+              ))}
+            </ol>
+          )}
+        </div>
+
       </div>
 
       {/* Studio banner */}
