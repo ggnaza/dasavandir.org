@@ -9,7 +9,8 @@ export type AuditAction =
   | "create_user"
   | "update_role"
   | "delete_user"
-  | "login_failed";
+  | "login_failed"
+  | "bulk_enroll";
 
 export async function logAudit(
   action: AuditAction,
