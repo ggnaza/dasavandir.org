@@ -53,10 +53,11 @@ export async function POST(req: Request) {
   const resolvedCourseId = effectiveCourseId ?? lesson?.course_id;
 
   // Verify the user is enrolled in this course (or is an admin/creator)
+  let learnerFirstName = "";
   if (resolvedCourseId) {
     const [{ data: enrollment }, { data: profile }, { data: courseSettings }] = await Promise.all([
       admin.from("enrollments").select("id").eq("user_id", user.id).eq("course_id", resolvedCourseId).maybeSingle(),
-      admin.from("profiles").select("role").eq("id", user.id).single(),
+      admin.from("profiles").select("role, full_name").eq("id", user.id).single(),
       admin.from("courses").select("ai_coach_enabled").eq("id", resolvedCourseId).single(),
     ]);
     const isStaff = ["admin", "course_creator", "course_manager"].includes(profile?.role ?? "");
@@ -65,6 +66,7 @@ export async function POST(req: Request) {
     if (courseSettings?.ai_coach_enabled === false && !isStaff) {
       return new Response("AI Coach is not enabled for this course", { status: 403 });
     }
+    learnerFirstName = profile?.full_name?.split(" ")[0]?.trim() ?? "";
   } else {
     return new Response("Course not found", { status: 404 });
   }
@@ -130,6 +132,7 @@ export async function POST(req: Request) {
 
   const systemPrompt = `You are an AI learning coach for the course "${courseTitle}".
 ${courseDesc ? `Course description: ${courseDesc}` : ""}
+${learnerFirstName ? `The learner's name is ${learnerFirstName}. Address them by first name naturally — use it in greetings, encouragement, and when asking follow-up questions. Don't overuse it; once or twice per conversation is enough.` : ""}
 The learner is currently studying: "${lesson?.title ?? ""}".
 
 ════════════════════════════════════════

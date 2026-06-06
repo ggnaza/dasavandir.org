@@ -1,0 +1,152 @@
+name: QA — Staging PR
+
+on:
+  pull_request:
+    branches: [staging]
+    types: [opened, synchronize, reopened]
+
+jobs:
+  qa:
+    name: E2E QA
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install chromium --with-deps
+
+      - name: Wait for Vercel staging deployment
+        run: |
+          echo "Waiting 60s for staging deployment to propagate..."
+          sleep 60
+
+      - name: Run E2E tests against staging
+        id: tests
+        run: npx playwright test
+        continue-on-error: true
+        env:
+          CI: true
+          E2E_BASE_URL: https://staging.dasavandir.org
+          E2E_LEARNER_EMAIL: ${{ secrets.E2E_LEARNER_EMAIL }}
+          E2E_LEARNER_PASSWORD: ${{ secrets.E2E_LEARNER_PASSWORD }}
+          E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
+          E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
+          E2E_COURSE_ID: ${{ secrets.E2E_COURSE_ID }}
+          E2E_LESSON_ID: ${{ secrets.E2E_LESSON_ID }}
+          E2E_LESSON2_ID: ${{ secrets.E2E_LESSON2_ID }}
+          E2E_UNENROLLED_COURSE_ID: ${{ secrets.E2E_UNENROLLED_COURSE_ID }}
+          E2E_UNENROLLED_LESSON_ID: ${{ secrets.E2E_UNENROLLED_LESSON_ID }}
+
+      - name: Parse test results
+        id: parse
+        if: always()
+        run: |
+          if [ -f e2e-results.json ]; then
+            PASSED=$(node -e "const r=require('./e2e-results.json'); console.log(r.stats.expected)")
+            FAILED=$(node -e "const r=require('./e2e-results.json'); console.log(r.stats.unexpected)")
+            SKIPPED=$(node -e "const r=require('./e2e-results.json'); console.log(r.stats.skipped)")
+          else
+            PASSED=0; FAILED=1; SKIPPED=0
+          fi
+          echo "passed=$PASSED" >> $GITHUB_OUTPUT
+          echo "failed=$FAILED" >> $GITHUB_OUTPUT
+          echo "skipped=$SKIPPED" >> $GITHUB_OUTPUT
+
+      - name: Upload failure screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-screenshots-pr-${{ github.event.pull_request.number }}
+          path: test-results/
+          retention-days: 7
+          if-no-files-found: ignore
+
+      - name: Extract Asana task GID from PR body
+        id: asana
+        if: always()
+        run: |
+          TASK_GID=$(echo "${{ github.event.pull_request.body }}" | grep -oP '(?<=asana-task-gid: )\S+' || true)
+          echo "task_gid=$TASK_GID" >> $GITHUB_OUTPUT
+
+      - name: Auto-merge PR on pass
+        if: steps.tests.outcome == 'success'
+        run: gh pr merge ${{ github.event.pull_request.number }} --merge --delete-branch
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+
+      - name: Comment on Asana task — pass
+        if: steps.tests.outcome == 'success' && steps.asana.outputs.task_gid != ''
+        env:
+          ASANA_ACCESS_TOKEN: ${{ secrets.ASANA_ACCESS_TOKEN }}
+        run: |
+          node .github/scripts/asana-update.js comment \
+            "${{ steps.asana.outputs.task_gid }}" \
+            "✅ QA passed (${{ steps.parse.outputs.passed }} tests). Merged to staging → https://staging.dasavandir.org"
+          node .github/scripts/asana-update.js complete "${{ steps.asana.outputs.task_gid }}"
+
+      - name: Comment on Asana task — fail
+        if: steps.tests.outcome != 'success' && steps.asana.outputs.task_gid != ''
+        env:
+          ASANA_ACCESS_TOKEN: ${{ secrets.ASANA_ACCESS_TOKEN }}
+        run: |
+          node .github/scripts/asana-update.js comment \
+            "${{ steps.asana.outputs.task_gid }}" \
+            "❌ QA failed (${{ steps.parse.outputs.failed }} test(s) failed). PR needs review: https://github.com/${{ github.repository }}/pull/${{ github.event.pull_request.number }}"
+
+      - name: Notify Slack — pass
+        if: steps.tests.outcome == 'success'
+        run: |
+          curl -s -X POST "${{ secrets.SLACK_QA_WEBHOOK_URL }}" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"attachments\": [{
+                \"color\": \"#36a64f\",
+                \"blocks\": [
+                  {
+                    \"type\": \"section\",
+                    \"text\": {
+                      \"type\": \"mrkdwn\",
+                      \"text\": \":white_check_mark: *QA passed — merged to staging*\n*PR:* <https://github.com/${{ github.repository }}/pull/${{ github.event.pull_request.number }}|${{ github.event.pull_request.title }}>\n*Tests:* ${{ steps.parse.outputs.passed }} passed, ${{ steps.parse.outputs.skipped }} skipped\"
+                    }
+                  }
+                ]
+              }]
+            }"
+
+      - name: Notify Slack — fail
+        if: steps.tests.outcome != 'success'
+        run: |
+          curl -s -X POST "${{ secrets.SLACK_QA_WEBHOOK_URL }}" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"attachments\": [{
+                \"color\": \"#d9534f\",
+                \"blocks\": [
+                  {
+                    \"type\": \"section\",
+                    \"text\": {
+                      \"type\": \"mrkdwn\",
+                      \"text\": \":x: *QA failed — PR blocked*\n*PR:* <https://github.com/${{ github.repository }}/pull/${{ github.event.pull_request.number }}|${{ github.event.pull_request.title }}>\n*Tests:* ${{ steps.parse.outputs.failed }} failed, ${{ steps.parse.outputs.passed }} passed\"
+                    }
+                  },
+                  {
+                    \"type\": \"actions\",
+                    \"elements\": [{
+                      \"type\": \"button\",
+                      \"text\": { \"type\": \"plain_text\", \"text\": \"View PR\" },
+                      \"url\": \"https://github.com/${{ github.repository }}/pull/${{ github.event.pull_request.number }}\"
+                    }]
+                  }
+                ]
+              }]
+            }"

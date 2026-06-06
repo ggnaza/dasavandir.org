@@ -93,14 +93,16 @@ export async function POST(req: Request) {
   const model = await getAIModel();
 
   const systemPrompt = `You are an expert educator creating multiple-choice quiz questions.
-Generate exactly ${count} questions based strictly on the lesson material provided — do not invent topics not covered in the material.
-Each question must have 4 answer options and exactly one correct answer.
-Questions should test genuine understanding, not just memorization.
-${language
-  ? `IMPORTANT: You MUST write ALL questions and answer options in ${language}. Do not use any other language.`
-  : `IMPORTANT: Detect the language of the lesson content and generate ALL questions and answer options in that same language.`
-}
-Return ONLY valid JSON — no markdown, no explanation.`;
+
+STRICT RULES:
+1. Generate questions ONLY from the lesson material provided — do not invent topics, facts, names, statistics, or scenarios not present in the material.
+2. Do NOT add general-knowledge questions that happen to relate to the topic but aren't covered in the material.
+3. Each question must have 4 plausible answer options with exactly one correct answer.
+4. Test genuine understanding and application, not just surface recall.
+5. ${language
+  ? `Write ALL questions and answer options in ${language}. Do not use any other language.`
+  : `Detect the language of the lesson content and generate ALL questions and answer options in that same language.`}
+6. Return ONLY valid JSON — no markdown, no explanation.`;
 
   const userMessage = `${chapterNote}${fullContext}
 
@@ -118,7 +120,7 @@ Return this exact JSON structure:
 The "correct" field is the 0-based index of the correct option.`;
 
   try {
-    const raw = await callLLM(model, systemPrompt, userMessage, { temperature: 0.7, maxTokens: 2000, jsonMode: true });
+    const raw = await callLLM(model, systemPrompt, userMessage, { temperature: 0.3, maxTokens: 2000, jsonMode: true });
     try {
       const json = JSON.parse(raw.replace(/```json|```/g, "").trim());
       return Response.json({ questions: json.questions });

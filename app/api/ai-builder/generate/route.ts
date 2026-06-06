@@ -58,7 +58,16 @@ export async function POST(req: Request) {
   // Truncate to ~12000 chars to stay within token limits
   const truncated = sourceText.slice(0, 12000);
 
-  const prompt = `You are a course creation expert. Based on the source material below, create a structured online course.
+  const systemPrompt = `You are a course creation expert.
+
+ANTI-HALLUCINATION RULES — strictly enforced:
+1. Base ALL lesson content and quiz questions EXCLUSIVELY on the provided source material.
+2. Do NOT invent facts, statistics, names, quotes, examples, or case studies not present in the material.
+3. Do NOT add general knowledge that happens to relate to the topic — only use what's in the source.
+4. If the source is short, create fewer/shorter lessons rather than padding with invented content.
+5. Return ONLY valid JSON — no markdown fences, no explanation.`;
+
+  const prompt = `Create a structured online course from the source material below.
 
 Return ONLY valid JSON with this exact structure:
 {
@@ -81,21 +90,19 @@ Return ONLY valid JSON with this exact structure:
   ]
 }
 
-Rules:
 - Create 3-6 lessons based on content depth
 - Each lesson covers one clear topic from the material
-- Quiz: 3-4 questions per lesson, testing real understanding
-- correct is the index (0-3) of the right option
-- Content must be in valid HTML
-- Stay strictly within the provided source material
+- Quiz: 3-4 questions per lesson, each grounded in the lesson content
+- "correct" is the 0-based index of the correct option
+- Content must be valid HTML
 
-Source material:
+Source material (your ONLY source of truth):
 ---
 ${truncated}
 ---`;
 
   const model = await getAIModel();
-  const raw = await callLLM(model, "You are a course creation expert. Return ONLY valid JSON.", prompt, { maxTokens: 4000, jsonMode: true });
+  const raw = await callLLM(model, systemPrompt, prompt, { maxTokens: 4000, temperature: 0.3, jsonMode: true });
 
   try {
     const course = JSON.parse(raw);
