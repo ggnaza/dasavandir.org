@@ -86,28 +86,22 @@ jobs:
 
       - name: Comment on Asana task — pass
         if: steps.tests.outcome == 'success' && steps.asana.outputs.task_gid != ''
+        env:
+          ASANA_ACCESS_TOKEN: ${{ secrets.ASANA_ACCESS_TOKEN }}
         run: |
           node .github/scripts/asana-update.js comment \
             "${{ steps.asana.outputs.task_gid }}" \
-            "✅ QA passed (${{ steps.parse.outputs.passed }} tests). PR merged to staging. https://staging.dasavandir.org"
-          node .github/scripts/asana-update.js mark-done "${{ steps.asana.outputs.task_gid }}"
-        env:
-          ASANA_ACCESS_TOKEN: ${{ secrets.ASANA_ACCESS_TOKEN }}
-          ASANA_AI_BUILD_TAG_GID: ${{ secrets.ASANA_AI_BUILD_TAG_GID }}
-          ASANA_AI_BUILDING_TAG_GID: ${{ secrets.ASANA_AI_BUILDING_TAG_GID }}
-          ASANA_AI_DONE_TAG_GID: ${{ secrets.ASANA_AI_DONE_TAG_GID }}
+            "✅ QA passed (${{ steps.parse.outputs.passed }} tests). Merged to staging → https://staging.dasavandir.org"
+          node .github/scripts/asana-update.js complete "${{ steps.asana.outputs.task_gid }}"
 
       - name: Comment on Asana task — fail
         if: steps.tests.outcome != 'success' && steps.asana.outputs.task_gid != ''
+        env:
+          ASANA_ACCESS_TOKEN: ${{ secrets.ASANA_ACCESS_TOKEN }}
         run: |
           node .github/scripts/asana-update.js comment \
             "${{ steps.asana.outputs.task_gid }}" \
-            "❌ QA failed (${{ steps.parse.outputs.failed }} tests failed). PR is open for review: https://github.com/${{ github.repository }}/pull/${{ github.event.pull_request.number }}"
-        env:
-          ASANA_ACCESS_TOKEN: ${{ secrets.ASANA_ACCESS_TOKEN }}
-          ASANA_AI_BUILD_TAG_GID: ${{ secrets.ASANA_AI_BUILD_TAG_GID }}
-          ASANA_AI_BUILDING_TAG_GID: ${{ secrets.ASANA_AI_BUILDING_TAG_GID }}
-          ASANA_AI_DONE_TAG_GID: ${{ secrets.ASANA_AI_DONE_TAG_GID }}
+            "❌ QA failed (${{ steps.parse.outputs.failed }} test(s) failed). PR needs review: https://github.com/${{ github.repository }}/pull/${{ github.event.pull_request.number }}"
 
       - name: Notify Slack — pass
         if: steps.tests.outcome == 'success'

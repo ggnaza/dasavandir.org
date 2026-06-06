@@ -1,25 +1,26 @@
 #!/usr/bin/env node
 /**
- * Polls Asana for tasks tagged "ai-build" that haven't been picked up yet.
- * Outputs a JSON array of tasks to stdout, and sets GHA output "tasks".
+ * Polls Asana for tasks where the "Build" custom field = "ai-build".
+ * Outputs a JSON array to GitHub Actions output "tasks".
  *
- * A task is considered "already picked up" if it also has the "ai-building" tag.
+ * Custom field GIDs (hardcoded — these don't change):
+ *   Build field:        1215469498161954
+ *   "ai-build" option:  1215469498161955
+ *   Workspace:          823554432495933
  *
- * Required env vars:
- *   ASANA_ACCESS_TOKEN
- *   ASANA_AI_BUILD_TAG_GID   — GID of the "ai-build" tag
- *   ASANA_AI_BUILDING_TAG_GID — GID of the "ai-building" tag (in-progress marker)
+ * Required env var: ASANA_ACCESS_TOKEN
  */
 
 const https = require("https");
 const fs = require("fs");
 
 const TOKEN = process.env.ASANA_ACCESS_TOKEN;
-const BUILD_TAG = process.env.ASANA_AI_BUILD_TAG_GID;
-const BUILDING_TAG = process.env.ASANA_AI_BUILDING_TAG_GID;
+const WORKSPACE_GID = "823554432495933";
+const BUILD_FIELD_GID = "1215469498161954";
+const AI_BUILD_OPTION_GID = "1215469498161955";
 
-if (!TOKEN || !BUILD_TAG || !BUILDING_TAG) {
-  console.error("Missing required env vars: ASANA_ACCESS_TOKEN, ASANA_AI_BUILD_TAG_GID, ASANA_AI_BUILDING_TAG_GID");
+if (!TOKEN) {
+  console.error("Missing required env var: ASANA_ACCESS_TOKEN");
   process.exit(1);
 }
 
@@ -37,20 +38,23 @@ function asanaGet(path) {
       let data = "";
       res.on("data", (chunk) => (data += chunk));
       res.on("end", () => {
-        try {
-          resolve(JSON.parse(data));
-        } catch (e) {
-          reject(new Error(`Failed to parse Asana response: ${data}`));
-        }
+        try { resolve(JSON.parse(data)); }
+        catch (e) { reject(new Error(`Failed to parse Asana response: ${data}`)); }
       });
     }).on("error", reject);
   });
 }
 
 async function main() {
-  // Get all tasks with the "ai-build" tag
+  // Search for incomplete tasks where Build = ai-build
+  const params = new URLSearchParams({
+    [`custom_fields.${BUILD_FIELD_GID}.enum_value`]: AI_BUILD_OPTION_GID,
+    completed: "false",
+    "opt_fields": "gid,name,notes,custom_fields",
+  });
+
   const result = await asanaGet(
-    `/tasks?tag=${BUILD_TAG}&opt_fields=gid,name,notes,tags`
+    `/workspaces/${WORKSPACE_GID}/tasks/search?${params}`
   );
 
   if (!result.data) {
@@ -58,26 +62,15 @@ async function main() {
     process.exit(1);
   }
 
-  // Filter out tasks already being processed (have "ai-building" tag)
-  const newTasks = result.data.filter((task) => {
-    const tagGids = (task.tags || []).map((t) => t.gid);
-    return !tagGids.includes(BUILDING_TAG);
-  });
+  const tasks = result.data;
+  console.log(`Found ${tasks.length} task(s) with Build = ai-build`);
+  tasks.forEach((t) => console.log(`  - [${t.gid}] ${t.name}`));
 
-  console.log(`Found ${result.data.length} ai-build tasks, ${newTasks.length} new`);
-
-  const output = JSON.stringify(newTasks);
-
-  // Write to GitHub Actions output
+  const output = JSON.stringify(tasks);
   const outputFile = process.env.GITHUB_OUTPUT;
   if (outputFile) {
     fs.appendFileSync(outputFile, `tasks=${output}\n`);
-    fs.appendFileSync(outputFile, `task_count=${newTasks.length}\n`);
-  }
-
-  // Also print for debugging
-  if (newTasks.length > 0) {
-    newTasks.forEach((t) => console.log(`  - [${t.gid}] ${t.name}`));
+    fs.appendFileSync(outputFile, `task_count=${tasks.length}\n`);
   }
 }
 

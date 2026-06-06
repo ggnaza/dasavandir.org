@@ -1,27 +1,21 @@
 #!/usr/bin/env node
 /**
- * Updates an Asana task after the build agent processes it.
+ * Updates an Asana task during the build/QA pipeline.
  * Usage:
- *   node asana-update.js <command> [args]
+ *   node asana-update.js comment <task_gid> <text>
+ *   node asana-update.js clear-build <task_gid>      — clears the Build field so it won't re-trigger
+ *   node asana-update.js complete <task_gid>          — marks the task complete
  *
- * Commands:
- *   mark-building <task_gid>           — swap ai-build tag → ai-building
- *   mark-done <task_gid>               — swap ai-building tag → ai-done
- *   comment <task_gid> <text>          — add a comment to the task
+ * Custom field GIDs (hardcoded):
+ *   Build field: 1215469498161954
  *
- * Required env vars:
- *   ASANA_ACCESS_TOKEN
- *   ASANA_AI_BUILD_TAG_GID
- *   ASANA_AI_BUILDING_TAG_GID
- *   ASANA_AI_DONE_TAG_GID
+ * Required env var: ASANA_ACCESS_TOKEN
  */
 
 const https = require("https");
 
 const TOKEN = process.env.ASANA_ACCESS_TOKEN;
-const BUILD_TAG = process.env.ASANA_AI_BUILD_TAG_GID;
-const BUILDING_TAG = process.env.ASANA_AI_BUILDING_TAG_GID;
-const DONE_TAG = process.env.ASANA_AI_DONE_TAG_GID;
+const BUILD_FIELD_GID = "1215469498161954";
 
 function asanaRequest(method, path, body) {
   return new Promise((resolve, reject) => {
@@ -37,16 +31,12 @@ function asanaRequest(method, path, body) {
         ...(payload ? { "Content-Length": Buffer.byteLength(payload) } : {}),
       },
     };
-
     const req = https.request(options, (res) => {
       let data = "";
       res.on("data", (chunk) => (data += chunk));
       res.on("end", () => {
-        try {
-          resolve(JSON.parse(data));
-        } catch {
-          resolve({ raw: data });
-        }
+        try { resolve(JSON.parse(data)); }
+        catch { resolve({ raw: data }); }
       });
     });
     req.on("error", reject);
@@ -55,45 +45,32 @@ function asanaRequest(method, path, body) {
   });
 }
 
-async function addTag(taskGid, tagGid) {
-  return asanaRequest("POST", `/tasks/${taskGid}/addTag`, { tag: tagGid });
-}
-
-async function removeTag(taskGid, tagGid) {
-  return asanaRequest("POST", `/tasks/${taskGid}/removeTag`, { tag: tagGid });
-}
-
-async function addComment(taskGid, text) {
-  return asanaRequest("POST", `/tasks/${taskGid}/stories`, { text });
-}
-
 async function main() {
   const [, , command, taskGid, ...rest] = process.argv;
 
-  if (!TOKEN) {
-    console.error("ASANA_ACCESS_TOKEN not set");
-    process.exit(1);
-  }
+  if (!TOKEN) { console.error("ASANA_ACCESS_TOKEN not set"); process.exit(1); }
+  if (!taskGid) { console.error("task_gid required"); process.exit(1); }
 
   switch (command) {
-    case "mark-building":
-      await removeTag(taskGid, BUILD_TAG);
-      await addTag(taskGid, BUILDING_TAG);
-      console.log(`Task ${taskGid}: marked as ai-building`);
-      break;
-
-    case "mark-done":
-      await removeTag(taskGid, BUILDING_TAG);
-      await addTag(taskGid, DONE_TAG);
-      console.log(`Task ${taskGid}: marked as ai-done`);
+    case "clear-build":
+      // Clear the Build field so the agent won't pick it up again on next poll
+      await asanaRequest("PUT", `/tasks/${taskGid}`, {
+        custom_fields: { [BUILD_FIELD_GID]: null },
+      });
+      console.log(`Task ${taskGid}: Build field cleared`);
       break;
 
     case "comment": {
       const text = rest.join(" ");
-      await addComment(taskGid, text);
+      await asanaRequest("POST", `/tasks/${taskGid}/stories`, { text });
       console.log(`Task ${taskGid}: comment added`);
       break;
     }
+
+    case "complete":
+      await asanaRequest("PUT", `/tasks/${taskGid}`, { completed: true });
+      console.log(`Task ${taskGid}: marked complete`);
+      break;
 
     default:
       console.error(`Unknown command: ${command}`);
@@ -101,7 +78,4 @@ async function main() {
   }
 }
 
-main().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+main().catch((err) => { console.error(err); process.exit(1); });

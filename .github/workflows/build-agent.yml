@@ -30,10 +30,10 @@ jobs:
         id: poll
         run: |
           if [ -n "${{ inputs.task_gid }}" ]; then
-            # Manual trigger with specific task — fetch just that task
+            # Manual trigger with a specific task GID — fetch just that task
             TASK=$(curl -s \
               -H "Authorization: Bearer $ASANA_ACCESS_TOKEN" \
-              "https://app.asana.com/api/1.0/tasks/${{ inputs.task_gid }}?opt_fields=gid,name,notes,tags")
+              "https://app.asana.com/api/1.0/tasks/${{ inputs.task_gid }}?opt_fields=gid,name,notes,custom_fields")
             TASKS=$(echo "$TASK" | node -e "
               const d=JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));
               process.stdout.write(JSON.stringify([d.data]));
@@ -45,20 +45,17 @@ jobs:
           fi
         env:
           ASANA_ACCESS_TOKEN: ${{ secrets.ASANA_ACCESS_TOKEN }}
-          ASANA_AI_BUILD_TAG_GID: ${{ secrets.ASANA_AI_BUILD_TAG_GID }}
-          ASANA_AI_BUILDING_TAG_GID: ${{ secrets.ASANA_AI_BUILDING_TAG_GID }}
 
   build:
-    name: Build task ${{ matrix.task_gid }}
+    name: "Build: ${{ matrix.task.name }}"
     runs-on: ubuntu-latest
     needs: poll
     if: needs.poll.outputs.task_count != '0' && needs.poll.outputs.tasks != '[]' && needs.poll.outputs.tasks != ''
     timeout-minutes: 30
     strategy:
       matrix:
-        # Each Asana task gets its own job
         task: ${{ fromJson(needs.poll.outputs.tasks) }}
-      max-parallel: 1  # Build one task at a time to avoid branch conflicts
+      max-parallel: 1  # one at a time to avoid branch conflicts
 
     steps:
       - uses: actions/checkout@v4
@@ -86,12 +83,10 @@ jobs:
           echo "branch=$BRANCH" >> $GITHUB_OUTPUT
           echo "task_gid=$TASK_GID" >> $GITHUB_OUTPUT
 
-      - name: Mark task as in-progress in Asana
-        run: node .github/scripts/asana-update.js mark-building "${{ steps.branch.outputs.task_gid }}"
+      - name: Clear Build field so task won't re-trigger on next poll
+        run: node .github/scripts/asana-update.js clear-build "${{ steps.branch.outputs.task_gid }}"
         env:
           ASANA_ACCESS_TOKEN: ${{ secrets.ASANA_ACCESS_TOKEN }}
-          ASANA_AI_BUILD_TAG_GID: ${{ secrets.ASANA_AI_BUILD_TAG_GID }}
-          ASANA_AI_BUILDING_TAG_GID: ${{ secrets.ASANA_AI_BUILDING_TAG_GID }}
 
       - name: Install dependencies
         run: npm ci
@@ -100,12 +95,10 @@ jobs:
         run: npm install -g @anthropic-ai/claude-code
 
       - name: Run Claude Code to implement task
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
-          TASK_NAME="${{ matrix.task.name }}"
-          TASK_NOTES="${{ matrix.task.notes }}"
-
-          claude --dangerously-skip-permissions -p "$(cat <<'PROMPT'
-You are working on the Dasavandir LMS — a Next.js 14 app with Supabase, Tailwind, and TypeScript.
+          claude --dangerously-skip-permissions -p "You are working on the Dasavandir LMS — a Next.js 14 app with Supabase, Tailwind, and TypeScript.
 
 Your job is to implement the following Asana task exactly as described. Follow existing code patterns closely.
 
@@ -116,16 +109,10 @@ Critical rules:
 - If the task is unclear, implement the most literal reading of it
 - After making changes, stop — do not summarize or explain
 
-Task name: ${TASK_NAME}
+Task: ${{ matrix.task.name }}
 
-Task description:
-${TASK_NOTES}
-PROMPT
-)"
-        env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          TASK_NAME: ${{ matrix.task.name }}
-          TASK_NOTES: ${{ matrix.task.notes }}
+Description:
+${{ matrix.task.notes }}"
 
       - name: Check for changes
         id: changes
@@ -136,7 +123,7 @@ PROMPT
             echo "has_changes=true" >> $GITHUB_OUTPUT
           fi
 
-      - name: Commit and push changes
+      - name: Commit and push
         if: steps.changes.outputs.has_changes == 'true'
         run: |
           git add -A
@@ -150,13 +137,14 @@ Co-Authored-By: Dasavandir Build Agent <agent@dasavandir.org>"
       - name: Create PR
         if: steps.changes.outputs.has_changes == 'true'
         id: pr
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
           PR_URL=$(gh pr create \
             --base staging \
             --head "${{ steps.branch.outputs.branch }}" \
             --title "${{ matrix.task.name }}" \
-            --body "$(cat <<EOF
-## Asana task
+            --body "## Asana task
 [${{ matrix.task.name }}](https://app.asana.com/0/0/${{ steps.branch.outputs.task_gid }}/f)
 
 ## Description
@@ -164,31 +152,23 @@ ${{ matrix.task.notes }}
 
 ---
 🤖 Implemented by the Dasavandir Build Agent
-<!-- asana-task-gid: ${{ steps.branch.outputs.task_gid }} -->
-EOF
-)")
+<!-- asana-task-gid: ${{ steps.branch.outputs.task_gid }} -->")
           echo "pr_url=$PR_URL" >> $GITHUB_OUTPUT
-        env:
-          GH_TOKEN: ${{ secrets.GH_PAT }}
 
       - name: Comment PR link on Asana task
         if: steps.changes.outputs.has_changes == 'true'
+        env:
+          ASANA_ACCESS_TOKEN: ${{ secrets.ASANA_ACCESS_TOKEN }}
         run: |
           node .github/scripts/asana-update.js comment \
             "${{ steps.branch.outputs.task_gid }}" \
-            "🤖 Build agent created PR: ${{ steps.pr.outputs.pr_url }}"
-        env:
-          ASANA_ACCESS_TOKEN: ${{ secrets.ASANA_ACCESS_TOKEN }}
-          ASANA_AI_BUILD_TAG_GID: ${{ secrets.ASANA_AI_BUILD_TAG_GID }}
-          ASANA_AI_BUILDING_TAG_GID: ${{ secrets.ASANA_AI_BUILDING_TAG_GID }}
+            "🤖 Build agent started work. PR: ${{ steps.pr.outputs.pr_url }}"
 
-      - name: Handle no changes
+      - name: Comment on Asana if no changes produced
         if: steps.changes.outputs.has_changes == 'false'
+        env:
+          ASANA_ACCESS_TOKEN: ${{ secrets.ASANA_ACCESS_TOKEN }}
         run: |
           node .github/scripts/asana-update.js comment \
             "${{ steps.branch.outputs.task_gid }}" \
-            "⚠️ Build agent ran but produced no file changes. Please review the task description and try again."
-        env:
-          ASANA_ACCESS_TOKEN: ${{ secrets.ASANA_ACCESS_TOKEN }}
-          ASANA_AI_BUILD_TAG_GID: ${{ secrets.ASANA_AI_BUILD_TAG_GID }}
-          ASANA_AI_BUILDING_TAG_GID: ${{ secrets.ASANA_AI_BUILDING_TAG_GID }}
+            "⚠️ Build agent ran but made no file changes. Please add more detail to the task description and set Build = ai-build again to retry."
