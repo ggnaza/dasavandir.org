@@ -2,7 +2,6 @@ name: Build Agent
 
 on:
   schedule:
-    # Poll every 30 minutes
     - cron: "*/30 * * * *"
   workflow_dispatch:
     inputs:
@@ -28,12 +27,14 @@ jobs:
 
       - name: Poll Asana
         id: poll
+        env:
+          ASANA_ACCESS_TOKEN: ${{ secrets.ASANA_ACCESS_TOKEN }}
+          SPECIFIC_TASK_GID: ${{ inputs.task_gid }}
         run: |
-          if [ -n "${{ inputs.task_gid }}" ]; then
-            # Manual trigger with a specific task GID — fetch just that task
+          if [ -n "$SPECIFIC_TASK_GID" ]; then
             TASK=$(curl -s \
               -H "Authorization: Bearer $ASANA_ACCESS_TOKEN" \
-              "https://app.asana.com/api/1.0/tasks/${{ inputs.task_gid }}?opt_fields=gid,name,notes,custom_fields")
+              "https://app.asana.com/api/1.0/tasks/${SPECIFIC_TASK_GID}?opt_fields=gid,name,notes,custom_fields")
             TASKS=$(echo "$TASK" | node -e "
               const d=JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));
               process.stdout.write(JSON.stringify([d.data]));
@@ -43,11 +44,9 @@ jobs:
           else
             node .github/scripts/asana-poll.js
           fi
-        env:
-          ASANA_ACCESS_TOKEN: ${{ secrets.ASANA_ACCESS_TOKEN }}
 
   build:
-    name: "Build: ${{ matrix.task.name }}"
+    name: Build Asana task
     runs-on: ubuntu-latest
     needs: poll
     if: needs.poll.outputs.task_count != '0' && needs.poll.outputs.tasks != '[]' && needs.poll.outputs.tasks != ''
@@ -55,7 +54,7 @@ jobs:
     strategy:
       matrix:
         task: ${{ fromJson(needs.poll.outputs.tasks) }}
-      max-parallel: 1  # one at a time to avoid branch conflicts
+      max-parallel: 1
 
     steps:
       - uses: actions/checkout@v4
@@ -76,17 +75,19 @@ jobs:
 
       - name: Create feature branch
         id: branch
+        env:
+          TASK_GID: ${{ matrix.task.gid }}
         run: |
-          TASK_GID="${{ matrix.task.gid }}"
           BRANCH="feature/asana-${TASK_GID}"
           git checkout -b "$BRANCH"
           echo "branch=$BRANCH" >> $GITHUB_OUTPUT
           echo "task_gid=$TASK_GID" >> $GITHUB_OUTPUT
 
-      - name: Clear Build field so task won't re-trigger on next poll
-        run: node .github/scripts/asana-update.js clear-build "${{ steps.branch.outputs.task_gid }}"
+      - name: Clear Build field so task won't re-trigger
         env:
           ASANA_ACCESS_TOKEN: ${{ secrets.ASANA_ACCESS_TOKEN }}
+          TASK_GID: ${{ matrix.task.gid }}
+        run: node .github/scripts/asana-update.js clear-build "$TASK_GID"
 
       - name: Install dependencies
         run: npm ci
@@ -97,22 +98,26 @@ jobs:
       - name: Run Claude Code to implement task
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          TASK_NAME: ${{ matrix.task.name }}
+          TASK_NOTES: ${{ matrix.task.notes }}
         run: |
-          claude --dangerously-skip-permissions -p "You are working on the Dasavandir LMS — a Next.js 14 app with Supabase, Tailwind, and TypeScript.
+          cat > /tmp/prompt.txt << 'ENDPROMPT'
+You are working on the Dasavandir LMS — a Next.js 14 app with Supabase, Tailwind, and TypeScript.
 
-Your job is to implement the following Asana task exactly as described. Follow existing code patterns closely.
+Implement the Asana task below. Follow existing code patterns closely.
 
-Critical rules:
-- Do NOT create PRs, do NOT run git commands — only edit/create source files
+Rules:
+- Only edit/create source files — do NOT run git commands or create PRs
 - Do NOT add comments explaining what you changed
 - Do NOT add features beyond what is described
-- If the task is unclear, implement the most literal reading of it
-- After making changes, stop — do not summarize or explain
-
-Task: ${{ matrix.task.name }}
-
-Description:
-${{ matrix.task.notes }}"
+- After making changes, stop
+ENDPROMPT
+          echo "" >> /tmp/prompt.txt
+          echo "Task: $TASK_NAME" >> /tmp/prompt.txt
+          echo "" >> /tmp/prompt.txt
+          echo "Description:" >> /tmp/prompt.txt
+          echo "$TASK_NOTES" >> /tmp/prompt.txt
+          claude --dangerously-skip-permissions -p "$(cat /tmp/prompt.txt)"
 
       - name: Check for changes
         id: changes
@@ -125,50 +130,60 @@ ${{ matrix.task.notes }}"
 
       - name: Commit and push
         if: steps.changes.outputs.has_changes == 'true'
+        env:
+          TASK_NAME: ${{ matrix.task.name }}
+          TASK_GID: ${{ steps.branch.outputs.task_gid }}
+          BRANCH: ${{ steps.branch.outputs.branch }}
         run: |
           git add -A
-          git commit -m "feat(agent): ${{ matrix.task.name }}
+          git commit -m "feat(agent): ${TASK_NAME}
 
-Implements Asana task ${{ steps.branch.outputs.task_gid }}
+Implements Asana task ${TASK_GID}
 
 Co-Authored-By: Dasavandir Build Agent <agent@dasavandir.org>"
-          git push origin "${{ steps.branch.outputs.branch }}"
+          git push origin "$BRANCH"
 
       - name: Create PR
         if: steps.changes.outputs.has_changes == 'true'
         id: pr
         env:
           GH_TOKEN: ${{ secrets.GH_PAT }}
+          TASK_NAME: ${{ matrix.task.name }}
+          TASK_NOTES: ${{ matrix.task.notes }}
+          TASK_GID: ${{ steps.branch.outputs.task_gid }}
+          BRANCH: ${{ steps.branch.outputs.branch }}
         run: |
-          PR_URL=$(gh pr create \
-            --base staging \
-            --head "${{ steps.branch.outputs.branch }}" \
-            --title "${{ matrix.task.name }}" \
-            --body "## Asana task
-[${{ matrix.task.name }}](https://app.asana.com/0/0/${{ steps.branch.outputs.task_gid }}/f)
+          cat > /tmp/pr-body.txt << ENDBODY
+## Asana task
+[${TASK_NAME}](https://app.asana.com/0/0/${TASK_GID}/f)
 
 ## Description
-${{ matrix.task.notes }}
+${TASK_NOTES}
 
 ---
-🤖 Implemented by the Dasavandir Build Agent
-<!-- asana-task-gid: ${{ steps.branch.outputs.task_gid }} -->")
+Implemented by the Dasavandir Build Agent
+<!-- asana-task-gid: ${TASK_GID} -->
+ENDBODY
+          PR_URL=$(gh pr create \
+            --base staging \
+            --head "$BRANCH" \
+            --title "$TASK_NAME" \
+            --body-file /tmp/pr-body.txt)
           echo "pr_url=$PR_URL" >> $GITHUB_OUTPUT
 
       - name: Comment PR link on Asana task
         if: steps.changes.outputs.has_changes == 'true'
         env:
           ASANA_ACCESS_TOKEN: ${{ secrets.ASANA_ACCESS_TOKEN }}
+          TASK_GID: ${{ steps.branch.outputs.task_gid }}
+          PR_URL: ${{ steps.pr.outputs.pr_url }}
         run: |
-          node .github/scripts/asana-update.js comment \
-            "${{ steps.branch.outputs.task_gid }}" \
-            "🤖 Build agent started work. PR: ${{ steps.pr.outputs.pr_url }}"
+          node .github/scripts/asana-update.js comment "$TASK_GID" "Build agent created PR: $PR_URL"
 
       - name: Comment on Asana if no changes produced
         if: steps.changes.outputs.has_changes == 'false'
         env:
           ASANA_ACCESS_TOKEN: ${{ secrets.ASANA_ACCESS_TOKEN }}
+          TASK_GID: ${{ steps.branch.outputs.task_gid }}
         run: |
-          node .github/scripts/asana-update.js comment \
-            "${{ steps.branch.outputs.task_gid }}" \
-            "⚠️ Build agent ran but made no file changes. Please add more detail to the task description and set Build = ai-build again to retry."
+          node .github/scripts/asana-update.js comment "$TASK_GID" "Build agent ran but made no file changes. Add more detail to the task description and set Build = ai-build again to retry."
