@@ -54,16 +54,6 @@ export default async function LearnDashboard() {
   const courses = allCourses ?? [];
 
   const enrolledCourses = courses.filter((c) => enrolledIds.has(c.id));
-  const availableCourses = courses.filter((c) => !enrolledIds.has(c.id));
-
-  // Group available courses by category
-  const byCategory: Record<string, typeof courses> = {};
-  for (const course of availableCourses) {
-    const cat = course.category || "Other";
-    if (!byCategory[cat]) byCategory[cat] = [];
-    byCategory[cat].push(course);
-  }
-  const categories = Object.keys(byCategory).sort();
 
   function progressFor(courseId: string) {
     const lessons = (allLessons ?? []).filter((l) => l.course_id === courseId);
@@ -123,58 +113,9 @@ export default async function LearnDashboard() {
         </section>
       )}
 
-      {/* Browse all courses by category */}
-      {availableCourses.length > 0 && (
-        <section>
-          <h2 className="text-lg font-bold mb-1">Browse All Courses</h2>
-          <p className="text-sm text-gray-500 mb-6">Click any course to see details and enroll.</p>
-
-          {categories.map((cat) => (
-            <div key={cat} className="mb-8">
-              <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">{cat}</h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {byCategory[cat].map((course) => (
-                  <Link
-                    key={course.id}
-                    href={`/courses/${course.id}`}
-                    className="bg-white border rounded-xl overflow-hidden hover:shadow-sm transition flex flex-col"
-                  >
-                    {course.cover_image_url ? (
-                      <img src={course.cover_image_url} alt={course.title} className="w-full h-32 object-cover" />
-                    ) : (
-                      <div className="w-full h-32 flex items-center justify-center text-4xl" style={{ backgroundColor: "#323131" }}>🎓</div>
-                    )}
-                    <div className="p-4 flex flex-col flex-1">
-                      <div className="flex items-start justify-between gap-2 mb-1">
-                        <h3 className="font-semibold text-gray-900 text-sm leading-snug">{course.title}</h3>
-                        <div className="flex flex-col items-end gap-1 shrink-0">
-                          {course.is_paid ? (
-                            <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-orange-100 text-orange-700">
-                              {course.price_amd ? `${course.price_amd.toLocaleString()} ֏` : "Paid"}
-                            </span>
-                          ) : (
-                            <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-green-100 text-green-700">Free</span>
-                          )}
-                        </div>
-                      </div>
-                      {course.description && (
-                        <p className="text-xs text-gray-500 line-clamp-2 mb-2">{course.description}</p>
-                      )}
-                      <div className="flex items-center gap-3 mt-auto text-xs text-gray-400">
-                        {course.hours_to_complete && <span>⏱ {course.hours_to_complete}h</span>}
-                      </div>
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            </div>
-          ))}
-        </section>
-      )}
-
-      {enrolledCourses.length === 0 && availableCourses.length === 0 && (
+      {enrolledCourses.length === 0 && (
         <div className="text-center py-16">
-          <p className="text-gray-500">No courses available yet.</p>
+          <p className="text-gray-500">You have no courses yet. Contact your administrator to get enrolled.</p>
         </div>
       )}
     </div>
