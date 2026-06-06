@@ -1,0 +1,124 @@
+name: Scheduled QA
+
+on:
+  schedule:
+    # Runs daily at 08:00 UTC (11:00 Yerevan time)
+    - cron: "0 8 * * *"
+  workflow_dispatch: # allow manual trigger from GitHub UI
+
+jobs:
+  qa:
+    name: E2E QA — Production
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install chromium --with-deps
+
+      - name: Run E2E tests
+        id: tests
+        run: npx playwright test
+        continue-on-error: true
+        env:
+          CI: true
+          E2E_BASE_URL: https://dasavandir.org
+          E2E_LEARNER_EMAIL: ${{ secrets.E2E_LEARNER_EMAIL }}
+          E2E_LEARNER_PASSWORD: ${{ secrets.E2E_LEARNER_PASSWORD }}
+          E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
+          E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
+          E2E_COURSE_ID: ${{ secrets.E2E_COURSE_ID }}
+          E2E_LESSON_ID: ${{ secrets.E2E_LESSON_ID }}
+          E2E_LESSON2_ID: ${{ secrets.E2E_LESSON2_ID }}
+          E2E_UNENROLLED_COURSE_ID: ${{ secrets.E2E_UNENROLLED_COURSE_ID }}
+          E2E_UNENROLLED_LESSON_ID: ${{ secrets.E2E_UNENROLLED_LESSON_ID }}
+
+      - name: Parse test results
+        id: parse
+        if: always()
+        run: |
+          if [ -f e2e-results.json ]; then
+            PASSED=$(node -e "const r=require('./e2e-results.json'); console.log(r.stats.expected)")
+            FAILED=$(node -e "const r=require('./e2e-results.json'); console.log(r.stats.unexpected)")
+            SKIPPED=$(node -e "const r=require('./e2e-results.json'); console.log(r.stats.skipped)")
+            TOTAL=$(node -e "const r=require('./e2e-results.json'); console.log(r.stats.expected + r.stats.unexpected + r.stats.skipped)")
+          else
+            PASSED=0; FAILED=1; SKIPPED=0; TOTAL=1
+          fi
+          echo "passed=$PASSED" >> $GITHUB_OUTPUT
+          echo "failed=$FAILED" >> $GITHUB_OUTPUT
+          echo "skipped=$SKIPPED" >> $GITHUB_OUTPUT
+          echo "total=$TOTAL" >> $GITHUB_OUTPUT
+
+      - name: Upload failure screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-screenshots
+          path: test-results/
+          retention-days: 7
+          if-no-files-found: ignore
+
+      - name: Notify Slack
+        if: always()
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_QA_WEBHOOK_URL }}
+          PASSED: ${{ steps.parse.outputs.passed }}
+          FAILED: ${{ steps.parse.outputs.failed }}
+          SKIPPED: ${{ steps.parse.outputs.skipped }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          OUTCOME: ${{ steps.tests.outcome }}
+        run: |
+          if [ "$OUTCOME" = "success" ]; then
+            EMOJI=":white_check_mark:"
+            STATUS="All tests passed"
+            COLOR="#36a64f"
+          else
+            EMOJI=":x:"
+            STATUS="$FAILED test(s) failed"
+            COLOR="#d9534f"
+          fi
+
+          curl -s -X POST "$SLACK_WEBHOOK_URL" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"attachments\": [{
+                \"color\": \"$COLOR\",
+                \"blocks\": [
+                  {
+                    \"type\": \"section\",
+                    \"text\": {
+                      \"type\": \"mrkdwn\",
+                      \"text\": \"$EMOJI *Dasavandir QA — Production*\n$STATUS\"
+                    }
+                  },
+                  {
+                    \"type\": \"section\",
+                    \"fields\": [
+                      { \"type\": \"mrkdwn\", \"text\": \"*Passed*\n$PASSED\" },
+                      { \"type\": \"mrkdwn\", \"text\": \"*Failed*\n$FAILED\" },
+                      { \"type\": \"mrkdwn\", \"text\": \"*Skipped*\n$SKIPPED\" },
+                      { \"type\": \"mrkdwn\", \"text\": \"*Total*\n$(($PASSED + $FAILED + $SKIPPED))\" }
+                    ]
+                  },
+                  {
+                    \"type\": \"actions\",
+                    \"elements\": [{
+                      \"type\": \"button\",
+                      \"text\": { \"type\": \"plain_text\", \"text\": \"View Run\" },
+                      \"url\": \"$RUN_URL\"
+                    }]
+                  }
+                ]
+              }]
+            }"
