@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
-import { getAIModel } from "@/lib/llm";
+import { getAIModel, callLLM } from "@/lib/llm";
 import OpenAI from "openai";
 import { GoogleGenAI } from "@google/genai";
 import Anthropic from "@anthropic-ai/sdk";
@@ -202,8 +202,7 @@ BEHAVIOR:
         }
         controller.close();
         if (effectiveCourseId && fullReply) {
-          const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-          updateMemory(admin, userId, effectiveCourseId, messages, fullReply, memoryContext, openai).catch(() => {});
+          updateMemory(admin, userId, effectiveCourseId, messages, fullReply, memoryContext).catch(() => {});
         }
       },
     });
@@ -241,8 +240,7 @@ BEHAVIOR:
         controller.close();
 
         if (effectiveCourseId && fullReply) {
-          const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-          updateMemory(admin, userId, effectiveCourseId, messages, fullReply, memoryContext, openai).catch(() => {});
+          updateMemory(admin, userId, effectiveCourseId, messages, fullReply, memoryContext).catch(() => {});
         }
       },
     });
@@ -278,7 +276,7 @@ BEHAVIOR:
       controller.close();
 
       if (effectiveCourseId && fullReply) {
-        updateMemory(admin, userId, effectiveCourseId, messages, fullReply, memoryContext, openai).catch(() => {});
+        updateMemory(admin, userId, effectiveCourseId, messages, fullReply, memoryContext).catch(() => {});
       }
     },
   });
@@ -295,7 +293,6 @@ async function updateMemory(
   messages: any[],
   latestReply: string,
   existingMemory: string,
-  openai: OpenAI
 ) {
   // Only update every 4 messages to avoid too many calls
   if (messages.length % 4 !== 0) return;
@@ -316,12 +313,8 @@ Update the memory summary (max 300 words). Include:
 Be concise. Write as bullet points. This summary will be shown to the AI tutor in future sessions.`;
 
   try {
-    const res = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [{ role: "user", content: prompt }],
-      max_tokens: 400,
-    });
-    const newMemory = res.choices[0]?.message?.content ?? "";
+    const model = await getAIModel();
+    const newMemory = await callLLM(model, "You are a concise summarizer. Return only the updated memory as bullet points.", prompt, { maxTokens: 400, temperature: 0.3 });
     if (newMemory) {
       await admin.from("ai_coach_memory").upsert(
         { user_id: userId, course_id: courseId, summary: newMemory, updated_at: new Date().toISOString() },

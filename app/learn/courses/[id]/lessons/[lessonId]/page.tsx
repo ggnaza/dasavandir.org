@@ -99,14 +99,15 @@ export default async function LessonPage({
   const { data: { user } } = await supabase.auth.getUser();
 
   // First batch: everything except progress (progress needs lesson IDs scoped to this course)
-  const [{ data: lesson }, { data: lessons }, { data: quiz }, { data: files }, { data: assignment }, { data: enrollment }, { data: course }] = await Promise.all([
+  const [{ data: lesson }, { data: lessons }, { data: quiz }, { data: files }, { data: assignment }, { data: enrollment }, { data: course }, { data: profileData }] = await Promise.all([
     admin.from("lessons").select("*").eq("id", params.lessonId).single(),
     admin.from("lessons").select("id, title, order, deadline_days, deadline_date").eq("course_id", params.id).order("order"),
     admin.from("quizzes").select("id").eq("lesson_id", params.lessonId).single(),
     admin.from("lesson_files").select("id, file_name, storage_path").eq("lesson_id", params.lessonId).order("created_at"),
     admin.from("assignments").select("id").eq("lesson_id", params.lessonId).single(),
-    admin.from("enrollments").select("id").eq("user_id", user!.id).eq("course_id", params.id).single(),
-    admin.from("courses").select("allow_shuffled_learning, pre_submission_ai, ai_coach_enabled").eq("id", params.id).single(),
+    admin.from("enrollments").select("id, created_at").eq("user_id", user!.id).eq("course_id", params.id).single(),
+    admin.from("courses").select("allow_shuffled_learning, pre_submission_ai, ai_coach_enabled, title").eq("id", params.id).single(),
+    admin.from("profiles").select("full_name").eq("id", user!.id).single(),
   ]);
 
   if (!lesson) notFound();
@@ -136,7 +137,7 @@ export default async function LessonPage({
         );
         const { data: newEnrollment } = await admin
           .from("enrollments")
-          .select("id")
+          .select("id, created_at")
           .eq("user_id", user!.id)
           .eq("course_id", params.id)
           .single();
@@ -174,6 +175,7 @@ export default async function LessonPage({
   const isCompleted = completedIds.has(params.lessonId);
   const allowShuffled = course?.allow_shuffled_learning ?? false;
   const aiCoachEnabled = course?.ai_coach_enabled ?? true;
+  const firstName = profileData?.full_name?.split(" ")[0]?.trim() ?? "";
 
   const currentIndex = lessons?.findIndex((l) => l.id === params.lessonId) ?? 0;
   const prevLesson = lessons?.[currentIndex - 1];
@@ -212,7 +214,7 @@ export default async function LessonPage({
   const totalLessons = lessons?.length ?? 0;
   const completedCount = lessons?.filter((l) => completedIds.has(l.id)).length ?? 0;
 
-  const enrolledAt: string | null = null; // created_at not present on enrollments table
+  const enrolledAt: string | null = (effectiveEnrollment as any)?.created_at ?? null;
   const deadlineInfo = deadlineLabel(lesson, enrolledAt);
 
   return (
@@ -376,7 +378,7 @@ export default async function LessonPage({
           </div>
         )}
 
-        {aiCoachEnabled && <AiCoach lessonId={params.lessonId} courseId={params.id} userId={user!.id} />}
+        {aiCoachEnabled && <AiCoach lessonId={params.lessonId} courseId={params.id} userId={user!.id} firstName={firstName} lessonTitle={lesson.title} />}
       </div>
 
       {/* Sticky sidebar — hidden on mobile, shown on lg+ */}
