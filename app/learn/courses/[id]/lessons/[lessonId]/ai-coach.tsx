@@ -1,5 +1,7 @@
 "use client";
 import { useState, useRef, useEffect } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 type Message = { role: "user" | "assistant"; content: string };
 
@@ -149,13 +151,19 @@ export function AiCoach({ lessonId, courseId, userId }: { lessonId: string; cour
             {messages.map((m, i) => (
               <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
                 <div
-                  className={`max-w-[85%] rounded-2xl px-3 py-2 text-sm whitespace-pre-wrap ${
+                  className={`max-w-[85%] rounded-2xl px-3 py-2 text-sm ${
                     m.role === "user"
-                      ? "bg-brand-600 text-white rounded-br-sm"
-                      : "bg-gray-100 text-gray-800 rounded-bl-sm"
+                      ? "bg-brand-600 text-white rounded-br-sm whitespace-pre-wrap"
+                      : "bg-gray-100 text-gray-800 rounded-bl-sm prose prose-sm prose-gray max-w-none"
                   }`}
                 >
-                  {m.content || <span className="opacity-50">Thinking…</span>}
+                  {m.role === "user" ? (
+                    m.content || <span className="opacity-50">Thinking…</span>
+                  ) : m.content ? (
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{m.content}</ReactMarkdown>
+                  ) : (
+                    <span className="opacity-50">Thinking…</span>
+                  )}
                 </div>
               </div>
             ))}

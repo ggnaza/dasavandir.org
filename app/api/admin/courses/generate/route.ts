@@ -87,8 +87,17 @@ async function extractTextFromUrl(url: string): Promise<string> {
 
 function buildPrompt(language: string, hint: string): string {
   const lang = language === "hy" ? "Armenian (Հայերեն)" : "English";
-  return `You are an expert instructional designer. Create a comprehensive online course from the provided learning material.
-${hint ? `\nCourse topic hint from the creator: "${hint}"\n` : ""}
+  return `You are an expert instructional designer. Your job is to turn the provided learning material into a structured online course.
+${hint ? `\nContext from the course creator: "${hint}"\n` : ""}
+════════════════════════════════════════
+ANTI-HALLUCINATION RULES — strictly enforced:
+1. Base ALL lesson content EXCLUSIVELY on the provided material. Do NOT add information that is not in the source text.
+2. Do NOT invent statistics, research findings, quotes, dates, names, examples, case studies, or claims that are not explicitly present in the material.
+3. Do NOT pad lessons with generic filler or common knowledge — if the material doesn't cover something, leave it out.
+4. If the material is short, write fewer or shorter lessons rather than filling space with invented content.
+5. Every factual statement in the lesson content must be traceable back to the provided material.
+════════════════════════════════════════
+
 Output ONLY valid JSON — no markdown, no extra text — with this exact structure:
 {
   "title": "Course title",
@@ -106,12 +115,12 @@ Output ONLY valid JSON — no markdown, no extra text — with this exact struct
 }
 
 Guidelines:
-- Create 5–8 focused lessons that cover the material thoroughly
-- Lesson content: detailed HTML using <h2>, <h3>, <p>, <ul>, <li>, <strong> — aim for 400–800 words per lesson
+- Create 5–8 focused lessons that cover the material thoroughly (fewer if material is limited)
+- Lesson content: rich HTML using <h2>, <h3>, <p>, <ul>, <li>, <strong> — aim for 400–800 words per lesson, sourced from the material
 - Slides outline: 5–8 slides per lesson as plain text (title + bullets), no HTML
 - Video script: 2–3 minute spoken narration (300–450 words), natural conversational tone
 - All text must be written in ${lang}
-- Outcomes: 3–5 specific, measurable statements of what learners will achieve`;
+- Outcomes: 3–5 specific, measurable statements reflecting what the material actually teaches`;
 }
 
 export async function POST(req: Request) {
@@ -189,7 +198,8 @@ export async function POST(req: Request) {
       { role: "user", content: `Learning material:\n---\n${materialText}` },
     ],
     response_format: { type: "json_object" },
-    max_tokens: 8000,
+    max_tokens: 12000,
+    temperature: 0.2,
   });
 
   const raw = completion.choices[0]?.message?.content ?? "";
