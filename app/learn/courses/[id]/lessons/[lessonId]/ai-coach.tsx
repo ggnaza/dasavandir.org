@@ -12,7 +12,13 @@ const SUGGESTIONS = [
   "What are the key takeaways?",
 ];
 
-export function AiCoach({ lessonId, courseId, userId }: { lessonId: string; courseId: string; userId: string }) {
+export function AiCoach({ lessonId, courseId, userId, firstName, lessonTitle }: {
+  lessonId: string;
+  courseId: string;
+  userId: string;
+  firstName?: string;
+  lessonTitle?: string;
+}) {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -135,7 +141,12 @@ export function AiCoach({ lessonId, courseId, userId }: { lessonId: string; cour
           <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
             {messages.length === 0 && (
               <div className="space-y-2">
-                <p className="text-xs text-gray-400 mb-3">Try asking:</p>
+                <div className="bg-gray-100 rounded-2xl rounded-bl-sm px-3 py-2 text-sm text-gray-800 mb-3">
+                  {firstName
+                    ? `Hi ${firstName}! 👋 I'm your AI coach for this lesson${lessonTitle ? ` — "${lessonTitle}"` : ""}. Ask me anything, and I'll answer based on the course materials.`
+                    : `Hi! 👋 I'm your AI coach${lessonTitle ? ` for "${lessonTitle}"` : ""}. Ask me anything, and I'll answer based on the course materials.`}
+                </div>
+                <p className="text-xs text-gray-400 mb-1">Try asking:</p>
                 {SUGGESTIONS.map((s) => (
                   <button
                     key={s}

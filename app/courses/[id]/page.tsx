@@ -24,6 +24,9 @@ export default async function CourseDetailPage({ params }: { params: { id: strin
 
   if (!course) notFound();
 
+  // Private and internal courses are not publicly accessible — invite-only
+  if (course.access_type === "private" || course.course_type === "internal") notFound();
+
   let isEnrolled = false;
   if (user) {
     const { data: enrollment } = await admin

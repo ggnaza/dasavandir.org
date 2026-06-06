@@ -16,15 +16,20 @@ export async function POST(req: Request) {
 
   const admin = createAdminClient();
 
-  // Verify course exists and is published
+  // Verify course exists, is published, and is publicly enrollable
   const { data: course, error: courseErr } = await admin
     .from("courses")
-    .select("id")
+    .select("id, access_type, course_type")
     .eq("id", courseId)
     .eq("published", true)
     .single();
 
   if (courseErr || !course) return new Response("Course not found", { status: 404 });
+
+  // Private and internal courses can only be enrolled via admin invitation — not self-service
+  if (course.access_type === "private" || course.course_type === "internal") {
+    return new Response("This course requires an invitation to enroll.", { status: 403 });
+  }
 
   // Defensive: ensure the user's profile exists (see lib/auth/ensure-profile.ts and CLAUDE.md).
   // Legacy users may be missing a profile row, which would FK-violate the enrollment insert.
