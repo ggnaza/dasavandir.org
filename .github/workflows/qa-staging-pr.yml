@@ -1,13 +1,15 @@
-name: QA — Staging PR
+name: QA
 
 on:
   pull_request:
     branches: [staging]
     types: [opened, synchronize, reopened]
+  push:
+    branches: [staging, main]
 
 jobs:
   qa:
-    name: E2E QA
+    name: E2E QA (${{ github.ref_name }})
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
@@ -25,18 +27,27 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install chromium --with-deps
 
-      - name: Wait for Vercel staging deployment
+      - name: Set target URL
+        id: url
         run: |
-          echo "Waiting 60s for staging deployment to propagate..."
+          if [ "${{ github.ref_name }}" = "main" ]; then
+            echo "base_url=https://dasavandir.org" >> $GITHUB_OUTPUT
+          else
+            echo "base_url=https://staging.dasavandir.org" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Wait for Vercel deployment
+        run: |
+          echo "Waiting 60s for deployment to propagate..."
           sleep 60
 
-      - name: Run E2E tests against staging
+      - name: Run E2E tests
         id: tests
         run: npx playwright test
         continue-on-error: true
         env:
           CI: true
-          E2E_BASE_URL: https://staging.dasavandir.org
+          E2E_BASE_URL: ${{ steps.url.outputs.base_url }}
           E2E_LEARNER_EMAIL: ${{ secrets.E2E_LEARNER_EMAIL }}
           E2E_LEARNER_PASSWORD: ${{ secrets.E2E_LEARNER_PASSWORD }}
           E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
@@ -66,26 +77,28 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-screenshots-pr-${{ github.event.pull_request.number }}
+          name: playwright-screenshots-${{ github.run_id }}
           path: test-results/
           retention-days: 7
           if-no-files-found: ignore
 
+      # --- PR-only steps below ---
+
       - name: Extract Asana task GID from PR body
         id: asana
-        if: always()
+        if: always() && github.event_name == 'pull_request'
         run: |
           TASK_GID=$(echo "${{ github.event.pull_request.body }}" | grep -oP '(?<=asana-task-gid: )\S+' || true)
           echo "task_gid=$TASK_GID" >> $GITHUB_OUTPUT
 
       - name: Auto-merge PR on pass
-        if: steps.tests.outcome == 'success'
+        if: steps.tests.outcome == 'success' && github.event_name == 'pull_request'
         run: gh pr merge ${{ github.event.pull_request.number }} --merge --delete-branch
         env:
           GH_TOKEN: ${{ secrets.GH_PAT }}
 
       - name: Comment on Asana task — pass
-        if: steps.tests.outcome == 'success' && steps.asana.outputs.task_gid != ''
+        if: steps.tests.outcome == 'success' && github.event_name == 'pull_request' && steps.asana.outputs.task_gid != ''
         env:
           ASANA_ACCESS_TOKEN: ${{ secrets.ASANA_ACCESS_TOKEN }}
         run: |
@@ -95,58 +108,10 @@ jobs:
           node .github/scripts/asana-update.js complete "${{ steps.asana.outputs.task_gid }}"
 
       - name: Comment on Asana task — fail
-        if: steps.tests.outcome != 'success' && steps.asana.outputs.task_gid != ''
+        if: steps.tests.outcome != 'success' && github.event_name == 'pull_request' && steps.asana.outputs.task_gid != ''
         env:
           ASANA_ACCESS_TOKEN: ${{ secrets.ASANA_ACCESS_TOKEN }}
         run: |
           node .github/scripts/asana-update.js comment \
             "${{ steps.asana.outputs.task_gid }}" \
             "❌ QA failed (${{ steps.parse.outputs.failed }} test(s) failed). PR needs review: https://github.com/${{ github.repository }}/pull/${{ github.event.pull_request.number }}"
-
-      - name: Notify Slack — pass
-        if: steps.tests.outcome == 'success'
-        run: |
-          curl -s -X POST "${{ secrets.SLACK_QA_WEBHOOK_URL }}" \
-            -H "Content-Type: application/json" \
-            -d "{
-              \"attachments\": [{
-                \"color\": \"#36a64f\",
-                \"blocks\": [
-                  {
-                    \"type\": \"section\",
-                    \"text\": {
-                      \"type\": \"mrkdwn\",
-                      \"text\": \":white_check_mark: *QA passed — merged to staging*\n*PR:* <https://github.com/${{ github.repository }}/pull/${{ github.event.pull_request.number }}|${{ github.event.pull_request.title }}>\n*Tests:* ${{ steps.parse.outputs.passed }} passed, ${{ steps.parse.outputs.skipped }} skipped\"
-                    }
-                  }
-                ]
-              }]
-            }"
-
-      - name: Notify Slack — fail
-        if: steps.tests.outcome != 'success'
-        run: |
-          curl -s -X POST "${{ secrets.SLACK_QA_WEBHOOK_URL }}" \
-            -H "Content-Type: application/json" \
-            -d "{
-              \"attachments\": [{
-                \"color\": \"#d9534f\",
-                \"blocks\": [
-                  {
-                    \"type\": \"section\",
-                    \"text\": {
-                      \"type\": \"mrkdwn\",
-                      \"text\": \":x: *QA failed — PR blocked*\n*PR:* <https://github.com/${{ github.repository }}/pull/${{ github.event.pull_request.number }}|${{ github.event.pull_request.title }}>\n*Tests:* ${{ steps.parse.outputs.failed }} failed, ${{ steps.parse.outputs.passed }} passed\"
-                    }
-                  },
-                  {
-                    \"type\": \"actions\",
-                    \"elements\": [{
-                      \"type\": \"button\",
-                      \"text\": { \"type\": \"plain_text\", \"text\": \"View PR\" },
-                      \"url\": \"https://github.com/${{ github.repository }}/pull/${{ github.event.pull_request.number }}\"
-                    }]
-                  }
-                ]
-              }]
-            }"
