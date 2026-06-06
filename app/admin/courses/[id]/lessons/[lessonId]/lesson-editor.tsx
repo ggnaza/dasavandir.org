@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { LessonContentEditor } from "@/components/lesson-content-editor-dynamic";
@@ -53,6 +53,18 @@ export function LessonEditor({
   courseDeadlineDate?: string | null;
 }) {
   const router = useRouter();
+  const openedAt = useRef<number | null>(null);
+
+  // Track editor open
+  useEffect(() => {
+    openedAt.current = Date.now();
+    fetch("/api/admin/track-edit", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "lesson_edit_open", lessonId: lesson.id, courseId }),
+    }).catch(() => {});
+  }, [lesson.id, courseId]);
+
   const [showPreview, setShowPreview] = useState(false);
   const [title, setTitle] = useState(lesson.title);
   const [content, setContent] = useState(lesson.content ?? "");
@@ -272,6 +284,13 @@ export function LessonEditor({
         body: JSON.stringify({ documentUrl, lessonId: lesson.id }),
       }).catch(() => {});
     }
+
+    // Track save event (fire-and-forget)
+    fetch("/api/admin/track-edit", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "lesson_edit_save", lessonId: lesson.id, courseId }),
+    }).catch(() => {});
 
     setSaving(false);
     setSaved(true);

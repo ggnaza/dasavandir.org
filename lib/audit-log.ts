@@ -11,6 +11,8 @@ export type AuditAction =
   | "delete_user"
   | "login"
   | "login_failed"
+  | "lesson_edit_open"
+  | "lesson_edit_save"
   | "bulk_enroll"
   | "bulk_unenroll"
   | "bulk_delete_users";
