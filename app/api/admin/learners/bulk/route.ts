@@ -1,6 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { logAudit } from "@/lib/audit-log";
+import { sendEnrollmentEmail } from "@/lib/email";
 import { z } from "zod";
 
 const enrollSchema = z.object({
@@ -41,6 +42,27 @@ export async function POST(req: Request) {
     const { error } = await admin.from("enrollments").upsert(rows, { onConflict: "user_id,course_id" });
     if (error) return new Response(JSON.stringify({ error: error.message }), { status: 500 });
     await logAudit("bulk_enroll", user.id, req, { course_id: body.courseId, count: body.userIds.length });
+
+    // Send enrollment notification emails in the background
+    const [{ data: course }, { data: profiles }] = await Promise.all([
+      admin.from("courses").select("id, title").eq("id", body.courseId).single(),
+      admin.from("profiles").select("id, full_name, email").in("id", body.userIds),
+    ]);
+    if (course && profiles) {
+      const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://dasavandir.org";
+      const courseUrl = `${siteUrl}/learn/courses/${course.id}`;
+      Promise.allSettled(
+        profiles.map((p) =>
+          p.email ? sendEnrollmentEmail({
+            to: p.email,
+            firstName: p.full_name?.split(" ")[0] ?? "",
+            courseTitle: course.title,
+            courseUrl,
+          }) : Promise.resolve()
+        )
+      ).catch(() => {});
+    }
+
     return Response.json({ success: true, count: body.userIds.length });
   }
 

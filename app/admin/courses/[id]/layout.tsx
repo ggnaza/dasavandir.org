@@ -1,17 +1,23 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 
 export default function CourseAdminLayout({ children, params }: { children: React.ReactNode; params: { id: string } }) {
   const pathname = usePathname();
   const base = `/admin/courses/${params.id}`;
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/admin/me").then((r) => r.json()).then((d) => setIsAdmin(d.role === "admin")).catch(() => {});
+  }, []);
 
   const tabs = [
     { label: "Course", href: base },
     { label: "Students", href: `${base}/learners` },
     { label: "Gradebook", href: `${base}/gradebook` },
     { label: "Invitations", href: `${base}/invitations` },
-    { label: "Collaborators", href: `${base}/collaborators` },
+    ...(isAdmin ? [{ label: "Collaborators", href: `${base}/collaborators` }] : []),
     { label: "Moderators", href: `${base}/moderators` },
     { label: "Announcements", href: `${base}/announcements` },
     { label: "Question Bank", href: `${base}/question-bank` },

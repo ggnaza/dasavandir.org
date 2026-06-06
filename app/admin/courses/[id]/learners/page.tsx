@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { LearnerRows } from "./learner-rows";
 import { InviteStudentsButton } from "./invite-students-modal";
+import { EnrollLearnersButton } from "./enroll-learners-modal";
 
 
 export const dynamic = "force-dynamic";
@@ -80,6 +81,7 @@ export default async function CourseLearnerPage({ params }: { params: { id: stri
         <div className="flex items-center justify-between mt-2">
           <h1 className="text-2xl font-bold">{course.title}</h1>
           <div className="flex items-center gap-2">
+            <EnrollLearnersButton courseId={course.id} enrolledIds={(enrollments ?? []).map((e) => e.user_id)} />
             <InviteStudentsButton courseId={course.id} />
             <Link
               href={`/admin/courses/${course.id}`}
