@@ -18,7 +18,7 @@ export async function POST(req: Request) {
   if (!parsed.success) return new Response("Invalid input", { status: 400 });
 
   const supabase = createClient();
-  const { error } = await supabase.auth.signInWithPassword(parsed.data);
+  const { data, error } = await supabase.auth.signInWithPassword(parsed.data);
 
   if (error) {
     // Log failed attempt — use null actor since they're not authenticated yet
@@ -26,5 +26,6 @@ export async function POST(req: Request) {
     return new Response("Invalid email or password", { status: 401 });
   }
 
+  await logAudit("login", data.user?.id ?? null, req);
   return new Response("OK");
 }

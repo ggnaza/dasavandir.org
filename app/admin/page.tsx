@@ -15,21 +15,81 @@ export default async function AdminDashboard() {
     if (profile?.role !== "admin") redirect("/admin/courses");
   }
 
+  const admin = createAdminClient();
+
   const [
     { count: courseCount },
     { count: learnerCount },
     { count: lessonCount },
+    { data: loginLogs },
+    { data: courseRows },
   ] = await Promise.all([
     supabase.from("courses").select("*", { count: "exact", head: true }),
     supabase.from("profiles").select("*", { count: "exact", head: true }).eq("role", "learner"),
     supabase.from("lessons").select("*", { count: "exact", head: true }),
+    // All login events in the last 90 days
+    admin
+      .from("audit_logs")
+      .select("actor_id, profiles(id, full_name, role)")
+      .eq("action", "login")
+      .gte("created_at", new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString()),
+    // All courses with creator info
+    admin
+      .from("courses")
+      .select("created_by, profiles!courses_created_by_fkey(id, full_name, role)")
+      .not("created_by", "is", null),
   ]);
+
+  // ── Top users by login count ──────────────────────────────
+  const loginMap: Record<string, { name: string; role: string; count: number }> = {};
+  for (const row of loginLogs ?? []) {
+    if (!row.actor_id) continue;
+    const p = row.profiles as any;
+    if (!loginMap[row.actor_id]) {
+      loginMap[row.actor_id] = {
+        name: p?.full_name ?? "Unknown",
+        role: p?.role ?? "",
+        count: 0,
+      };
+    }
+    loginMap[row.actor_id].count++;
+  }
+  const topByLogins = Object.entries(loginMap)
+    .map(([id, v]) => ({ id, ...v }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 5);
+
+  // ── Top users by courses created ─────────────────────────
+  const creatorMap: Record<string, { name: string; role: string; count: number }> = {};
+  for (const row of courseRows ?? []) {
+    if (!row.created_by) continue;
+    const p = row.profiles as any;
+    if (!creatorMap[row.created_by]) {
+      creatorMap[row.created_by] = {
+        name: p?.full_name ?? "Unknown",
+        role: p?.role ?? "",
+        count: 0,
+      };
+    }
+    creatorMap[row.created_by].count++;
+  }
+  const topByCreations = Object.entries(creatorMap)
+    .map(([id, v]) => ({ id, ...v }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 5);
 
   const stats = [
     { label: "Courses", value: courseCount ?? 0, href: "/admin/courses" },
     { label: "Learners", value: learnerCount ?? 0, href: "#" },
     { label: "Lessons", value: lessonCount ?? 0, href: "#" },
   ];
+
+  const ROLE_BADGE: Record<string, string> = {
+    admin: "bg-purple-100 text-purple-700",
+    course_creator: "bg-blue-100 text-blue-700",
+    course_manager: "bg-cyan-100 text-cyan-700",
+    learner: "bg-gray-100 text-gray-600",
+  };
 
   return (
     <div>
@@ -54,6 +114,79 @@ export default async function AdminDashboard() {
             <p className="text-3xl font-bold mt-1">{s.value}</p>
           </Link>
         ))}
+      </div>
+
+      {/* ── Most Active Users ─────────────────────────────── */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+        {/* By logins */}
+        <div className="bg-white border rounded-xl p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <span className="text-lg">🔑</span>
+            <div>
+              <h2 className="font-semibold text-sm leading-tight">Most Active by Logins</h2>
+              <p className="text-xs text-gray-400">Last 90 days</p>
+            </div>
+          </div>
+          {topByLogins.length === 0 ? (
+            <p className="text-xs text-gray-400 text-center py-4">No login data yet. Logins are tracked from now on.</p>
+          ) : (
+            <ol className="space-y-2">
+              {topByLogins.map((u, i) => (
+                <li key={u.id} className="flex items-center gap-3">
+                  <span className="text-xs text-gray-400 w-4 shrink-0">{i + 1}</span>
+                  <Link
+                    href={`/admin/users/${u.id}`}
+                    className="flex-1 text-sm font-medium text-gray-800 hover:text-brand-600 truncate"
+                  >
+                    {u.name}
+                  </Link>
+                  {u.role && (
+                    <span className={`text-xs px-1.5 py-0.5 rounded font-medium shrink-0 ${ROLE_BADGE[u.role] ?? "bg-gray-100 text-gray-600"}`}>
+                      {u.role.replace("_", " ")}
+                    </span>
+                  )}
+                  <span className="text-sm font-semibold text-gray-700 shrink-0 w-8 text-right">{u.count}</span>
+                </li>
+              ))}
+            </ol>
+          )}
+        </div>
+
+        {/* By course creations */}
+        <div className="bg-white border rounded-xl p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <span className="text-lg">✏️</span>
+            <div>
+              <h2 className="font-semibold text-sm leading-tight">Most Active by Course Creation</h2>
+              <p className="text-xs text-gray-400">All time</p>
+            </div>
+          </div>
+          {topByCreations.length === 0 ? (
+            <p className="text-xs text-gray-400 text-center py-4">No courses created yet.</p>
+          ) : (
+            <ol className="space-y-2">
+              {topByCreations.map((u, i) => (
+                <li key={u.id} className="flex items-center gap-3">
+                  <span className="text-xs text-gray-400 w-4 shrink-0">{i + 1}</span>
+                  <Link
+                    href={`/admin/users/${u.id}`}
+                    className="flex-1 text-sm font-medium text-gray-800 hover:text-brand-600 truncate"
+                  >
+                    {u.name}
+                  </Link>
+                  {u.role && (
+                    <span className={`text-xs px-1.5 py-0.5 rounded font-medium shrink-0 ${ROLE_BADGE[u.role] ?? "bg-gray-100 text-gray-600"}`}>
+                      {u.role.replace("_", " ")}
+                    </span>
+                  )}
+                  <span className="text-sm font-semibold text-gray-700 shrink-0 w-8 text-right">
+                    {u.count} {u.count === 1 ? "course" : "courses"}
+                  </span>
+                </li>
+              ))}
+            </ol>
+          )}
+        </div>
       </div>
 
       {/* Studio banner */}

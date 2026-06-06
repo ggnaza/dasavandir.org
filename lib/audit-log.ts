@@ -9,6 +9,7 @@ export type AuditAction =
   | "create_user"
   | "update_role"
   | "delete_user"
+  | "login"
   | "login_failed"
   | "bulk_enroll"
   | "bulk_unenroll"
