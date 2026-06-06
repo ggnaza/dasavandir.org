@@ -14,6 +14,15 @@ function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 }
 
+function formatTime(seconds: number): string {
+  if (seconds === 0) return "—";
+  const m = Math.round(seconds / 60);
+  if (m < 60) return `${m}m`;
+  const h = Math.floor(m / 60);
+  const rem = m % 60;
+  return rem === 0 ? `${h}h` : `${h}h ${rem}m`;
+}
+
 export default async function LearnerDetailPage({ params }: { params: { id: string; userId: string } }) {
   const admin = createAdminClient();
 
@@ -34,13 +43,25 @@ export default async function LearnerDetailPage({ params }: { params: { id: stri
     { data: quizResponses },
     { data: assignments },
     { data: submissions },
+    { data: sessions },
   ] = await Promise.all([
     admin.from("progress").select("lesson_id, completed_at").eq("user_id", params.userId).in("lesson_id", lessonIds),
     admin.from("quizzes").select("id, lesson_id").in("lesson_id", lessonIds),
     admin.from("quiz_responses").select("quiz_id, score, submitted_at").eq("user_id", params.userId).order("submitted_at", { ascending: false }),
     admin.from("assignments").select("id, lesson_id, title, max_score").in("lesson_id", lessonIds),
     admin.from("submissions").select("assignment_id, final_score, ai_total_score, status, submitted_at, instructor_note, final_feedback").eq("user_id", params.userId),
+    lessonIds.length > 0
+      ? admin.from("lesson_sessions").select("lesson_id, duration_seconds").eq("user_id", params.userId).in("lesson_id", lessonIds)
+      : Promise.resolve({ data: [] }),
   ]);
+
+  // Time per lesson and total
+  const sessionByLesson: Record<string, number> = {};
+  let totalSeconds = 0;
+  for (const s of sessions ?? []) {
+    sessionByLesson[s.lesson_id] = (sessionByLesson[s.lesson_id] ?? 0) + s.duration_seconds;
+    totalSeconds += s.duration_seconds;
+  }
 
   const completedMap = new Map((progress ?? []).map((p) => [p.lesson_id, p.completed_at]));
   const quizByLesson = new Map((quizzes ?? []).map((q) => [q.lesson_id, q.id]));
@@ -101,11 +122,15 @@ export default async function LearnerDetailPage({ params }: { params: { id: stri
       </div>
 
       {/* Summary cards */}
-      <div className="grid grid-cols-4 gap-3 mb-8">
+      <div className="grid grid-cols-5 gap-3 mb-8">
         <div className="bg-white border rounded-xl p-4 text-center">
           <p className="text-xs text-gray-500">Completion</p>
           <p className="text-2xl font-bold mt-1">{completionPct}%</p>
           <p className="text-xs text-gray-400">{completedCount}/{lessonList.length} lessons</p>
+        </div>
+        <div className="bg-white border rounded-xl p-4 text-center">
+          <p className="text-xs text-gray-500">Time in course</p>
+          <p className="text-2xl font-bold mt-1">{formatTime(totalSeconds)}</p>
         </div>
         <div className="bg-white border rounded-xl p-4 text-center">
           <p className="text-xs text-gray-500">Quiz avg</p>
@@ -133,9 +158,14 @@ export default async function LearnerDetailPage({ params }: { params: { id: stri
                 </span>
                 <span className="font-medium text-sm">{lesson.title}</span>
               </div>
-              {completedAt && (
-                <span className="text-xs text-green-600">Completed {formatDate(completedAt)}</span>
-              )}
+              <div className="flex items-center gap-3 ml-auto">
+                {sessionByLesson[lesson.id] ? (
+                  <span className="text-xs text-gray-400">⏱ {formatTime(sessionByLesson[lesson.id])}</span>
+                ) : null}
+                {completedAt && (
+                  <span className="text-xs text-green-600">Completed {formatDate(completedAt)}</span>
+                )}
+              </div>
             </div>
 
             <div className="px-5 py-4 grid grid-cols-2 gap-6">

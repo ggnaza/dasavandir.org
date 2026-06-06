@@ -13,9 +13,11 @@ export function createClient() {
         },
         setAll(cookiesToSet: { name: string; value: string; options?: Record<string, unknown> }[]) {
           try {
-            cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options)
-            );
+            cookiesToSet.forEach(({ name, value, options }) => {
+              // Strip maxAge/expires → session cookies cleared when browser closes
+              const { maxAge: _m, expires: _e, ...sessionOpts } = (options ?? {}) as Record<string, unknown>;
+              cookieStore.set(name, value, sessionOpts as any);
+            });
           } catch {}
         },
       },

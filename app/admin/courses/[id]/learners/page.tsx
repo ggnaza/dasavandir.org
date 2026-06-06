@@ -31,14 +31,25 @@ export default async function CourseLearnerPage({ params }: { params: { id: stri
 
   const userIds = (enrollments ?? []).map((e) => e.user_id);
 
-  const [{ data: profiles }, { data: allProgress }] = await Promise.all([
+  const lessonIds = (lessons ?? []).map((l) => l.id);
+
+  const [{ data: profiles }, { data: allProgress }, { data: allSessions }] = await Promise.all([
     userIds.length > 0
       ? admin.from("profiles").select("id, full_name, email").in("id", userIds)
       : Promise.resolve({ data: [] }),
     userIds.length > 0
       ? admin.from("progress").select("user_id, lesson_id").in("user_id", userIds)
       : Promise.resolve({ data: [] }),
+    userIds.length > 0 && lessonIds.length > 0
+      ? admin.from("lesson_sessions").select("user_id, duration_seconds").in("user_id", userIds).in("lesson_id", lessonIds)
+      : Promise.resolve({ data: [] }),
   ]);
+
+  // Sum session time per learner for this course
+  const timeMap: Record<string, number> = {};
+  for (const s of allSessions ?? []) {
+    timeMap[s.user_id] = (timeMap[s.user_id] ?? 0) + s.duration_seconds;
+  }
 
   const profileMap = Object.fromEntries((profiles ?? []).map((p) => [p.id, p]));
 
@@ -64,6 +75,7 @@ export default async function CourseLearnerPage({ params }: { params: { id: stri
       totalLessons,
       pct,
       completedIds: Array.from(completedIds),
+      totalSeconds: timeMap[e.user_id] ?? 0,
     };
   });
 
@@ -117,8 +129,9 @@ export default async function CourseLearnerPage({ params }: { params: { id: stri
       ) : (
         <div className="bg-white border rounded-xl overflow-hidden">
           <div className="px-5 py-3 border-b bg-gray-50 grid grid-cols-12 gap-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">
-            <span className="col-span-4">Learner</span>
-            <span className="col-span-5">Progress</span>
+            <span className="col-span-3">Learner</span>
+            <span className="col-span-4">Progress</span>
+            <span className="col-span-2 text-right">Time spent</span>
             <span className="col-span-2 text-right">Enrolled</span>
             <span className="col-span-1" />
           </div>
