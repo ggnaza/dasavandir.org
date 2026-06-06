@@ -31,23 +31,70 @@ const LOADING_MESSAGES = [
   "Putting it all together…",
 ];
 
+const PROMPT_TEMPLATES = [
+  {
+    label: "Course design",
+    icon: "📚",
+    prompt:
+      "Design a structured course for adult professionals. Focus on practical application, not theory. Each lesson should build on the previous one and include real-world examples relevant to the workplace.",
+  },
+  {
+    label: "Professional development",
+    icon: "🎓",
+    prompt:
+      "You are a PD designer for an instructional coach. Create a course that helps participants reflect on their practice, build new skills, and apply them immediately. Include discussion prompts and reflection activities.",
+  },
+  {
+    label: "Skill-based training",
+    icon: "⚡",
+    prompt:
+      "Focus on skill-building with clear, measurable outcomes for each lesson. Include step-by-step guidance and practical exercises. Keep lessons concise and action-oriented.",
+  },
+  {
+    label: "Onboarding program",
+    icon: "🚀",
+    prompt:
+      "Design this as an onboarding course for new team members. Structure it to go from foundational knowledge to hands-on application. Each lesson should give learners something they can use on day one.",
+  },
+  {
+    label: "Assessment-focused",
+    icon: "✅",
+    prompt:
+      "Align each lesson tightly to learning objectives with formative checkpoints. Emphasize what learners should be able to do by the end of each lesson, not just what they know.",
+  },
+  {
+    label: "Leadership & management",
+    icon: "🧭",
+    prompt:
+      "Frame this as a leadership development course. Connect concepts to decision-making, team dynamics, and organizational impact. Use reflective questions to help leaders apply ideas to their own context.",
+  },
+];
+
 export default function GenerateCoursePage() {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const refineRef = useRef<HTMLTextAreaElement>(null);
   const [step, setStep] = useState<"input" | "loading" | "preview" | "creating">("input");
 
   // Input state
-  const [hint, setHint] = useState("");
+  const [prompt, setPrompt] = useState("");
   const [language, setLanguage] = useState<"en" | "hy">("hy");
   const [materialUrl, setMaterialUrl] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [error, setError] = useState("");
+  const [showTemplates, setShowTemplates] = useState(false);
 
   // Loading state
   const [loadingMsgIndex, setLoadingMsgIndex] = useState(0);
 
   // Preview state
   const [course, setCourse] = useState<GeneratedCourse | null>(null);
+
+  // Refinement state
+  const [refineInstruction, setRefineInstruction] = useState("");
+  const [refining, setRefining] = useState(false);
+  const [refineError, setRefineError] = useState("");
+  const [refineHistory, setRefineHistory] = useState<string[]>([]);
 
   // Cycle loading messages
   useEffect(() => {
@@ -72,7 +119,7 @@ export default function GenerateCoursePage() {
 
     const form = new FormData();
     form.append("language", language);
-    form.append("hint", hint);
+    form.append("hint", prompt);
     if (materialUrl.trim()) form.append("materialUrl", materialUrl.trim());
     if (file) form.append("file", file);
 
@@ -100,11 +147,78 @@ export default function GenerateCoursePage() {
           expanded: { content: false, slides: false, script: false },
         })),
       });
+      setRefineHistory([]);
       setStep("preview");
     } catch {
       setError("Network error. Please try again.");
       setStep("input");
     }
+  }
+
+  async function handleRefine() {
+    if (!course || !refineInstruction.trim()) return;
+    setRefining(true);
+    setRefineError("");
+
+    const courseSummary = {
+      title: course.title,
+      description: course.description,
+      outcomes: course.outcomes,
+      lessons: course.lessons.map((l) => ({
+        title: l.title,
+        content: l.content,
+        what_you_learn: l.what_you_learn,
+        slides_outline: l.slides_outline,
+        video_script: l.video_script,
+      })),
+    };
+
+    try {
+      const res = await fetch("/api/admin/courses/generate-refine", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          currentCourse: courseSummary,
+          instruction: refineInstruction,
+          language,
+        }),
+      });
+
+      if (!res.ok) {
+        setRefineError(await res.text());
+        setRefining(false);
+        return;
+      }
+
+      const data = await res.json();
+      const instruction = refineInstruction;
+      setRefineHistory((prev) => [...prev, instruction]);
+      setRefineInstruction("");
+
+      setCourse((prev) =>
+        prev
+          ? {
+              ...prev,
+              title: data.title ?? prev.title,
+              description: data.description ?? prev.description,
+              outcomes: data.outcomes ?? prev.outcomes,
+              materialUrl: prev.materialUrl,
+              lessons: (data.lessons ?? []).map((l: any, i: number) => ({
+                title: l.title ?? "",
+                content: l.content ?? "",
+                what_you_learn: l.what_you_learn ?? "",
+                slides_outline: l.slides_outline ?? "",
+                video_script: l.video_script ?? "",
+                include: prev.lessons[i]?.include ?? true,
+                expanded: prev.lessons[i]?.expanded ?? { content: false, slides: false, script: false },
+              })),
+            }
+          : prev
+      );
+    } catch {
+      setRefineError("Network error. Please try again.");
+    }
+    setRefining(false);
   }
 
   async function handleCreate() {
@@ -172,27 +286,60 @@ export default function GenerateCoursePage() {
           <Link href="/admin/courses/new" className="text-sm text-gray-500 hover:text-gray-700">← Back</Link>
           <h1 className="text-2xl font-bold mt-2">Generate course with AI</h1>
           <p className="text-sm text-gray-500 mt-1">
-            Provide your learning material — a Google Doc, Google Slides, or a PDF — and AI will design the full course structure, lesson content, slide outlines, and video scripts.
+            Provide your learning material and a prompt describing what you want. AI will design the full course structure, lesson content, slide outlines, and video scripts.
           </p>
         </div>
 
         <form onSubmit={handleGenerate} className="bg-white border rounded-xl p-6 space-y-5">
-          {/* Hint */}
+
+          {/* Prompt */}
           <div>
-            <label className="block text-sm font-medium mb-1">
-              Course topic hint <span className="text-gray-400 font-normal">(optional)</span>
-            </label>
-            <input
-              type="text"
-              value={hint}
-              onChange={(e) => setHint(e.target.value)}
-              placeholder="e.g. Leadership for first-time managers"
-              className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-sm font-medium">
+                Prompt <span className="text-gray-400 font-normal">(optional but recommended)</span>
+              </label>
+              <button
+                type="button"
+                onClick={() => setShowTemplates((v) => !v)}
+                className="text-xs text-brand-600 hover:underline"
+              >
+                {showTemplates ? "Hide examples" : "See examples ↓"}
+              </button>
+            </div>
+
+            {showTemplates && (
+              <div className="mb-3 grid grid-cols-2 gap-2">
+                {PROMPT_TEMPLATES.map((t) => (
+                  <button
+                    key={t.label}
+                    type="button"
+                    onClick={() => {
+                      setPrompt(t.prompt);
+                      setShowTemplates(false);
+                    }}
+                    className="text-left border rounded-lg px-3 py-2.5 hover:bg-brand-50 hover:border-brand-300 transition group"
+                  >
+                    <span className="text-base leading-none">{t.icon}</span>
+                    <p className="text-xs font-medium text-gray-700 mt-1 group-hover:text-brand-700">{t.label}</p>
+                    <p className="text-xs text-gray-400 mt-0.5 line-clamp-2">{t.prompt.slice(0, 70)}…</p>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            <textarea
+              value={prompt}
+              onChange={(e) => setPrompt(e.target.value)}
+              rows={4}
+              placeholder="Describe the course you want to create. Mention the target audience, learning goals, tone, structure preferences, or anything the AI should keep in mind…"
+              className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 resize-none"
             />
-            <p className="text-xs text-gray-400 mt-1">Helps the AI focus if your material covers a broad topic.</p>
+            <p className="text-xs text-gray-400 mt-1">
+              The more specific your prompt, the better the output. You can also refine the course after generation.
+            </p>
           </div>
 
-          {/* Material inputs — both can be provided */}
+          {/* Material inputs */}
           <div className="space-y-4">
             <label className="block text-sm font-medium">Learning material <span className="text-gray-400 font-normal">(one or both)</span></label>
 
@@ -443,6 +590,84 @@ export default function GenerateCoursePage() {
               </div>
             ))}
           </div>
+        </div>
+
+        {/* ── AI Refinement panel ── */}
+        <div className="bg-white border rounded-xl p-5">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-base">✦</span>
+            <h3 className="text-sm font-semibold text-gray-800">Adjust with AI</h3>
+          </div>
+          <p className="text-xs text-gray-500 mb-3">
+            Tell the AI how to change the course — it will rewrite it while keeping your edits intact.
+          </p>
+
+          {/* Refinement history */}
+          {refineHistory.length > 0 && (
+            <div className="mb-3 space-y-1.5">
+              {refineHistory.map((msg, i) => (
+                <div key={i} className="flex items-start gap-2 text-xs text-gray-500">
+                  <span className="text-brand-500 shrink-0 mt-0.5">✓</span>
+                  <span className="italic">"{msg}"</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Suggestion chips */}
+          <div className="flex flex-wrap gap-1.5 mb-3">
+            {[
+              "Make lessons shorter and more concise",
+              "Add more practical exercises",
+              "Split long lessons into two",
+              "Make the tone more conversational",
+              "Add a summary lesson at the end",
+              "Make video scripts more engaging",
+            ].map((suggestion) => (
+              <button
+                key={suggestion}
+                type="button"
+                onClick={() => setRefineInstruction(suggestion)}
+                className="text-xs border rounded-full px-2.5 py-1 hover:bg-brand-50 hover:border-brand-300 hover:text-brand-700 transition text-gray-600"
+              >
+                {suggestion}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex gap-2">
+            <textarea
+              ref={refineRef}
+              value={refineInstruction}
+              onChange={(e) => setRefineInstruction(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  handleRefine();
+                }
+              }}
+              rows={2}
+              placeholder="e.g. Make the lessons shorter, add more examples, split lesson 3 into two parts…"
+              className="flex-1 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 resize-none"
+              disabled={refining}
+            />
+            <button
+              type="button"
+              onClick={handleRefine}
+              disabled={refining || !refineInstruction.trim()}
+              className="self-end bg-brand-600 text-white px-4 py-2 rounded-lg hover:bg-brand-700 disabled:opacity-50 text-sm font-medium whitespace-nowrap"
+            >
+              {refining ? (
+                <span className="flex items-center gap-1.5">
+                  <span className="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin inline-block" />
+                  Applying…
+                </span>
+              ) : (
+                "Apply ↵"
+              )}
+            </button>
+          </div>
+          {refineError && <p className="text-xs text-red-600 mt-2">{refineError}</p>}
         </div>
 
         {error && <p className="text-sm text-red-600">{error}</p>}
