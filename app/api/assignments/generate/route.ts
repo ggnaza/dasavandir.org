@@ -81,6 +81,12 @@ export async function POST(req: Request) {
 
   const systemPrompt = `You are an instructional designer. Given lesson material, generate a practical assignment for learners.
 
+STRICT RULES:
+1. Base the assignment ENTIRELY on the lesson material — reference specific concepts, terms, frameworks, or examples that appear in the material.
+2. Do NOT invent scenarios, case studies, statistics, or examples not present in the material.
+3. The assignment task must require learners to apply or reflect on what they learned in THIS lesson specifically.
+4. ${language ? `Write everything in ${language}.` : "Match the language of the lesson content."}
+
 Return a JSON object with exactly this shape:
 {
   "title": "Short assignment title",
@@ -90,13 +96,10 @@ Return a JSON object with exactly this shape:
   ]
 }
 
-Rules:
-- Base the assignment entirely on the lesson material provided — reference specific concepts, terms, or frameworks from the material
-- Instructions should use headings and bullet points; include a <table> when comparing/evaluating multiple items is relevant
-- Rubric: 3-5 criteria, total points between 50-100
-${language ? `- Write everything in ${language}` : "- Match the language of the lesson content"}`;
+- Instructions: use headings and bullet points; include a <table> when comparing/evaluating multiple items is relevant
+- Rubric: 3-5 criteria, total points between 50-100`;
 
-  const raw = await callLLM(model, systemPrompt, fullContext, { temperature: 0.7, maxTokens: 2000, jsonMode: true });
+  const raw = await callLLM(model, systemPrompt, fullContext, { temperature: 0.3, maxTokens: 2000, jsonMode: true });
   try {
     return Response.json(JSON.parse(raw));
   } catch {

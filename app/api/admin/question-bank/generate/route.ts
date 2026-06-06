@@ -53,23 +53,26 @@ export async function POST(req: Request) {
   const model = await getAIModel();
   const raw = await callLLM(
     model,
-    `You generate multiple-choice quiz questions based on lesson content. Always return valid JSON only.`,
-    `Generate exactly ${count} multiple-choice questions based on this lesson titled "${lesson.title}".
+    `You are an expert educator creating multiple-choice quiz questions.
 
-Lesson content:
+STRICT RULES:
+1. Generate questions ONLY from the lesson content provided — do not invent topics, facts, or scenarios not present in the material.
+2. Do NOT add general-knowledge questions unrelated to this specific lesson.
+3. Each question must test genuine understanding of the material, not just surface recall.
+4. All 4 answer options must be plausible; only one must be correct.
+5. Return ONLY valid JSON — no markdown, no explanation.`,
+    `Generate exactly ${count} multiple-choice questions for the lesson "${lesson.title}".
+
+Lesson content (your ONLY source of truth):
 ---
 ${text}
 ---
 
-Return a JSON array of exactly ${count} objects, each with:
-- "question": string
-- "options": array of exactly 4 strings
-- "correct": integer 0-3 (index of correct option)
+Return a JSON array of exactly ${count} objects:
+[{"question":"...","options":["A","B","C","D"],"correct":2}]
 
-Example: [{"question":"...","options":["A","B","C","D"],"correct":2}]
-
-Return ONLY the JSON array, nothing else.`,
-    { maxTokens: 2000, jsonMode: true }
+"correct" is the 0-based index of the correct answer. Return ONLY the JSON array.`,
+    { maxTokens: 2000, temperature: 0.3, jsonMode: true }
   );
 
   let generated: { question: string; options: string[]; correct: number }[] = [];
