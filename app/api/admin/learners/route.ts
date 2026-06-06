@@ -54,7 +54,8 @@ export async function GET() {
         lessons_completed: (l.progress ?? []).length,
       };
     })
-    .filter((l: any) => !allowedCourseIds || l.courses.length > 0);
+    .filter((l: any) => !allowedCourseIds || l.courses.length > 0)
+    .filter((l: any) => !l.email.includes("mailinator.com"));
 
   return Response.json({ learners: result });
 }
