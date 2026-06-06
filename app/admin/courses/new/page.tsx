@@ -1,7 +1,6 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
 
 export default function NewCoursePage() {
@@ -15,20 +14,19 @@ export default function NewCoursePage() {
     e.preventDefault();
     setLoading(true);
     setError("");
-    const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
 
-    const { data, error } = await supabase
-      .from("courses")
-      .insert({ title, description, created_by: user!.id })
-      .select("id")
-      .single();
+    const res = await fetch("/api/admin/courses", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title, description }),
+    });
 
-    if (error) {
-      setError(error.message);
+    if (!res.ok) {
+      setError(await res.text());
       setLoading(false);
     } else {
-      router.push(`/admin/courses/${data.id}`);
+      const { id } = await res.json();
+      router.push(`/admin/courses/${id}`);
     }
   }
 
