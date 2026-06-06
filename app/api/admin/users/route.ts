@@ -51,6 +51,7 @@ export async function GET(req: Request) {
   let query = admin
     .from("profiles")
     .select("id, full_name, email, role, status, created_at", { count: "exact" })
+    .in("role", ["admin", "course_creator", "course_manager"])
     .order("created_at", { ascending: false })
     .range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1);
 
