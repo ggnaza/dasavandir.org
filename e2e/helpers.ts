@@ -5,6 +5,10 @@ import { Page } from "@playwright/test";
 export const TEST_LEARNER_EMAIL = process.env.E2E_LEARNER_EMAIL ?? "";
 export const TEST_LEARNER_PASSWORD = process.env.E2E_LEARNER_PASSWORD ?? "";
 
+// Credentials for a pre-existing test admin account.
+export const TEST_ADMIN_EMAIL = process.env.E2E_ADMIN_EMAIL ?? "";
+export const TEST_ADMIN_PASSWORD = process.env.E2E_ADMIN_PASSWORD ?? "";
+
 // A course the test learner is enrolled in.
 export const TEST_COURSE_ID = process.env.E2E_COURSE_ID ?? "";
 
