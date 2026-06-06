@@ -27,30 +27,38 @@ declare
 begin
   -- Pick highest-priority role from any existing profile with the same email.
   -- Priority: admin(1) > course_creator(2) > course_manager(3) > learner(4)
-  select role into v_best_role
-  from profiles
-  where email = NEW.email
-  order by
-    case role
-      when 'admin'          then 1
-      when 'course_creator' then 2
-      when 'course_manager' then 3
-      else                       4
-    end
-  limit 1;
+  begin
+    select role into v_best_role
+    from profiles
+    where email = NEW.email
+    order by
+      case role
+        when 'admin'          then 1
+        when 'course_creator' then 2
+        when 'course_manager' then 3
+        else                       4
+      end
+    limit 1;
+  exception when others then
+    v_best_role := null;
+  end;
 
   insert into profiles (id, full_name, email, role, status)
   values (
     NEW.id,
     coalesce(NEW.raw_user_meta_data->>'full_name', NEW.raw_user_meta_data->>'name'),
     NEW.email,
-    coalesce(v_best_role, NEW.raw_user_meta_data->>'role', 'learner'),
+    coalesce(v_best_role, 'learner'),
     'active'
   )
   on conflict (id) do update
     set email = excluded.email,
         full_name = coalesce(excluded.full_name, profiles.full_name);
 
+  return NEW;
+exception when others then
+  raise warning '[handle_new_user] profile insert failed for user % (%): %',
+    NEW.id, NEW.email, SQLERRM;
   return NEW;
 end;
 $$ language plpgsql security definer;
@@ -70,6 +78,12 @@ create table if not exists courses (
   created_at timestamptz default now(),
   language text not null default 'hy' check (language in ('en', 'hy')),
   cover_url text,
+  cover_image_url text,
+  is_paid boolean default false,
+  price_amd integer,
+  category text,
+  hours_to_complete numeric,
+  allow_shuffled_learning boolean default false,
   pre_submission_ai boolean default false,
   notify_on_new_lesson boolean not null default false,
   remind_not_started_days int check (remind_not_started_days > 0),
@@ -86,7 +100,8 @@ create table if not exists lessons (
   created_at timestamptz default now(),
   deadline_days integer,
   deadline_date date,
-  slide_audio_urls jsonb
+  slide_audio_urls jsonb,
+  links jsonb default '[]'::jsonb
 );
 
 create table if not exists lesson_files (
@@ -172,6 +187,7 @@ create table if not exists invitations (
   email text not null,
   first_name text,
   last_name text,
+  status text not null default 'pending' check (status in ('pending', 'accepted')),
   invited_by uuid references profiles(id),
   created_at timestamptz default now(),
   unique(course_id, email)
