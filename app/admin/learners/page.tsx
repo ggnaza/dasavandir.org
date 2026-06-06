@@ -29,6 +29,7 @@ export default function LearnersPage() {
   const [learners, setLearners] = useState<Learner[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [courseFilter, setCourseFilter] = useState("");
 
   useEffect(() => {
     fetch("/api/admin/learners")
@@ -37,9 +38,15 @@ export default function LearnersPage() {
       .finally(() => setLoading(false));
   }, []);
 
+  const allCourses = Array.from(
+    new Map(learners.flatMap((l) => l.courses).map((c) => [c.id, c])).values()
+  ).sort((a, b) => a.title.localeCompare(b.title));
+
   const filtered = learners.filter((l) => {
+    if (courseFilter && !l.courses.some((c) => c.id === courseFilter)) return false;
     const q = search.toLowerCase();
     return (
+      !q ||
       l.full_name?.toLowerCase().includes(q) ||
       l.email?.toLowerCase().includes(q) ||
       l.courses.some((c) => c.title.toLowerCase().includes(q))
@@ -50,16 +57,30 @@ export default function LearnersPage() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold">Learners</h1>
-        <span className="text-sm text-gray-500">{learners.length} total</span>
+        <span className="text-sm text-gray-500">
+          {filtered.length}{filtered.length !== learners.length ? ` of ${learners.length}` : ""} learners
+        </span>
       </div>
 
-      <input
-        type="text"
-        placeholder="Search by name, email or course…"
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        className="w-full border rounded-lg px-3 py-2 mb-4 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
-      />
+      <div className="flex gap-2 mb-4">
+        <input
+          type="text"
+          placeholder="Search by name or email…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="flex-1 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+        />
+        <select
+          value={courseFilter}
+          onChange={(e) => setCourseFilter(e.target.value)}
+          className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 bg-white"
+        >
+          <option value="">All courses</option>
+          {allCourses.map((c) => (
+            <option key={c.id} value={c.id}>{c.title}</option>
+          ))}
+        </select>
+      </div>
 
       {loading ? (
         <div className="text-center py-8 text-gray-500">Loading…</div>
