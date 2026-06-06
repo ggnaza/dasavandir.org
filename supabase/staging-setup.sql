@@ -83,6 +83,7 @@ create table if not exists courses (
   price_amd integer,
   category text,
   hours_to_complete numeric,
+  access_type text not null default 'private' check (access_type in ('public', 'private', 'paid')),
   allow_shuffled_learning boolean default false,
   pre_submission_ai boolean default false,
   notify_on_new_lesson boolean not null default false,

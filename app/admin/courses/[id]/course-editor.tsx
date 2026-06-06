@@ -9,6 +9,7 @@ type Course = {
   description: string | null;
   published: boolean;
   cover_image_url: string | null;
+  access_type: "public" | "private" | "paid" | null;
   is_paid: boolean | null;
   price_amd: number | null;
   language: string | null;
@@ -33,7 +34,9 @@ export function CourseEditor({ course, lessonDeadlineDates = [] }: {
   const [deleting, setDeleting] = useState(false);
   const [description, setDescription] = useState(course.description ?? "");
   const [published, setPublished] = useState(course.published);
-  const [isPaid, setIsPaid] = useState(course.is_paid ?? false);
+  const [accessType, setAccessType] = useState<"public" | "private" | "paid">(
+    course.access_type ?? (course.is_paid ? "paid" : "private")
+  );
   const [priceAmd, setPriceAmd] = useState(course.price_amd?.toString() ?? "");
   const [language, setLanguage] = useState<"en" | "hy">(course.language === "en" ? "en" : "hy");
   const [category, setCategory] = useState(course.category ?? "");
@@ -103,8 +106,9 @@ export function CourseEditor({ course, lessonDeadlineDates = [] }: {
         description,
         published,
         cover_image_url: coverUrl || null,
-        is_paid: isPaid,
-        price_amd: isPaid && priceAmd ? parseInt(priceAmd) : null,
+        access_type: accessType,
+        is_paid: accessType === "paid",
+        price_amd: accessType === "paid" && priceAmd ? parseInt(priceAmd) : null,
         language,
         category: category.trim() || null,
         hours_to_complete: hours ? parseInt(hours) : null,
@@ -264,33 +268,32 @@ export function CourseEditor({ course, lessonDeadlineDates = [] }: {
         </div>
       </div>
 
-      {/* Pricing */}
+      {/* Access & Pricing */}
       <div className="border rounded-lg p-4 space-y-3">
-        <p className="text-sm font-medium">Pricing</p>
-        <div className="flex items-center gap-4">
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="radio"
-              name="pricing"
-              checked={!isPaid}
-              onChange={() => setIsPaid(false)}
-              className="w-4 h-4"
-            />
-            <span className="text-sm">Free</span>
-          </label>
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="radio"
-              name="pricing"
-              checked={isPaid}
-              onChange={() => setIsPaid(true)}
-              className="w-4 h-4"
-            />
-            <span className="text-sm">Paid</span>
-          </label>
+        <p className="text-sm font-medium">Access & Pricing</p>
+        <div className="space-y-2">
+          {([
+            { value: "private", label: "Private", desc: "Only accessible via invitation" },
+            { value: "public",  label: "Public",  desc: "Available to everyone who signs up" },
+            { value: "paid",    label: "Paid",    desc: "Publicly visible but requires payment" },
+          ] as const).map((opt) => (
+            <label key={opt.value} className="flex items-start gap-3 cursor-pointer group">
+              <input
+                type="radio"
+                name="access_type"
+                checked={accessType === opt.value}
+                onChange={() => setAccessType(opt.value)}
+                className="w-4 h-4 mt-0.5"
+              />
+              <div>
+                <span className="text-sm font-medium">{opt.label}</span>
+                <p className="text-xs text-gray-500">{opt.desc}</p>
+              </div>
+            </label>
+          ))}
         </div>
-        {isPaid && (
-          <div className="flex items-center gap-2">
+        {accessType === "paid" && (
+          <div className="flex items-center gap-2 pt-1">
             <input
               type="number"
               min={1}
