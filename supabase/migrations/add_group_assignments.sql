@@ -24,6 +24,4 @@ ALTER TABLE assignments
 ALTER TABLE submissions
   ADD COLUMN IF NOT EXISTS group_id uuid REFERENCES course_groups(id) ON DELETE SET NULL;
 
--- Disable RLS on new tables (service role used throughout)
-ALTER TABLE course_groups DISABLE ROW LEVEL SECURITY;
-ALTER TABLE course_group_members DISABLE ROW LEVEL SECURITY;
+-- RLS is managed by enable_rls_all_tables.sql — do not disable here.
