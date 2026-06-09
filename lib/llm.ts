@@ -5,15 +5,23 @@ import { createAdminClient } from "@/lib/supabase/admin";
 export { AI_MODELS, VALID_MODEL_IDS } from "@/lib/ai-models";
 export type { AIModelId } from "@/lib/ai-models";
 
+// Retired model IDs → current replacements
+const DEPRECATED_MODELS: Record<string, string> = {
+  "gemini-2.5-flash-preview-04-17": "gemini-2.5-flash",
+  "gemini-2.5-pro-preview-05-06":   "gemini-2.5-pro",
+  "gemini-2.5-pro-preview-06-05":   "gemini-2.5-pro",
+};
+
 // Reads the global AI model from the settings table
 export async function getAIModel(): Promise<string> {
   try {
     const admin = createAdminClient();
     const { data } = await admin.from("settings").select("value").eq("key", "ai_model").maybeSingle();
-    if (data?.value) return data.value;
+    if (data?.value) return DEPRECATED_MODELS[data.value] ?? data.value;
     // Backwards-compat: fall back to old key name
     const { data: old } = await admin.from("settings").select("value").eq("key", "ai_coach_model").maybeSingle();
-    return old?.value ?? "gpt-4o-mini";
+    const v = old?.value ?? "gpt-4o-mini";
+    return DEPRECATED_MODELS[v] ?? v;
   } catch {
     return "gpt-4o-mini";
   }
