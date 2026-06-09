@@ -57,7 +57,7 @@ export default async function AnalyticsPage({ params }: { params: { id: string }
 
   const lessonIds = (lessons ?? []).map((l) => l.id);
 
-  const [{ data: allEnrollments }, { data: quizzes }, { data: aiMemory }, { data: lastSessions }] = await Promise.all([
+  const [{ data: allEnrollments }, { data: quizzes }, { data: aiMemory }, { data: lastSessions }, { data: coachSessions }] = await Promise.all([
     admin.from("enrollments").select("user_id").eq("course_id", params.id),
     lessonIds.length > 0
       ? admin.from("quizzes").select("id, lesson_id, questions").in("lesson_id", lessonIds)
@@ -66,6 +66,7 @@ export default async function AnalyticsPage({ params }: { params: { id: string }
     lessonIds.length > 0
       ? admin.from("lesson_sessions").select("user_id, duration_seconds, created_at").in("lesson_id", lessonIds)
       : Promise.resolve({ data: [] }),
+    admin.from("ai_coach_sessions").select("user_id, started_at, last_message_at, message_count").eq("course_id", params.id),
   ]);
 
   const enrollments = cohortIds !== null
@@ -111,10 +112,50 @@ export default async function AnalyticsPage({ params }: { params: { id: string }
     return { lesson, questionStats, totalAttempts: responses.length };
   }).filter((d) => d.questionStats.length > 0);
 
-  // ── AI Coach Matrix ──
+  // ── AI Coach Session Aggregation ──
   const aiMemoryMap = Object.fromEntries(
     (aiMemory ?? []).map((m) => [m.user_id, m.updated_at])
   );
+
+  // Aggregate per-user: session count, total messages, total duration seconds, last active
+  type CoachStats = {
+    sessions: number;
+    messages: number;
+    durationSeconds: number;
+    lastActive: string | null;
+  };
+  const coachStatsMap: Record<string, CoachStats> = {};
+  for (const s of coachSessions ?? []) {
+    if (!coachStatsMap[s.user_id]) {
+      coachStatsMap[s.user_id] = { sessions: 0, messages: 0, durationSeconds: 0, lastActive: null };
+    }
+    const stats = coachStatsMap[s.user_id];
+    stats.sessions += 1;
+    stats.messages += s.message_count ?? 0;
+    // Duration = elapsed between first and last message in this session (seconds)
+    if (s.started_at && s.last_message_at) {
+      stats.durationSeconds += Math.max(0, Math.round(
+        (new Date(s.last_message_at).getTime() - new Date(s.started_at).getTime()) / 1000
+      ));
+    }
+    if (!stats.lastActive || (s.last_message_at && s.last_message_at > stats.lastActive)) {
+      stats.lastActive = s.last_message_at;
+    }
+  }
+
+  function engagementLevel(stats: CoachStats | undefined): "none" | "low" | "medium" | "high" {
+    if (!stats || stats.sessions === 0) return "none";
+    if (stats.sessions >= 6 || stats.messages >= 26) return "high";
+    if (stats.sessions >= 3 || stats.messages >= 10) return "medium";
+    return "low";
+  }
+
+  const engagementBadge = {
+    none:   { label: "None",   cls: "bg-gray-100 text-gray-400" },
+    low:    { label: "Low",    cls: "bg-yellow-100 text-yellow-700" },
+    medium: { label: "Medium", cls: "bg-blue-100 text-blue-700" },
+    high:   { label: "High",   cls: "bg-green-100 text-green-700" },
+  };
 
   // ── System Access Logs (last activity from sessions) ──
   const lastActivityMap: Record<string, string | null> = {};
@@ -199,39 +240,101 @@ export default async function AnalyticsPage({ params }: { params: { id: string }
         )}
       </section>
 
-      {/* ── AI Coach Integration Matrix ── */}
+      {/* ── AI Coach Engagement Dashboard ── */}
       <section>
         <h3 className="text-base font-semibold mb-1">AI Coach Engagement</h3>
-        <p className="text-xs text-gray-400 mb-4">Which learners have used the AI Coach. Chat content is private and not stored here.</p>
+        <p className="text-xs text-gray-400 mb-4">
+          Session frequency and interaction depth per learner. Chat transcripts are never stored or displayed here — only aggregate usage data.
+        </p>
+
+        {/* Summary stats */}
+        {learnerAccessRows.length > 0 && (() => {
+          const activeUsers = userIds.filter((uid) => (coachStatsMap[uid]?.sessions ?? 0) > 0);
+          const totalSessions = Object.values(coachStatsMap).reduce((s, c) => s + c.sessions, 0);
+          const totalMessages = Object.values(coachStatsMap).reduce((s, c) => s + c.messages, 0);
+          const totalDuration = Object.values(coachStatsMap).reduce((s, c) => s + c.durationSeconds, 0);
+          const highEngagement = userIds.filter((uid) => engagementLevel(coachStatsMap[uid]) === "high").length;
+          return (
+            <div className="grid grid-cols-4 gap-3 mb-5">
+              <div className="bg-white border rounded-xl p-4 text-center">
+                <p className="text-xs text-gray-500">Active users</p>
+                <p className="text-2xl font-bold mt-1">{activeUsers.length}<span className="text-sm text-gray-400 font-normal">/{userIds.length}</span></p>
+              </div>
+              <div className="bg-white border rounded-xl p-4 text-center">
+                <p className="text-xs text-gray-500">Total sessions</p>
+                <p className="text-2xl font-bold mt-1">{totalSessions}</p>
+              </div>
+              <div className="bg-white border rounded-xl p-4 text-center">
+                <p className="text-xs text-gray-500">Total messages</p>
+                <p className="text-2xl font-bold mt-1">{totalMessages}</p>
+              </div>
+              <div className="bg-white border rounded-xl p-4 text-center">
+                <p className="text-xs text-gray-500">High engagement</p>
+                <p className="text-2xl font-bold mt-1 text-green-600">{highEngagement}</p>
+                <p className="text-xs text-gray-400">≥6 sessions or 26+ msgs</p>
+              </div>
+            </div>
+          );
+        })()}
+
         <div className="bg-white border rounded-xl overflow-hidden">
           <div className="px-5 py-3 border-b bg-gray-50 grid grid-cols-12 text-xs font-semibold text-gray-500 uppercase tracking-wide">
-            <span className="col-span-5">Learner</span>
-            <span className="col-span-4 text-center">AI Coach</span>
-            <span className="col-span-3 text-right">Last interaction</span>
+            <span className="col-span-3">Learner</span>
+            <span className="col-span-2 text-center">Engagement</span>
+            <span className="col-span-1 text-right">Sessions</span>
+            <span className="col-span-1 text-right">Messages</span>
+            <span className="col-span-1 text-right">Msg/session</span>
+            <span className="col-span-2 text-right">Time in coach</span>
+            <span className="col-span-2 text-right">Last active</span>
           </div>
+
           {learnerAccessRows.length === 0 ? (
             <p className="px-5 py-6 text-sm text-gray-400 text-center">No learners enrolled.</p>
           ) : (
             <div className="divide-y">
-              {learnerAccessRows.map((r) => (
-                <div key={r.uid} className="px-5 py-3 grid grid-cols-12 items-center text-sm">
-                  <span className="col-span-5 font-medium text-gray-800 truncate">{r.name}</span>
-                  <span className="col-span-4 text-center">
-                    {r.usedAiCoach ? (
-                      <span className="inline-flex items-center gap-1 text-xs bg-brand-100 text-brand-700 px-2 py-0.5 rounded-full font-medium">
-                        ✦ Active
+              {learnerAccessRows.map((r) => {
+                const stats = coachStatsMap[r.uid];
+                const level = engagementLevel(stats);
+                const badge = engagementBadge[level];
+                const avgPerSession = stats && stats.sessions > 0
+                  ? (stats.messages / stats.sessions).toFixed(1)
+                  : null;
+                return (
+                  <div key={r.uid} className="px-5 py-3 grid grid-cols-12 items-center text-sm">
+                    <span className="col-span-3 font-medium text-gray-800 truncate">{r.name}</span>
+                    <span className="col-span-2 text-center">
+                      <span className={`inline-flex items-center text-xs px-2 py-0.5 rounded-full font-medium ${badge.cls}`}>
+                        {level === "high" && "✦ "}{badge.label}
                       </span>
-                    ) : (
-                      <span className="text-xs text-gray-300">Not used</span>
-                    )}
-                  </span>
-                  <span className="col-span-3 text-right text-xs text-gray-400">
-                    {r.usedAiCoach ? formatDate(r.aiCoachLastUsed) : "—"}
-                  </span>
-                </div>
-              ))}
+                    </span>
+                    <span className="col-span-1 text-right text-xs text-gray-600 tabular-nums">
+                      {stats?.sessions ?? 0}
+                    </span>
+                    <span className="col-span-1 text-right text-xs text-gray-600 tabular-nums">
+                      {stats?.messages ?? 0}
+                    </span>
+                    <span className="col-span-1 text-right text-xs text-gray-400 tabular-nums">
+                      {avgPerSession ?? "—"}
+                    </span>
+                    <span className="col-span-2 text-right text-xs text-gray-500 tabular-nums">
+                      {stats && stats.durationSeconds > 0 ? formatTime(stats.durationSeconds) : "—"}
+                    </span>
+                    <span className="col-span-2 text-right text-xs text-gray-400">
+                      {stats?.lastActive ? formatDate(stats.lastActive) : "—"}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
           )}
+        </div>
+
+        {/* Engagement level legend */}
+        <div className="mt-2 flex flex-wrap gap-4 text-xs text-gray-500">
+          <span className="flex items-center gap-1.5"><span className="bg-gray-100 text-gray-400 px-1.5 py-0.5 rounded-full">None</span> Never opened</span>
+          <span className="flex items-center gap-1.5"><span className="bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded-full">Low</span> 1–2 sessions, &lt;10 messages</span>
+          <span className="flex items-center gap-1.5"><span className="bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full">Medium</span> 3–5 sessions or 10–25 messages</span>
+          <span className="flex items-center gap-1.5"><span className="bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full">✦ High</span> 6+ sessions or 26+ messages</span>
         </div>
       </section>
 

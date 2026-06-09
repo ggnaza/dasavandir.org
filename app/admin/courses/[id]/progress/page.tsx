@@ -39,8 +39,8 @@ export default async function ProgressPage({ params }: { params: { id: string } 
   const userIds = enrollments.map((e) => e.user_id);
   const lessonIds = (lessons ?? []).map((l) => l.id);
 
-  // Fetch profiles, progress, and sessions in parallel
-  const [{ data: profiles }, { data: progressRows }, { data: sessions }] = await Promise.all([
+  // Fetch profiles, progress, lesson sessions, and AI coach sessions in parallel
+  const [{ data: profiles }, { data: progressRows }, { data: sessions }, { data: coachSessions }] = await Promise.all([
     userIds.length > 0
       ? admin.from("profiles").select("id, full_name, email").in("id", userIds)
       : Promise.resolve({ data: [] }),
@@ -54,7 +54,32 @@ export default async function ProgressPage({ params }: { params: { id: string } 
           .in("user_id", userIds)
           .in("lesson_id", lessonIds)
       : Promise.resolve({ data: [] }),
+    userIds.length > 0
+      ? admin
+          .from("ai_coach_sessions")
+          .select("user_id, started_at, last_message_at, message_count")
+          .eq("course_id", params.id)
+          .in("user_id", userIds)
+      : Promise.resolve({ data: [] }),
   ]);
+
+  // Aggregate AI coach sessions per user for this course
+  type CoachStats = { sessions: number; messages: number; durationSeconds: number; lastActive: string | null };
+  const coachMap: Record<string, CoachStats> = {};
+  for (const s of coachSessions ?? []) {
+    if (!coachMap[s.user_id]) coachMap[s.user_id] = { sessions: 0, messages: 0, durationSeconds: 0, lastActive: null };
+    const c = coachMap[s.user_id];
+    c.sessions += 1;
+    c.messages += s.message_count ?? 0;
+    if (s.started_at && s.last_message_at) {
+      c.durationSeconds += Math.max(0, Math.round(
+        (new Date(s.last_message_at).getTime() - new Date(s.started_at).getTime()) / 1000
+      ));
+    }
+    if (!c.lastActive || (s.last_message_at && s.last_message_at > c.lastActive)) {
+      c.lastActive = s.last_message_at;
+    }
+  }
 
   // Build lesson meta
   const lessonMeta: LessonMeta[] = (lessons ?? []).map((l) => ({
@@ -103,6 +128,8 @@ export default async function ProgressPage({ params }: { params: { id: string } 
       else readingSeconds += seconds;
     }
 
+    const coach = coachMap[uid] ?? { sessions: 0, messages: 0, durationSeconds: 0, lastActive: null };
+
     return {
       userId: uid,
       name: profile?.full_name || profile?.email || "Unknown",
@@ -112,6 +139,10 @@ export default async function ProgressPage({ params }: { params: { id: string } 
       videoSeconds,
       readingSeconds,
       completedCount: (lessons ?? []).filter((l) => completedSet.has(l.id)).length,
+      coachSessions: coach.sessions,
+      coachMessages: coach.messages,
+      coachDurationSeconds: coach.durationSeconds,
+      coachLastActive: coach.lastActive,
     };
   });
 

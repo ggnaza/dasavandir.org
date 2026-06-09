@@ -308,6 +308,7 @@ FORMAT: Use **bold** for the three section headings. Keep each section concise. 
         controller.close();
         if (effectiveCourseId && fullReply) {
           updateMemory(admin, userId, effectiveCourseId, messages, fullReply, memoryContext).catch(() => {});
+          logCoachSession(admin, userId, effectiveCourseId, lessonId).catch(() => {});
         }
       },
     });
@@ -346,6 +347,7 @@ FORMAT: Use **bold** for the three section headings. Keep each section concise. 
 
         if (effectiveCourseId && fullReply) {
           updateMemory(admin, userId, effectiveCourseId, messages, fullReply, memoryContext).catch(() => {});
+          logCoachSession(admin, userId, effectiveCourseId, lessonId).catch(() => {});
         }
       },
     });
@@ -382,6 +384,7 @@ FORMAT: Use **bold** for the three section headings. Keep each section concise. 
 
       if (effectiveCourseId && fullReply) {
         updateMemory(admin, userId, effectiveCourseId, messages, fullReply, memoryContext).catch(() => {});
+        logCoachSession(admin, userId, effectiveCourseId, lessonId).catch(() => {});
       }
     },
   });
@@ -389,6 +392,48 @@ FORMAT: Use **bold** for the three section headings. Keep each section concise. 
   return new Response(readable, {
     headers: { "Content-Type": "text/plain; charset=utf-8" },
   });
+}
+
+// Log or update an AI Coach session.
+// Sessions are grouped by 30-min inactivity windows — same session if last message < 30 min ago.
+// No chat content stored — only timing and message counts.
+async function logCoachSession(
+  admin: any,
+  userId: string,
+  courseId: string,
+  lessonId: string,
+) {
+  const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+
+  // Find open session within the last 30 minutes
+  const { data: existing } = await admin
+    .from("ai_coach_sessions")
+    .select("id, message_count")
+    .eq("user_id", userId)
+    .eq("course_id", courseId)
+    .gte("last_message_at", thirtyMinutesAgo)
+    .order("last_message_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (existing) {
+    await admin
+      .from("ai_coach_sessions")
+      .update({
+        message_count: existing.message_count + 1,
+        last_message_at: new Date().toISOString(),
+      })
+      .eq("id", existing.id);
+  } else {
+    await admin.from("ai_coach_sessions").insert({
+      user_id: userId,
+      course_id: courseId,
+      lesson_id: lessonId,
+      started_at: new Date().toISOString(),
+      last_message_at: new Date().toISOString(),
+      message_count: 1,
+    });
+  }
 }
 
 async function updateMemory(
