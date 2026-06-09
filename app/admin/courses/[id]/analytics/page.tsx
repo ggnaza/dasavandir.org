@@ -3,6 +3,9 @@ import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 import { assertCourseOwner } from "@/lib/assert-course-owner";
 import { getModeratorCohort } from "@/lib/get-moderator-cohort";
+import { AnalyticsTabs } from "./analytics-tabs";
+import { QuizAnalysisSection } from "./quiz-analysis";
+import type { QuizStat, AtRiskLearner } from "./quiz-analysis";
 
 export const dynamic = "force-dynamic";
 
@@ -32,6 +35,9 @@ function formatTime(seconds: number): string {
   const rem = m % 60;
   return rem === 0 ? `${h}h` : `${h}h ${rem}m`;
 }
+
+const AT_RISK_SCORE_THRESHOLD = 60;
+const AT_RISK_COUNT_THRESHOLD = 2;
 
 export default async function AnalyticsPage({ params }: { params: { id: string } }) {
   const supabase = createClient();
@@ -93,13 +99,17 @@ export default async function AnalyticsPage({ params }: { params: { id: string }
   const lessonMap = Object.fromEntries((lessons ?? []).map((l) => [l.id, l]));
 
   // Group responses by quiz_id
-  const responsesByQuiz: Record<string, Array<{ answers: number[] }>> = {};
+  const responsesByQuiz: Record<string, Array<{ user_id: string; answers: number[]; score: number | null }>> = {};
   for (const r of quizResponses ?? []) {
     if (!responsesByQuiz[r.quiz_id]) responsesByQuiz[r.quiz_id] = [];
-    responsesByQuiz[r.quiz_id].push({ answers: r.answers as number[] });
+    responsesByQuiz[r.quiz_id].push({
+      user_id: r.user_id,
+      answers: r.answers as number[],
+      score: typeof r.score === "number" ? r.score : null,
+    });
   }
 
-  // Per-quiz, per-question success rate
+  // Per-quiz, per-question success rate (existing heatmap)
   const heatmapData = (quizzes ?? []).map((q) => {
     const qs = quizMap[q.id].questions;
     const responses = responsesByQuiz[q.id] ?? [];
@@ -112,12 +122,107 @@ export default async function AnalyticsPage({ params }: { params: { id: string }
     return { lesson, questionStats, totalAttempts: responses.length };
   }).filter((d) => d.questionStats.length > 0);
 
+  // ── Quiz Analysis (new tab) ──────────────────────────────────────────────
+  const cohortSize = userIds.length;
+
+  const profileMap = Object.fromEntries((profiles ?? []).map((p) => [p.id, p]));
+
+  // Build per-user, per-quiz score map for at-risk detection
+  const userQuizScores: Record<string, { quizId: string; lessonTitle: string; score: number }[]> = {};
+  for (const r of quizResponses ?? []) {
+    if (!userQuizScores[r.user_id]) userQuizScores[r.user_id] = [];
+    if (typeof r.score === "number") {
+      const lesson = lessonMap[quizMap[r.quiz_id]?.lesson_id];
+      userQuizScores[r.user_id].push({
+        quizId: r.quiz_id,
+        lessonTitle: lesson?.title ?? "Quiz",
+        score: r.score,
+      });
+    }
+  }
+
+  // At-risk learners
+  const atRiskLearners: AtRiskLearner[] = userIds
+    .map((uid) => {
+      const scores = userQuizScores[uid] ?? [];
+      const failed = scores.filter((s) => s.score < AT_RISK_SCORE_THRESHOLD);
+      if (failed.length < AT_RISK_COUNT_THRESHOLD) return null;
+      const uniqueModules = Array.from(new Set(failed.map((f) => f.lessonTitle)));
+      return {
+        name: profileMap[uid]?.full_name ?? profileMap[uid]?.email ?? uid,
+        failedQuizCount: failed.length,
+        weakModules: uniqueModules.slice(0, 3).join(", "),
+      } as AtRiskLearner;
+    })
+    .filter((x): x is AtRiskLearner => x !== null)
+    .sort((a, b) => b.failedQuizCount - a.failedQuizCount);
+
+  // Build QuizStat[] — one per quiz, ordered by lesson order
+  const orderedQuizzes = (quizzes ?? []).slice().sort((a, b) => {
+    const la = lessonMap[a.lesson_id]?.order ?? 0;
+    const lb = lessonMap[b.lesson_id]?.order ?? 0;
+    return la - lb;
+  });
+
+  const quizStats: QuizStat[] = orderedQuizzes.map((q) => {
+    const qs = quizMap[q.id].questions;
+    const responses = responsesByQuiz[q.id] ?? [];
+    const lesson = lessonMap[q.lesson_id];
+
+    const uniqueAttemptors = Array.from(new Set(responses.map((r) => r.user_id))).length;
+    const completionPct = cohortSize > 0 ? Math.round((uniqueAttemptors / cohortSize) * 100) : 0;
+
+    const scores = responses.map((r) => r.score).filter((s): s is number => s !== null);
+    const cohortAvgScore = scores.length > 0
+      ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length)
+      : null;
+
+    const questions = qs.map((question: QuizQuestion, i: number) => {
+      const correctCount = responses.filter((r) => r.answers?.[i] === question.correct).length;
+      const successPct = responses.length > 0
+        ? Math.round((correctCount / responses.length) * 100)
+        : null;
+
+      // Count how many chose each option
+      const optionCounts: number[] = (question.options ?? []).map(() => 0);
+      for (const r of responses) {
+        const chosen = r.answers?.[i];
+        if (typeof chosen === "number" && chosen >= 0 && chosen < optionCounts.length) {
+          optionCounts[chosen]++;
+        }
+      }
+
+      const distractors = (question.options ?? []).map((text: string, oi: number) => ({
+        text,
+        count: optionCounts[oi],
+        isCorrect: oi === question.correct,
+      }));
+
+      return {
+        text: question.question,
+        successPct,
+        totalResponses: responses.length,
+        distractors,
+      };
+    });
+
+    return {
+      quizId: q.id,
+      lessonOrder: lesson?.order ?? 0,
+      lessonTitle: lesson?.title ?? "Quiz",
+      uniqueAttemptors,
+      cohortSize,
+      completionPct,
+      cohortAvgScore,
+      questions,
+    };
+  });
+
   // ── AI Coach Session Aggregation ──
   const aiMemoryMap = Object.fromEntries(
     (aiMemory ?? []).map((m) => [m.user_id, m.updated_at])
   );
 
-  // Aggregate per-user: session count, total messages, total duration seconds, last active
   type CoachStats = {
     sessions: number;
     messages: number;
@@ -132,7 +237,6 @@ export default async function AnalyticsPage({ params }: { params: { id: string }
     const stats = coachStatsMap[s.user_id];
     stats.sessions += 1;
     stats.messages += s.message_count ?? 0;
-    // Duration = elapsed between first and last message in this session (seconds)
     if (s.started_at && s.last_message_at) {
       stats.durationSeconds += Math.max(0, Math.round(
         (new Date(s.last_message_at).getTime() - new Date(s.started_at).getTime()) / 1000
@@ -157,7 +261,7 @@ export default async function AnalyticsPage({ params }: { params: { id: string }
     high:   { label: "High",   cls: "bg-green-100 text-green-700" },
   };
 
-  // ── System Access Logs (last activity from sessions) ──
+  // ── System Access Logs ──
   const lastActivityMap: Record<string, string | null> = {};
   const totalTimeMap: Record<string, number> = {};
   for (const s of lastSessions ?? []) {
@@ -166,8 +270,6 @@ export default async function AnalyticsPage({ params }: { params: { id: string }
     }
     totalTimeMap[s.user_id] = (totalTimeMap[s.user_id] ?? 0) + (s.duration_seconds ?? 0);
   }
-
-  const profileMap = Object.fromEntries((profiles ?? []).map((p) => [p.id, p]));
 
   const learnerAccessRows = userIds.map((uid) => ({
     uid,
@@ -183,18 +285,10 @@ export default async function AnalyticsPage({ params }: { params: { id: string }
     return b.lastActivity.localeCompare(a.lastActivity);
   });
 
-  return (
-    <div className="space-y-10">
-      <div>
-        <h2 className="text-xl font-bold mb-1">Analytics</h2>
-        <p className="text-sm text-gray-500">
-          Assessment results, AI Coach engagement, and system access for {course.title}.
-          {isCohortLimited && (
-            <span className="ml-2 text-blue-600 font-medium">Showing your cohort ({cohortIds!.length} learners).</span>
-          )}
-        </p>
-      </div>
+  // ── Render ───────────────────────────────────────────────────────────────
 
+  const overviewContent = (
+    <div className="space-y-10">
       {/* ── Assessment Heatmap ── */}
       <section>
         <h3 className="text-base font-semibold mb-1">Assessment Item Analysis</h3>
@@ -240,19 +334,17 @@ export default async function AnalyticsPage({ params }: { params: { id: string }
         )}
       </section>
 
-      {/* ── AI Coach Engagement Dashboard ── */}
+      {/* ── AI Coach Engagement ── */}
       <section>
         <h3 className="text-base font-semibold mb-1">AI Coach Engagement</h3>
         <p className="text-xs text-gray-400 mb-4">
           Session frequency and interaction depth per learner. Chat transcripts are never stored or displayed here — only aggregate usage data.
         </p>
 
-        {/* Summary stats */}
         {learnerAccessRows.length > 0 && (() => {
           const activeUsers = userIds.filter((uid) => (coachStatsMap[uid]?.sessions ?? 0) > 0);
           const totalSessions = Object.values(coachStatsMap).reduce((s, c) => s + c.sessions, 0);
           const totalMessages = Object.values(coachStatsMap).reduce((s, c) => s + c.messages, 0);
-          const totalDuration = Object.values(coachStatsMap).reduce((s, c) => s + c.durationSeconds, 0);
           const highEngagement = userIds.filter((uid) => engagementLevel(coachStatsMap[uid]) === "high").length;
           return (
             <div className="grid grid-cols-4 gap-3 mb-5">
@@ -329,7 +421,6 @@ export default async function AnalyticsPage({ params }: { params: { id: string }
           )}
         </div>
 
-        {/* Engagement level legend */}
         <div className="mt-2 flex flex-wrap gap-4 text-xs text-gray-500">
           <span className="flex items-center gap-1.5"><span className="bg-gray-100 text-gray-400 px-1.5 py-0.5 rounded-full">None</span> Never opened</span>
           <span className="flex items-center gap-1.5"><span className="bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded-full">Low</span> 1–2 sessions, &lt;10 messages</span>
@@ -378,6 +469,32 @@ export default async function AnalyticsPage({ params }: { params: { id: string }
           <span className="inline-block w-2 h-2 rounded-full bg-red-400 mx-1" />&gt;14 days
         </p>
       </section>
+    </div>
+  );
+
+  const quizContent = (
+    <QuizAnalysisSection
+      courseId={params.id}
+      courseTitle={course.title}
+      quizStats={quizStats}
+      atRiskLearners={atRiskLearners}
+      isCohortLimited={isCohortLimited}
+    />
+  );
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-xl font-bold mb-1">Analytics</h2>
+        <p className="text-sm text-gray-500">
+          Assessment results, AI Coach engagement, and system access for {course.title}.
+          {isCohortLimited && (
+            <span className="ml-2 text-blue-600 font-medium">Showing your cohort ({cohortIds!.length} learners).</span>
+          )}
+        </p>
+      </div>
+
+      <AnalyticsTabs overviewContent={overviewContent} quizContent={quizContent} />
     </div>
   );
 }
