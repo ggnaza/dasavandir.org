@@ -2,10 +2,17 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-export function CreateAnnouncementForm({ courseId }: { courseId: string }) {
+export function CreateAnnouncementForm({
+  courseId,
+  isCourseManager = false,
+}: {
+  courseId: string;
+  isCourseManager?: boolean;
+}) {
   const router = useRouter();
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
+  const [cohortOnly, setCohortOnly] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
@@ -20,12 +27,18 @@ export function CreateAnnouncementForm({ courseId }: { courseId: string }) {
     const res = await fetch("/api/announcements", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ course_id: courseId, title: title.trim(), body: body.trim() }),
+      body: JSON.stringify({
+        course_id: courseId,
+        title: title.trim(),
+        body: body.trim(),
+        cohort_only: isCourseManager && cohortOnly,
+      }),
     });
 
     if (res.ok) {
       setTitle("");
       setBody("");
+      setCohortOnly(false);
       setSuccess(true);
       setTimeout(() => setSuccess(false), 4000);
       router.refresh();
@@ -61,10 +74,24 @@ export function CreateAnnouncementForm({ courseId }: { courseId: string }) {
             className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-300 resize-y"
           />
         </div>
+        {isCourseManager && (
+          <label className="flex items-center gap-3 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={cohortOnly}
+              onChange={(e) => setCohortOnly(e.target.checked)}
+              className="w-4 h-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500"
+            />
+            <span className="text-sm text-gray-700">
+              Send to my cohort only
+              <span className="ml-1 text-gray-400">(your assigned learners)</span>
+            </span>
+          </label>
+        )}
         {error && <p className="text-sm text-red-600">{error}</p>}
         {success && (
           <p className="text-sm text-green-600">
-            ✓ Announcement sent — all enrolled students were notified by email and in-app notification.
+            ✓ Announcement sent — {cohortOnly ? "your cohort" : "all enrolled students"} were notified by email and in-app notification.
           </p>
         )}
         <button

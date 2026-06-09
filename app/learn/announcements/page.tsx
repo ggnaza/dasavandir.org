@@ -23,6 +23,8 @@ export default async function AnnouncementsPage() {
     title: string;
     body: string;
     created_at: string;
+    target_moderator_id: string | null;
+    course_id: string;
     courses: { title: string } | null;
     profiles: { full_name: string | null } | null;
     announcement_reactions: { id: string; emoji: string; user_id: string }[];
@@ -35,12 +37,22 @@ export default async function AnnouncementsPage() {
     }[];
   };
 
+  // Find which cohort assignments apply to this learner (so we can filter targeted announcements)
+  const { data: cohortRows } = await admin
+    .from("moderator_cohort_assignments")
+    .select("moderator_id, course_id")
+    .eq("learner_id", user.id);
+  // Set of "course_id:moderator_id" for fast lookup
+  const cohortKeys = new Set(
+    (cohortRows ?? []).map((r) => `${r.course_id}:${r.moderator_id}`)
+  );
+
   let announcements: RawAnnouncement[] = [];
   if (courseIds.length > 0) {
     const { data } = await admin
       .from("announcements")
       .select(`
-        id, title, body, created_at,
+        id, title, body, created_at, target_moderator_id, course_id,
         courses ( title ),
         profiles!author_id ( full_name ),
         announcement_reactions ( id, emoji, user_id ),
@@ -52,7 +64,11 @@ export default async function AnnouncementsPage() {
       .in("course_id", courseIds)
       .order("created_at", { ascending: false });
 
-    announcements = (data as unknown as RawAnnouncement[]) ?? [];
+    const raw = (data as unknown as RawAnnouncement[]) ?? [];
+    announcements = raw.filter((a) => {
+      if (!a.target_moderator_id) return true;
+      return cohortKeys.has(`${a.course_id}:${a.target_moderator_id}`);
+    });
   }
 
   const items = announcements.map((a) => {

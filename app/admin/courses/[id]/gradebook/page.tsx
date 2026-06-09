@@ -1,14 +1,23 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { GradebookTable } from "./gradebook-table";
+import { getModeratorCohort } from "@/lib/get-moderator-cohort";
 
 export const dynamic = "force-dynamic";
 
 export default async function GradebookPage({ params }: { params: { id: string } }) {
+  const supabase = createClient();
   const admin = createAdminClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return notFound();
 
-  const [{ data: course }, { data: lessons }, { data: enrollments }] = await Promise.all([
+  const { data: viewerProfile } = await admin.from("profiles").select("role").eq("id", user.id).single();
+  const viewerRole = viewerProfile?.role ?? "";
+  const cohortIds = await getModeratorCohort(user.id, params.id, viewerRole);
+
+  const [{ data: course }, { data: lessons }, { data: allEnrollments }] = await Promise.all([
     admin.from("courses").select("id, title").eq("id", params.id).single(),
     admin.from("lessons").select("id, title, order").eq("course_id", params.id).order("order"),
     admin.from("enrollments").select("user_id, enrolled_at").eq("course_id", params.id),
@@ -16,7 +25,12 @@ export default async function GradebookPage({ params }: { params: { id: string }
 
   if (!course) notFound();
 
-  const userIds = (enrollments ?? []).map((e) => e.user_id);
+  const enrollments = cohortIds !== null
+    ? (allEnrollments ?? []).filter((e) => cohortIds.includes(e.user_id))
+    : (allEnrollments ?? []);
+
+  const isCohortLimited = cohortIds !== null && cohortIds.length > 0;
+  const userIds = enrollments.map((e) => e.user_id);
   const lessonIds = (lessons ?? []).map((l) => l.id);
 
   if (userIds.length === 0) {
@@ -142,6 +156,11 @@ export default async function GradebookPage({ params }: { params: { id: string }
 
   return (
     <div className="max-w-5xl">
+      {isCohortLimited && (
+        <div className="mb-4 bg-blue-50 border border-blue-100 rounded-xl px-4 py-3 text-sm text-blue-700">
+          Showing your assigned cohort ({cohortIds!.length} learner{cohortIds!.length !== 1 ? "s" : ""}).
+        </div>
+      )}
       <div className="mb-6">
         <Link href={`/admin/courses/${params.id}`} className="text-sm text-gray-500 hover:text-gray-700">← Back to course</Link>
         <div className="flex items-center justify-between mt-2">

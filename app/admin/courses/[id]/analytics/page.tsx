@@ -2,6 +2,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 import { assertCourseOwner } from "@/lib/assert-course-owner";
+import { getModeratorCohort } from "@/lib/get-moderator-cohort";
 
 export const dynamic = "force-dynamic";
 
@@ -41,6 +42,10 @@ export default async function AnalyticsPage({ params }: { params: { id: string }
   const accessErr = await assertCourseOwner(params.id, user.id);
   if (accessErr) return accessErr;
 
+  const { data: viewerProfile } = await admin.from("profiles").select("role").eq("id", user.id).single();
+  const cohortIds = await getModeratorCohort(user.id, params.id, viewerProfile?.role ?? "");
+  const isCohortLimited = cohortIds !== null && cohortIds.length > 0;
+
   const { data: course } = await admin.from("courses").select("id, title").eq("id", params.id).single();
   if (!course) notFound();
 
@@ -52,7 +57,7 @@ export default async function AnalyticsPage({ params }: { params: { id: string }
 
   const lessonIds = (lessons ?? []).map((l) => l.id);
 
-  const [{ data: enrollments }, { data: quizzes }, { data: aiMemory }, { data: lastSessions }] = await Promise.all([
+  const [{ data: allEnrollments }, { data: quizzes }, { data: aiMemory }, { data: lastSessions }] = await Promise.all([
     admin.from("enrollments").select("user_id").eq("course_id", params.id),
     lessonIds.length > 0
       ? admin.from("quizzes").select("id, lesson_id, questions").in("lesson_id", lessonIds)
@@ -63,7 +68,11 @@ export default async function AnalyticsPage({ params }: { params: { id: string }
       : Promise.resolve({ data: [] }),
   ]);
 
-  const userIds = (enrollments ?? []).map((e) => e.user_id);
+  const enrollments = cohortIds !== null
+    ? (allEnrollments ?? []).filter((e) => cohortIds.includes(e.user_id))
+    : (allEnrollments ?? []);
+
+  const userIds = enrollments.map((e) => e.user_id);
   const quizIds = (quizzes ?? []).map((q) => q.id);
 
   const [{ data: profiles }, { data: quizResponses }] = await Promise.all([
@@ -137,7 +146,12 @@ export default async function AnalyticsPage({ params }: { params: { id: string }
     <div className="space-y-10">
       <div>
         <h2 className="text-xl font-bold mb-1">Analytics</h2>
-        <p className="text-sm text-gray-500">Assessment results, AI Coach engagement, and system access for {course.title}.</p>
+        <p className="text-sm text-gray-500">
+          Assessment results, AI Coach engagement, and system access for {course.title}.
+          {isCohortLimited && (
+            <span className="ml-2 text-blue-600 font-medium">Showing your cohort ({cohortIds!.length} learners).</span>
+          )}
+        </p>
       </div>
 
       {/* ── Assessment Heatmap ── */}
