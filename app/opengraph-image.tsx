@@ -1,7 +1,7 @@
 import { ImageResponse } from "next/og";
 
 export const runtime = "edge";
-export const alt = "Dasavandir — Learning Management System";
+export const alt = "Dasavandir — Ուսուցման հարթակ կառուցված մանկավարժների համար";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -13,25 +13,22 @@ export default function Image() {
           width: "1200px",
           height: "630px",
           display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-          background: "linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)",
-          fontFamily: "sans-serif",
+          background: "#1c1c1e",
           position: "relative",
           overflow: "hidden",
+          fontFamily: "sans-serif",
         }}
       >
-        {/* Background accent circles */}
+        {/* Dark decorative blobs */}
         <div
           style={{
             position: "absolute",
-            top: "-100px",
-            right: "-100px",
-            width: "400px",
-            height: "400px",
+            top: "-60px",
+            right: "120px",
+            width: "320px",
+            height: "320px",
             borderRadius: "50%",
-            background: "rgba(99, 179, 237, 0.08)",
+            background: "#2a2a2c",
             display: "flex",
           }}
         />
@@ -39,89 +36,141 @@ export default function Image() {
           style={{
             position: "absolute",
             bottom: "-80px",
-            left: "-80px",
-            width: "300px",
-            height: "300px",
+            right: "-40px",
+            width: "280px",
+            height: "280px",
             borderRadius: "50%",
-            background: "rgba(99, 179, 237, 0.06)",
+            background: "#3a2020",
+            display: "flex",
+          }}
+        />
+        <div
+          style={{
+            position: "absolute",
+            top: "200px",
+            right: "320px",
+            width: "180px",
+            height: "180px",
+            borderRadius: "50%",
+            background: "#1a2535",
             display: "flex",
           }}
         />
 
-        {/* Logo / wordmark */}
+        {/* Content */}
         <div
           style={{
             display: "flex",
-            alignItems: "center",
-            gap: "16px",
-            marginBottom: "32px",
+            flexDirection: "column",
+            padding: "64px 80px",
+            width: "100%",
           }}
         >
+          {/* Top row: logo + nav hint */}
           <div
             style={{
-              width: "64px",
-              height: "64px",
-              borderRadius: "16px",
-              background: "linear-gradient(135deg, #63b3ed, #4299e1)",
               display: "flex",
               alignItems: "center",
-              justifyContent: "center",
-              fontSize: "32px",
+              justifyContent: "space-between",
+              marginBottom: "48px",
             }}
           >
-            📚
+            {/* Logo */}
+            <div style={{ display: "flex", alignItems: "baseline", gap: "6px" }}>
+              <span
+                style={{
+                  fontSize: "32px",
+                  fontWeight: 700,
+                  color: "#ffffff",
+                  letterSpacing: "-0.5px",
+                }}
+              >
+                Dasavandir
+              </span>
+              <span style={{ fontSize: "20px", color: "#888888", fontWeight: 400 }}>
+                .org
+              </span>
+            </div>
           </div>
-        </div>
 
-        {/* Title */}
-        <div
-          style={{
-            fontSize: "72px",
-            fontWeight: 700,
-            color: "#ffffff",
-            letterSpacing: "-2px",
-            marginBottom: "16px",
-            display: "flex",
-          }}
-        >
-          Dasavandir
-        </div>
+          {/* "TEACH FOR ARMENIA" badge */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              marginBottom: "28px",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                background: "#e55a2b",
+                borderRadius: "20px",
+                padding: "8px 20px",
+              }}
+            >
+              <span
+                style={{
+                  fontSize: "14px",
+                  fontWeight: 700,
+                  color: "#ffffff",
+                  letterSpacing: "2px",
+                  textTransform: "uppercase",
+                }}
+              >
+                TEACH FOR ARMENIA
+              </span>
+            </div>
+          </div>
 
-        {/* Subtitle */}
-        <div
-          style={{
-            fontSize: "28px",
-            color: "#90cdf4",
-            letterSpacing: "1px",
-            textTransform: "uppercase",
-            display: "flex",
-          }}
-        >
-          Կրթական Կառավարման Հարթակ
-        </div>
+          {/* Main heading */}
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: "4px",
+              marginBottom: "32px",
+            }}
+          >
+            <span
+              style={{
+                fontSize: "62px",
+                fontWeight: 800,
+                color: "#ffffff",
+                lineHeight: 1.1,
+                display: "flex",
+              }}
+            >
+              Ուսուցման հարթակ
+            </span>
+            <span
+              style={{
+                fontSize: "62px",
+                fontWeight: 800,
+                color: "#e55a2b",
+                lineHeight: 1.1,
+                display: "flex",
+              }}
+            >
+              կառուցված
+            </span>
+            <span
+              style={{
+                fontSize: "62px",
+                fontWeight: 800,
+                color: "#e55a2b",
+                lineHeight: 1.1,
+                display: "flex",
+              }}
+            >
+              մանկավարժների համար։
+            </span>
+          </div>
 
-        {/* Divider */}
-        <div
-          style={{
-            width: "80px",
-            height: "3px",
-            background: "linear-gradient(90deg, #63b3ed, #4299e1)",
-            borderRadius: "2px",
-            margin: "28px 0",
-            display: "flex",
-          }}
-        />
-
-        {/* Tagline */}
-        <div
-          style={{
-            fontSize: "22px",
-            color: "#bee3f8",
-            opacity: 0.85,
-            display: "flex",
-          }}
-        >
-          dasavandir.org
+          {/* URL */}
+          <span style={{ fontSize: "18px", color: "#666666", display: "flex" }}>
+            dasavandir.org
+          </span>
         </div>
       </div>
     ),
