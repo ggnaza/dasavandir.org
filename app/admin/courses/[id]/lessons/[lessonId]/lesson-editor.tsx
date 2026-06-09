@@ -100,7 +100,7 @@ export function LessonEditor({
   async function handleDocumentUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 20 * 1024 * 1024) { setDocError("Max file size is 20MB."); return; }
+    if (file.size > 500 * 1024 * 1024) { setDocError("Max file size is 500MB."); return; }
     setUploadingDoc(true);
     setDocError("");
     const supabase = createClient();
@@ -427,7 +427,7 @@ export function LessonEditor({
             <p className="text-sm font-medium">
               {uploadingDoc ? "Uploading…" : documentUrl ? "PDF uploaded — click to replace" : "Upload PDF"}
             </p>
-            <p className="text-xs text-gray-400">Max 20MB</p>
+            <p className="text-xs text-gray-400">Max 500MB</p>
           </div>
           <input
             type="file"

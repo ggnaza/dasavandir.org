@@ -6,10 +6,10 @@ import remarkGfm from "remark-gfm";
 type Message = { role: "user" | "assistant"; content: string };
 
 const SUGGESTIONS = [
-  "Summarize this lesson",
-  "Quiz me on this topic",
-  "Explain this in simpler terms",
-  "What are the key takeaways?",
+  "Here is my lesson plan: [paste it here]",
+  "Here is my reflection on this module: [paste it here]",
+  "I'd like feedback on my assignment draft: [paste it here]",
+  "Here is my teaching artifact: [paste it here]",
 ];
 
 export function AiCoach({ lessonId, courseId, userId, firstName, lessonTitle }: {
@@ -133,7 +133,7 @@ export function AiCoach({ lessonId, courseId, userId, firstName, lessonTitle }: 
             <span className="text-brand-600 font-bold">✦</span>
             <div className="min-w-0">
               <p className="font-semibold text-sm">AI Coach</p>
-              <p className="text-xs text-gray-400">Remembers your progress across sessions</p>
+              <p className="text-xs text-gray-400">Your professional development sounding board</p>
             </div>
           </div>
 
@@ -143,10 +143,10 @@ export function AiCoach({ lessonId, courseId, userId, firstName, lessonTitle }: 
               <div className="space-y-2">
                 <div className="bg-gray-100 rounded-2xl rounded-bl-sm px-3 py-2 text-sm text-gray-800 mb-3">
                   {firstName
-                    ? `Hi ${firstName}! 👋 I'm your AI coach for this lesson${lessonTitle ? ` — "${lessonTitle}"` : ""}. Ask me anything, and I'll answer based on the course materials.`
-                    : `Hi! 👋 I'm your AI coach${lessonTitle ? ` for "${lessonTitle}"` : ""}. Ask me anything, and I'll answer based on the course materials.`}
+                    ? `Hi ${firstName}! ✦ I'm your AI Coach${lessonTitle ? ` for "${lessonTitle}"` : ""}. I'm here as a sounding board for your professional development — share your work and I'll help you reflect on it, not tell you what to do.`
+                    : `Hi! ✦ I'm your AI Coach${lessonTitle ? ` for "${lessonTitle}"` : ""}. Share your work — a lesson plan, reflection, or assignment draft — and I'll help you think through it more deeply.`}
                 </div>
-                <p className="text-xs text-gray-400 mb-1">Try asking:</p>
+                <p className="text-xs text-gray-400 mb-1">Share your work to get started:</p>
                 {SUGGESTIONS.map((s) => (
                   <button
                     key={s}
@@ -211,7 +211,7 @@ export function AiCoach({ lessonId, courseId, userId, firstName, lessonTitle }: 
                 type="text"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                placeholder={recording ? "Recording…" : transcribing ? "Transcribing…" : "Ask a question…"}
+                placeholder={recording ? "Recording…" : transcribing ? "Transcribing…" : "Share your work or reflection…"}
                 disabled={loading || recording || transcribing}
                 className="flex-1 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 disabled:opacity-50 min-w-0"
               />
