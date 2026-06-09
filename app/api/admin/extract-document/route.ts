@@ -34,6 +34,24 @@ function isGoogleDoc(url: string): boolean {
   } catch { return false; }
 }
 
+function isSupabaseStorage(url: string): boolean {
+  try {
+    return new URL(url).hostname.endsWith(".supabase.co");
+  } catch { return false; }
+}
+
+// Extract bucket + path from a Supabase storage public URL
+// e.g. https://xxx.supabase.co/storage/v1/object/public/lesson-documents/abc/file.pdf
+function parseSupabasePath(url: string): { bucket: string; path: string } | null {
+  try {
+    const { pathname } = new URL(url);
+    // matches /storage/v1/object/public/<bucket>/<rest>
+    const m = pathname.match(/^\/storage\/v1\/object\/(?:public|authenticated)\/([^/]+)\/(.+)$/);
+    if (!m) return null;
+    return { bucket: m[1], path: m[2] };
+  } catch { return null; }
+}
+
 export async function POST(req: Request) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -78,8 +96,24 @@ export async function POST(req: Request) {
     } catch {
       return new Response("Could not extract Google Doc — make sure you are connected to Drive and the file is shared", { status: 400 });
     }
+  } else if (isSupabaseStorage(documentUrl)) {
+    // Uploaded PDF — download via admin storage client (bypasses public URL auth)
+    const parsed = parseSupabasePath(documentUrl);
+    if (!parsed) return new Response("Could not parse storage URL", { status: 400 });
+    try {
+      const { data: blob, error: dlErr } = await admin.storage
+        .from(parsed.bucket)
+        .download(parsed.path);
+      if (dlErr || !blob) return new Response("Could not download file from storage", { status: 400 });
+      const buffer = Buffer.from(await blob.arrayBuffer());
+      const pdfParse = require("pdf-parse/lib/pdf-parse.js");
+      const result = await pdfParse(buffer);
+      text = result.text?.trim() ?? "";
+    } catch {
+      return new Response("Could not extract PDF text", { status: 400 });
+    }
   } else {
-    // PDF from Google Drive: download and parse
+    // PDF from external URL (e.g. Google Drive direct link)
     try {
       const res = await fetch(documentUrl);
       const buffer = Buffer.from(await res.arrayBuffer());
