@@ -19,6 +19,7 @@ export default function CourseAdminLayout({ children, params }: { children: Reac
   const tabs = isManager
     ? [
         { label: "Students", href: `${base}/learners` },
+        { label: "Groups", href: `${base}/groups` },
         { label: "Gradebook", href: `${base}/gradebook` },
         { label: "Progress", href: `${base}/progress` },
         { label: "Analytics", href: `${base}/analytics` },
@@ -28,6 +29,7 @@ export default function CourseAdminLayout({ children, params }: { children: Reac
     : [
         { label: "Course", href: base },
         { label: "Students", href: `${base}/learners` },
+        { label: "Groups", href: `${base}/groups` },
         { label: "Gradebook", href: `${base}/gradebook` },
         { label: "Progress", href: `${base}/progress` },
         { label: "Invitations", href: `${base}/invitations` },

@@ -6,19 +6,51 @@ import { createClient } from "@/lib/supabase/client";
 
 type FeedbackItem = { criterion: string; score: number; max_points: number; feedback: string };
 type Submission = {
-  id: string; content: string; status: string;
+  id: string; content: string; status: string; user_id?: string;
   ai_total_score: number | null; final_score: number | null;
   final_feedback: FeedbackItem[] | null; instructor_note: string | null;
   file_name: string | null; file_path: string | null; link_url: string | null;
 };
+type GroupMember = { id: string; name: string; email: string };
+
+/** Transform a Google Docs/Slides edit URL → copy URL for Option-A template flow */
+function toCopyUrl(url: string): string {
+  try {
+    const u = new URL(url);
+    // Remove /edit, /view, /preview suffixes and append /copy
+    const cleaned = u.pathname.replace(/\/(edit|view|preview|copy)(\/.*)?$/, "");
+    u.pathname = cleaned + "/copy";
+    u.search = "";
+    return u.toString();
+  } catch {
+    return url;
+  }
+}
 
 export function AssignmentSubmitter({
-  assignment, existingSubmission, existingFileUrl, courseId, lessonId, preSubmissionAiEnabled,
+  assignment,
+  existingSubmission,
+  existingFileUrl,
+  courseId,
+  lessonId,
+  preSubmissionAiEnabled,
+  isGroupAssignment = false,
+  group,
+  groupSubmitterName,
 }: {
-  assignment: any; existingSubmission: Submission | null; existingFileUrl?: string | null; courseId: string; lessonId: string; preSubmissionAiEnabled?: boolean;
+  assignment: any;
+  existingSubmission: Submission | null;
+  existingFileUrl?: string | null;
+  courseId: string;
+  lessonId: string;
+  preSubmissionAiEnabled?: boolean;
+  isGroupAssignment?: boolean;
+  group?: { id: string; name: string; members: GroupMember[] } | null;
+  groupSubmitterName?: string | null;
 }) {
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
+  const linkRef = useRef<HTMLInputElement>(null);
   const [content, setContent] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [linkUrl, setLinkUrl] = useState("");
@@ -27,8 +59,22 @@ export function AssignmentSubmitter({
   const [aiFeedback, setAiFeedback] = useState("");
   const [loadingAiFeedback, setLoadingAiFeedback] = useState(false);
   const [aiFeedbackError, setAiFeedbackError] = useState("");
+  const [revising, setRevising] = useState(false);
 
   const hasAnything = content.trim() || file || linkUrl.trim();
+
+  // ── Locked state: group assignment but learner not in a group ──────────────
+  if (isGroupAssignment && !group) {
+    return (
+      <div className="bg-gray-50 border border-gray-200 rounded-xl p-8 text-center">
+        <p className="text-2xl mb-3">👥</p>
+        <p className="text-base font-semibold text-gray-700">You haven't been assigned to a group yet</p>
+        <p className="text-sm text-gray-500 mt-2">
+          Contact your facilitator to be added to a group before you can submit this assignment.
+        </p>
+      </div>
+    );
+  }
 
   async function handleAiFeedback() {
     const hasPdf = file && file.type === "application/pdf";
@@ -68,7 +114,7 @@ export function AssignmentSubmitter({
     "application/msword",
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   ]);
-  const MAX_FILE_BYTES = 50 * 1024 * 1024; // 50 MB
+  const MAX_FILE_BYTES = 50 * 1024 * 1024;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -79,25 +125,14 @@ export function AssignmentSubmitter({
     let filePath: string | null = null;
     let fileName: string | null = null;
 
-    // Upload file to storage if provided
     if (file) {
-      if (file.size > MAX_FILE_BYTES) {
-        setError("File is too large. Maximum allowed size is 50 MB.");
-        setSubmitting(false);
-        return;
-      }
-      if (!ALLOWED_TYPES.has(file.type)) {
-        setError("File type not allowed. Please upload a PDF, image, video, or Word document.");
-        setSubmitting(false);
-        return;
-      }
+      if (file.size > MAX_FILE_BYTES) { setError("File too large — max 50 MB."); setSubmitting(false); return; }
+      if (!ALLOWED_TYPES.has(file.type)) { setError("File type not allowed."); setSubmitting(false); return; }
       const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
       const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
       const path = `submissions/${user!.id}/${Date.now()}-${safeName}`;
-      const { error: uploadError } = await supabase.storage
-        .from("lesson-files")
-        .upload(path, file);
+      const { error: uploadError } = await supabase.storage.from("lesson-files").upload(path, file);
       if (uploadError) { setError("Upload failed. Please try again."); setSubmitting(false); return; }
       filePath = path;
       fileName = file.name;
@@ -112,6 +147,7 @@ export function AssignmentSubmitter({
         file_path: filePath,
         file_name: fileName,
         link_url: linkUrl.trim() || null,
+        group_id: isGroupAssignment && group ? group.id : null,
       }),
     });
 
@@ -119,25 +155,57 @@ export function AssignmentSubmitter({
     router.refresh();
   }
 
-  // Already submitted — show status and feedback
-  if (existingSubmission) {
+  // ── Already submitted — show status ───────────────────────────────────────
+  if (existingSubmission && !revising) {
     const sub = existingSubmission;
     const isApproved = sub.status === "approved";
     const isReturned = sub.status === "returned";
-    const supabase = createClient();
+    const isNeedsRevision = sub.status === "needs_revision";
+    const isNotApproved = sub.status === "not_approved";
+    const isFinal = isApproved || isNotApproved;
+    const isPending = ["submitted", "ai_reviewed"].includes(sub.status);
 
     return (
       <div className="space-y-4">
+        {/* Group panel — shown even in submitted state */}
+        {isGroupAssignment && group && (
+          <GroupPanel group={group} currentUserId={undefined} />
+        )}
+
+        {/* Status banner */}
         <div className={`rounded-xl p-4 text-sm font-medium ${
-          isApproved ? "bg-green-50 text-green-700" :
-          isReturned ? "bg-orange-50 text-orange-700" :
-          "bg-blue-50 text-blue-700"
+          isApproved ? "bg-green-50 text-green-700 border border-green-200" :
+          isNeedsRevision ? "bg-amber-50 text-amber-800 border border-amber-200" :
+          isNotApproved ? "bg-red-50 text-red-700 border border-red-200" :
+          isReturned ? "bg-orange-50 text-orange-700 border border-orange-200" :
+          "bg-blue-50 text-blue-700 border border-blue-200"
         }`}>
           {isApproved && "✓ Your submission has been reviewed and approved."}
+          {isNeedsRevision && (
+            isGroupAssignment
+              ? "↩ Your group's submission needs revision. See the facilitator's note below."
+              : "↩ Your submission needs revision. Please read the facilitator's note below, then revise and resubmit."
+          )}
+          {isNotApproved && "✕ Your submission was not approved. Please read the feedback below."}
           {isReturned && "↩ Your submission has been returned with feedback."}
-          {!isApproved && !isReturned && "⏳ Submitted! Your instructor will review it shortly."}
+          {isPending && (
+            <span>
+              {isGroupAssignment && groupSubmitterName
+                ? `⏳ Submitted by ${groupSubmitterName} — your facilitator will review it shortly.`
+                : "⏳ Submitted — your facilitator will review it shortly."}
+            </span>
+          )}
         </div>
 
+        {/* Instructor note for needs_revision */}
+        {isNeedsRevision && sub.instructor_note && (
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+            <p className="text-xs font-semibold text-amber-800 uppercase tracking-wide mb-1">Facilitator's note</p>
+            <p className="text-sm text-amber-900 leading-relaxed whitespace-pre-wrap">{sub.instructor_note}</p>
+          </div>
+        )}
+
+        {/* Feedback for approved / returned */}
         {(isApproved || isReturned) && sub.final_feedback && (
           <div className="bg-white border rounded-xl p-5 space-y-3">
             <div className="flex items-center justify-between">
@@ -155,22 +223,19 @@ export function AssignmentSubmitter({
             ))}
             {sub.instructor_note && (
               <div className="bg-gray-50 rounded-lg p-3 text-sm text-gray-700">
-                <span className="font-medium">Instructor note: </span>{sub.instructor_note}
+                <span className="font-medium">Facilitator note: </span>{sub.instructor_note}
               </div>
             )}
           </div>
         )}
 
+        {/* Submitted work */}
         <div className="bg-white border rounded-xl p-5 space-y-3">
-          <h2 className="font-semibold text-sm">Your submission</h2>
+          <h2 className="font-semibold text-sm">Submitted work</h2>
           {sub.content && <p className="text-sm text-gray-600 whitespace-pre-wrap">{sub.content}</p>}
           {sub.file_name && existingFileUrl && (
-            <a
-              href={existingFileUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-2 text-sm text-brand-600 hover:underline"
-            >
+            <a href={existingFileUrl} target="_blank" rel="noopener noreferrer"
+              className="flex items-center gap-2 text-sm text-brand-600 hover:underline">
               📎 {sub.file_name}
             </a>
           )}
@@ -182,6 +247,26 @@ export function AssignmentSubmitter({
           )}
         </div>
 
+        {/* Revision CTA */}
+        {isNeedsRevision && (
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-5">
+            <p className="text-sm font-semibold text-amber-800 mb-1">
+              {isGroupAssignment ? "Ready to revise as a group?" : "Ready to revise?"}
+            </p>
+            <p className="text-xs text-amber-700 mb-3">
+              {isGroupAssignment
+                ? "Anyone in your group can start the revision. Your new submission will replace the previous one."
+                : "Your previous submission will be replaced. Make sure your revision addresses all the facilitator's feedback."}
+            </p>
+            <button
+              onClick={() => setRevising(true)}
+              className="text-sm bg-amber-600 text-white px-4 py-2 rounded-lg hover:bg-amber-700 font-medium"
+            >
+              Start revision →
+            </button>
+          </div>
+        )}
+
         <Link href={`/learn/courses/${courseId}/lessons/${lessonId}`} className="inline-block text-sm text-brand-600 hover:underline">
           ← Back to lesson
         </Link>
@@ -189,8 +274,47 @@ export function AssignmentSubmitter({
     );
   }
 
+  // ── Submission form ────────────────────────────────────────────────────────
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
+      {/* Group panel */}
+      {isGroupAssignment && group && (
+        <GroupPanel group={group} currentUserId={undefined} />
+      )}
+
+      {/* Revision banner */}
+      {revising && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex items-center justify-between text-sm">
+          <span className="text-amber-800 font-medium">
+            ↩ {isGroupAssignment ? "Group revision" : "Revision"} — your new submission will replace the previous one.
+          </span>
+          <button type="button" onClick={() => setRevising(false)}
+            className="text-amber-600 hover:underline text-xs ml-3 shrink-0">Cancel</button>
+        </div>
+      )}
+
+      {/* Google Docs template */}
+      {assignment.template_url && (
+        <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-4 space-y-2">
+          <p className="text-sm font-semibold text-indigo-900">📄 Template provided</p>
+          <p className="text-xs text-indigo-700">
+            Click below to open a copy of the template in Google. After copying, change sharing to
+            <strong> "Anyone with the link can view"</strong>, then paste the URL in the link field below.
+          </p>
+          <div className="flex gap-2">
+            <a
+              href={toCopyUrl(assignment.template_url)}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => setTimeout(() => linkRef.current?.focus(), 800)}
+              className="inline-block text-sm bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 font-medium"
+            >
+              Copy template to my Google Drive →
+            </a>
+          </div>
+        </div>
+      )}
+
       {/* Text */}
       <div className="bg-white border rounded-xl p-5">
         <label className="block text-sm font-medium mb-1">
@@ -216,13 +340,8 @@ export function AssignmentSubmitter({
             <p className="text-sm font-medium">{file ? file.name : "Choose file"}</p>
             <p className="text-xs text-gray-400">PDF, JPG, PNG, MP4, MOV — max 50MB</p>
           </div>
-          <input
-            ref={fileRef}
-            type="file"
-            accept=".pdf,.jpg,.jpeg,.png,.gif,.mp4,.mov,.webm,.doc,.docx"
-            className="hidden"
-            onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-          />
+          <input ref={fileRef} type="file" accept=".pdf,.jpg,.jpeg,.png,.gif,.mp4,.mov,.webm,.doc,.docx"
+            className="hidden" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
         </label>
         {file && (
           <button type="button" onClick={() => setFile(null)} className="text-xs text-red-500 mt-1 hover:underline">
@@ -237,6 +356,7 @@ export function AssignmentSubmitter({
           Paste a link <span className="text-gray-400">(Google Drive, YouTube, Loom, etc. — optional)</span>
         </label>
         <input
+          ref={linkRef}
           type="url"
           value={linkUrl}
           onChange={(e) => setLinkUrl(e.target.value)}
@@ -269,7 +389,7 @@ export function AssignmentSubmitter({
           <div className="flex items-center justify-between gap-2 flex-wrap">
             <div>
               <p className="text-sm font-semibold text-brand-900">✦ Get AI feedback before submitting</p>
-              <p className="text-xs text-brand-700">AI reviews your written response or uploaded PDF and suggests improvements. You can revise before final submission.</p>
+              <p className="text-xs text-brand-700">AI reviews your written response or uploaded PDF and suggests improvements.</p>
             </div>
             <button
               type="button"
@@ -297,11 +417,51 @@ export function AssignmentSubmitter({
         disabled={submitting || !hasAnything}
         className="w-full bg-brand-600 text-white py-2.5 rounded-lg hover:bg-brand-700 disabled:opacity-50 font-medium"
       >
-        {submitting ? "Submitting…" : "Submit assignment"}
+        {submitting
+          ? "Submitting…"
+          : isGroupAssignment && group
+          ? `Submit on behalf of ${group.name}`
+          : "Submit assignment"}
       </button>
       <p className="text-xs text-gray-400 text-center">
-        AI will evaluate your submission. Your instructor reviews before releasing feedback.
+        {isGroupAssignment
+          ? "AI will evaluate your submission. Your facilitator reviews before releasing feedback to the whole group."
+          : "AI will evaluate your submission. Your instructor reviews before releasing feedback."}
       </p>
     </form>
+  );
+}
+
+// ── Group Panel component ────────────────────────────────────────────────────
+function GroupPanel({
+  group,
+  currentUserId,
+}: {
+  group: { id: string; name: string; members: GroupMember[] };
+  currentUserId: string | undefined;
+}) {
+  return (
+    <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-4">
+      <div className="flex items-center gap-2 mb-3">
+        <span className="text-base">👥</span>
+        <span className="text-sm font-semibold text-indigo-900">{group.name}</span>
+        <span className="text-xs text-indigo-500 ml-auto">{group.members.length} members</span>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {group.members.map((m) => (
+          <div
+            key={m.id}
+            className={`flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-full border ${
+              m.id === currentUserId
+                ? "bg-indigo-600 text-white border-indigo-600"
+                : "bg-white text-indigo-800 border-indigo-200"
+            }`}
+          >
+            <span>{m.id === currentUserId ? "👤" : "○"}</span>
+            <span className="font-medium">{m.name.split(" ")[0]}</span>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }

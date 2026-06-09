@@ -4,7 +4,10 @@ import { useRouter } from "next/navigation";
 import { LessonContentEditor } from "@/components/lesson-content-editor";
 
 type RubricItem = { criterion: string; description: string; max_points: number };
-type Assignment = { id: string; title: string; instructions: string; rubric: RubricItem[] } | null;
+type Assignment = {
+  id: string; title: string; instructions: string; rubric: RubricItem[];
+  is_group_assignment?: boolean; template_url?: string | null;
+} | null;
 
 export function AssignmentEditor({
   lessonId,
@@ -19,6 +22,8 @@ export function AssignmentEditor({
   const [rubric, setRubric] = useState<RubricItem[]>(
     existing?.rubric ?? [{ criterion: "", description: "", max_points: 10 }]
   );
+  const [isGroupAssignment, setIsGroupAssignment] = useState(existing?.is_group_assignment ?? false);
+  const [templateUrl, setTemplateUrl] = useState(existing?.template_url ?? "");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
@@ -77,6 +82,8 @@ export function AssignmentEditor({
         title,
         instructions,
         rubric,
+        is_group_assignment: isGroupAssignment,
+        template_url: templateUrl.trim() || null,
       }),
     });
 
@@ -147,6 +154,48 @@ export function AssignmentEditor({
         <div>
           <label className="block text-sm font-medium mb-1">Instructions for learner</label>
           <LessonContentEditor value={instructions} onChange={setInstructions} />
+        </div>
+      </div>
+
+      {/* Assignment type + template */}
+      <div className="bg-white border rounded-xl p-5 space-y-4">
+        <h3 className="font-medium text-sm text-gray-700">Assignment options</h3>
+
+        {/* Group assignment toggle */}
+        <label className="flex items-start gap-3 cursor-pointer select-none">
+          <div className="relative mt-0.5">
+            <input
+              type="checkbox"
+              checked={isGroupAssignment}
+              onChange={(e) => setIsGroupAssignment(e.target.checked)}
+              className="sr-only peer"
+            />
+            <div className="w-10 h-6 bg-gray-200 rounded-full peer-checked:bg-brand-600 transition-colors" />
+            <div className="absolute left-1 top-1 w-4 h-4 bg-white rounded-full shadow transition-all peer-checked:translate-x-4" />
+          </div>
+          <div>
+            <p className="text-sm font-medium text-gray-800">Group assignment</p>
+            <p className="text-xs text-gray-500 mt-0.5">
+              One person submits on behalf of their group. When approved, the score is applied to every group member.
+            </p>
+          </div>
+        </label>
+
+        {/* Google Docs / Slides template */}
+        <div>
+          <label className="block text-sm font-medium mb-1">
+            Google Docs / Slides template URL <span className="text-gray-400 font-normal">(optional)</span>
+          </label>
+          <input
+            type="url"
+            value={templateUrl}
+            onChange={(e) => setTemplateUrl(e.target.value)}
+            placeholder="https://docs.google.com/document/d/…"
+            className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+          />
+          <p className="text-xs text-gray-400 mt-1">
+            Learners will see a "Copy template" button that opens Google's native copy flow.
+          </p>
         </div>
       </div>
 

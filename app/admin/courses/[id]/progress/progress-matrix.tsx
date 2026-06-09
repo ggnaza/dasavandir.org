@@ -19,6 +19,10 @@ export type LearnerRow = {
   videoSeconds: number;
   readingSeconds: number;
   completedCount: number;
+  coachSessions: number;
+  coachMessages: number;
+  coachDurationSeconds: number;
+  coachLastActive: string | null;
 };
 
 type Props = {
@@ -36,6 +40,13 @@ function fmt(seconds: number): string {
   const h = Math.floor(m / 60);
   const rem = m % 60;
   return rem === 0 ? `${h}h` : `${h}h ${rem}m`;
+}
+
+function coachEngagement(sessions: number, messages: number): { label: string; cls: string; icon: string } {
+  if (sessions === 0) return { label: "None", cls: "text-gray-300", icon: "○" };
+  if (sessions >= 6 || messages >= 26) return { label: "High", cls: "text-green-600 font-semibold", icon: "✦✦✦" };
+  if (sessions >= 3 || messages >= 10) return { label: "Med", cls: "text-blue-600 font-medium", icon: "✦✦" };
+  return { label: "Low", cls: "text-yellow-600", icon: "✦" };
 }
 
 function Cell({ completed, seconds, hasVideo }: { completed: boolean; seconds: number; hasVideo: boolean }) {
@@ -176,6 +187,9 @@ export function ProgressMatrix({ courseId, lessonMeta, learners, isCohortLimited
                   <th className="px-3 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap w-24">
                     📖 Reading
                   </th>
+                  <th className="px-3 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap w-28 border-l" title="AI Coach engagement">
+                    🤖 AI Coach
+                  </th>
                   <th className="px-3 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap w-20">
                     Detail
                   </th>
@@ -237,6 +251,23 @@ export function ProgressMatrix({ courseId, lessonMeta, learners, isCohortLimited
                       <td className="px-3 py-2 text-right">
                         <span className="text-xs text-gray-500 tabular-nums">{fmt(learner.readingSeconds)}</span>
                       </td>
+                      {/* AI Coach engagement */}
+                      <td className="px-3 py-2 text-center border-l">
+                        {(() => {
+                          const e = coachEngagement(learner.coachSessions, learner.coachMessages);
+                          return (
+                            <span
+                              className={`text-xs tabular-nums ${e.cls}`}
+                              title={`${learner.coachSessions} session${learner.coachSessions !== 1 ? "s" : ""} · ${learner.coachMessages} messages${learner.coachDurationSeconds > 0 ? " · " + fmt(learner.coachDurationSeconds) : ""}`}
+                            >
+                              {e.icon}
+                              <span className="ml-1 text-gray-400 font-normal">
+                                {learner.coachSessions > 0 ? `${learner.coachSessions}s` : ""}
+                              </span>
+                            </span>
+                          );
+                        })()}
+                      </td>
                       <td className="px-3 py-2 text-center">
                         <Link
                           href={`/admin/courses/${courseId}/learners/${learner.userId}`}
@@ -258,12 +289,15 @@ export function ProgressMatrix({ courseId, lessonMeta, learners, isCohortLimited
               <span className="text-green-600 font-bold">✓</span> Completed
             </span>
             <span className="flex items-center gap-1.5">
-              <span className="text-amber-500 font-medium">▶ Xm</span> In progress (time logged, not marked complete)
+              <span className="text-amber-500 font-medium">▶ Xm</span> In progress
             </span>
             <span className="flex items-center gap-1.5">
               <span className="text-gray-300">—</span> Not visited
             </span>
-            <span className="ml-auto">▶ = video lesson · 📖 = reading/content</span>
+            <span className="flex items-center gap-3 ml-auto">
+              <span>▶ video · 📖 reading</span>
+              <span className="border-l pl-3">🤖 AI Coach: <span className="text-yellow-600">✦</span> low · <span className="text-blue-600">✦✦</span> medium · <span className="text-green-600">✦✦✦</span> high · Ns = sessions</span>
+            </span>
           </div>
         </div>
       )}

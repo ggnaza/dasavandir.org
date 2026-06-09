@@ -391,6 +391,181 @@ export async function sendAnnouncementEmail({
   });
 }
 
+export async function sendSubmissionVerdictEmail({
+  to,
+  firstName,
+  assignmentTitle,
+  courseTitle,
+  verdict,
+  instructorNote,
+  assignmentUrl,
+}: {
+  to: string;
+  firstName: string;
+  assignmentTitle: string;
+  courseTitle: string;
+  verdict: "approved" | "needs_revision" | "not_approved";
+  instructorNote?: string | null;
+  assignmentUrl: string;
+}) {
+  const name = firstName || "there";
+
+  const configs = {
+    approved: {
+      subject: `✓ Submission approved — "${assignmentTitle}"`,
+      headerBg: "#16a34a",
+      icon: "✓",
+      headline: "Your submission was approved!",
+      body: `Great work! Your submission for <strong style="color:#111827">${esc(assignmentTitle)}</strong> in <strong style="color:#111827">${esc(courseTitle)}</strong> has been reviewed and approved.`,
+      ctaLabel: "View feedback →",
+      noteLabel: "Note from your facilitator",
+      noteBg: "#f0fdf4",
+      noteBorder: "#86efac",
+      noteColor: "#166534",
+    },
+    needs_revision: {
+      subject: `↩ Revision needed — "${assignmentTitle}"`,
+      headerBg: "#d97706",
+      icon: "↩",
+      headline: "Your submission needs revision",
+      body: `Your submission for <strong style="color:#111827">${esc(assignmentTitle)}</strong> in <strong style="color:#111827">${esc(courseTitle)}</strong> has been reviewed. Please read the note below and resubmit.`,
+      ctaLabel: "Revise and resubmit →",
+      noteLabel: "What to revise (from your facilitator)",
+      noteBg: "#fffbeb",
+      noteBorder: "#fcd34d",
+      noteColor: "#92400e",
+    },
+    not_approved: {
+      subject: `✕ Submission not approved — "${assignmentTitle}"`,
+      headerBg: "#dc2626",
+      icon: "✕",
+      headline: "Submission not approved",
+      body: `Your submission for <strong style="color:#111827">${esc(assignmentTitle)}</strong> in <strong style="color:#111827">${esc(courseTitle)}</strong> has been reviewed. Please read the feedback below.`,
+      ctaLabel: "View details →",
+      noteLabel: "Feedback from your facilitator",
+      noteBg: "#fef2f2",
+      noteBorder: "#fca5a5",
+      noteColor: "#991b1b",
+    },
+  };
+
+  const cfg = configs[verdict];
+  const noteHtml = instructorNote
+    ? `<div style="margin:16px 0 0;background:${cfg.noteBg};border:1px solid ${cfg.noteBorder};border-radius:8px;padding:14px 18px">
+        <p style="margin:0 0 6px;font-size:12px;font-weight:600;color:${cfg.noteColor};text-transform:uppercase;letter-spacing:0.05em">${cfg.noteLabel}</p>
+        <p style="margin:0;font-size:14px;color:#374151;line-height:1.65;white-space:pre-wrap">${esc(instructorNote)}</p>
+      </div>`
+    : "";
+
+  return getResend().emails.send({
+    from: FROM,
+    to,
+    subject: cfg.subject,
+    html: `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f5;padding:40px 16px">
+    <tr><td align="center">
+      <table width="520" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.08)">
+        <tr>
+          <td style="background:${cfg.headerBg};padding:32px 40px">
+            <p style="margin:0;color:#fff;font-size:22px;font-weight:700;letter-spacing:-0.3px">Դasavandir<span style="font-weight:400;opacity:0.7">.org</span></p>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:40px 40px 32px">
+            <p style="margin:0 0 6px;font-size:28px">${cfg.icon}</p>
+            <h1 style="margin:0 0 16px;font-size:22px;font-weight:700;color:#111827">${cfg.headline}</h1>
+            <p style="margin:0 0 12px;font-size:15px;color:#374151;line-height:1.6">Hi ${esc(name)},</p>
+            <p style="margin:0 0 20px;font-size:15px;color:#374151;line-height:1.6">${cfg.body}</p>
+            ${noteHtml}
+            <div style="margin-top:28px">
+              <a href="${esc(assignmentUrl)}"
+                 style="display:inline-block;background:#EC5328;color:#ffffff;padding:14px 28px;border-radius:8px;text-decoration:none;font-size:15px;font-weight:600;letter-spacing:-0.1px">
+                ${cfg.ctaLabel}
+              </a>
+            </div>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:24px 40px;border-top:1px solid #f0f0f0">
+            <p style="margin:0;font-size:13px;color:#9ca3af;line-height:1.6">
+              Built by <a href="https://dasavandir.org" style="color:#EC5328;text-decoration:none">Teach For Armenia</a>
+            </p>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`,
+  });
+}
+
+export async function sendDirectMessageEmail({
+  to,
+  learnerName,
+  fromName,
+  subject,
+  message,
+  notificationsUrl,
+}: {
+  to: string;
+  learnerName: string;
+  fromName: string;
+  subject: string;
+  message: string;
+  notificationsUrl: string;
+}) {
+  const name = learnerName || "there";
+  const preview = message.length > 600 ? message.slice(0, 600) + "…" : message;
+  return getResend().emails.send({
+    from: FROM,
+    to,
+    subject: `💬 ${subject}`,
+    html: `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f5;padding:40px 16px">
+    <tr><td align="center">
+      <table width="520" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.08)">
+        <tr>
+          <td style="background:#EC5328;padding:32px 40px">
+            <p style="margin:0;color:#fff;font-size:22px;font-weight:700;letter-spacing:-0.3px">Դasavandir<span style="font-weight:400;opacity:0.7">.org</span></p>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:40px 40px 32px">
+            <p style="margin:0 0 6px;font-size:12px;font-weight:600;color:#EC5328;text-transform:uppercase;letter-spacing:0.06em">💬 Message from your facilitator</p>
+            <h1 style="margin:0 0 20px;font-size:22px;font-weight:700;color:#111827">${esc(subject)}</h1>
+            <p style="margin:0 0 12px;font-size:15px;color:#374151;line-height:1.6">Hi ${esc(name)},</p>
+            <p style="margin:0 0 6px;font-size:13px;color:#6b7280">From: <strong style="color:#111827">${esc(fromName)}</strong></p>
+            <div style="margin:16px 0;background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:20px 24px">
+              <p style="margin:0;font-size:15px;color:#111827;line-height:1.7;white-space:pre-wrap">${esc(preview)}</p>
+            </div>
+            <a href="${esc(notificationsUrl)}"
+               style="display:inline-block;background:#EC5328;color:#ffffff;padding:14px 28px;border-radius:8px;text-decoration:none;font-size:15px;font-weight:600;letter-spacing:-0.1px">
+              View in Dasavandir →
+            </a>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:24px 40px;border-top:1px solid #f0f0f0">
+            <p style="margin:0;font-size:13px;color:#9ca3af;line-height:1.6">
+              Built by <a href="https://dasavandir.org" style="color:#EC5328;text-decoration:none">Teach For Armenia</a>
+            </p>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`,
+  });
+}
+
 function esc(s: string) {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }

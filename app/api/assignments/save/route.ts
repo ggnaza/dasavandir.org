@@ -17,6 +17,8 @@ const saveSchema = z.object({
   title: z.string().min(1).max(500),
   instructions: z.string().max(20_000),
   rubric: z.array(rubricItemSchema).min(1).max(20),
+  is_group_assignment: z.boolean().optional(),
+  template_url: z.string().url().max(2000).nullable().optional(),
 });
 
 const deleteSchema = z.object({
@@ -49,7 +51,7 @@ export async function POST(req: Request) {
   const parsed = saveSchema.safeParse(await req.json());
   if (!parsed.success) return new Response("Invalid input", { status: 400 });
 
-  const { id, lesson_id, title, instructions, rubric } = parsed.data;
+  const { id, lesson_id, title, instructions, rubric, is_group_assignment, template_url } = parsed.data;
 
   const courseId = id
     ? await getCourseIdForAssignment(admin, id)
@@ -60,14 +62,20 @@ export async function POST(req: Request) {
   const ownerErr = await assertCourseOwner(courseId, user.id);
   if (ownerErr) return ownerErr;
 
+  const fields = {
+    title, instructions, rubric,
+    is_group_assignment: is_group_assignment ?? false,
+    template_url: template_url ?? null,
+  };
+
   if (id) {
-    const { error } = await admin.from("assignments").update({ title, instructions, rubric }).eq("id", id);
+    const { error } = await admin.from("assignments").update(fields).eq("id", id);
     if (error) {
       console.error("[assignments/save update]", error);
       return new Response("Failed to update assignment", { status: 500 });
     }
   } else {
-    const { error } = await admin.from("assignments").insert({ lesson_id, title, instructions, rubric });
+    const { error } = await admin.from("assignments").insert({ lesson_id, ...fields });
     if (error) {
       console.error("[assignments/save insert]", error);
       return new Response("Failed to create assignment", { status: 500 });

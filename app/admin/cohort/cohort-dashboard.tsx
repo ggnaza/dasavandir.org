@@ -1,6 +1,7 @@
 "use client";
 import { useState, useMemo } from "react";
 import Link from "next/link";
+import { SendMessageDialog } from "@/app/admin/components/send-message-dialog";
 
 export type CohortLearner = {
   userId: string;
@@ -307,7 +308,7 @@ export function CohortDashboard({ learners, courses }: Props) {
               Assignments <SortIcon k="submitted" />
             </button>
             <span className="col-span-2">Salesforce</span>
-            <span className="col-span-1" />
+            <span className="col-span-2">Actions</span>
           </div>
 
           {/* Rows */}
@@ -361,7 +362,12 @@ export function CohortDashboard({ learners, courses }: Props) {
               </div>
 
               {/* Actions */}
-              <div className="col-span-1 flex justify-end">
+              <div className="col-span-2 flex items-center justify-end gap-2">
+                <SendMessageDialog
+                  userId={r.userId}
+                  learnerName={r.name.split(" ")[0] || r.name}
+                  variant="icon"
+                />
                 <Link
                   href={`/admin/courses/${r.courseId}/learners/${r.userId}`}
                   className="text-xs text-brand-600 hover:underline font-medium whitespace-nowrap"

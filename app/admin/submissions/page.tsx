@@ -1,113 +1,267 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
+import { redirect } from "next/navigation";
 import Link from "next/link";
 
 export const dynamic = "force-dynamic";
 
 const STATUS_STYLES: Record<string, string> = {
-  submitted: "bg-yellow-100 text-yellow-700",
-  ai_reviewed: "bg-blue-100 text-blue-700",
-  approved: "bg-green-100 text-green-700",
-  returned: "bg-red-100 text-red-700",
+  submitted:     "bg-gray-100 text-gray-600",
+  ai_reviewed:   "bg-blue-100 text-blue-700",
+  approved:      "bg-green-100 text-green-700",
+  needs_revision:"bg-amber-100 text-amber-700",
+  not_approved:  "bg-red-100 text-red-700",
+  returned:      "bg-orange-100 text-orange-700",
 };
 
 const STATUS_LABELS: Record<string, string> = {
-  submitted: "Submitted",
-  ai_reviewed: "Needs review",
-  approved: "Approved",
-  returned: "Returned",
+  submitted:      "Submitted",
+  ai_reviewed:    "Needs review",
+  approved:       "Approved",
+  needs_revision: "Needs revision",
+  not_approved:   "Not approved",
+  returned:       "Returned",
 };
 
-export default async function SubmissionsPage() {
-  const admin = createAdminClient();
+const NEEDS_REVIEW = new Set(["submitted", "ai_reviewed", "needs_revision"]);
 
-  const { data: submissions } = await admin
+export default async function SubmissionsPage() {
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect("/auth/login");
+
+  const admin = createAdminClient();
+  const { data: profile } = await admin.from("profiles").select("role").eq("id", user.id).single();
+  const role = profile?.role ?? "";
+  if (!["admin", "course_creator", "course_manager"].includes(role)) redirect("/learn");
+
+  // ── Determine which courses + learners are visible ──────────────────────────
+  let courseIds: string[] | null = null; // null = all courses
+  let learnerIds: string[] | null = null; // null = all learners in those courses
+
+  if (role === "admin") {
+    courseIds = null; // all
+  } else if (role === "course_creator") {
+    const { data: access } = await admin
+      .from("course_creator_access")
+      .select("course_id")
+      .eq("creator_id", user.id);
+    courseIds = (access ?? []).map((r) => r.course_id);
+  } else {
+    // course_manager: courses via course_manager_access + cohort learners
+    const [{ data: managerAccess }, { data: cohortAssignments }] = await Promise.all([
+      admin.from("course_manager_access").select("course_id").eq("manager_id", user.id),
+      admin.from("moderator_cohort_assignments").select("learner_id").eq("moderator_id", user.id),
+    ]);
+    courseIds = (managerAccess ?? []).map((r) => r.course_id);
+    learnerIds = (cohortAssignments ?? []).map((r) => r.learner_id);
+  }
+
+  // ── Load submissions ────────────────────────────────────────────────────────
+  let query = admin
     .from("submissions")
     .select(`
-      id, status, ai_total_score, final_score, submitted_at,
-      user_id, profiles(full_name),
-      assignment_id, assignments(title, lesson_id, lessons(title, course_id, courses(title)))
+      id, status, ai_total_score, final_score, submitted_at, user_id,
+      profiles(full_name, email),
+      assignment_id,
+      assignments(title, lesson_id, max_score,
+        lessons(id, title, order, course_id, courses(id, title)))
     `)
     .order("submitted_at", { ascending: false });
 
-  const pending = submissions?.filter((s) => s.status === "ai_reviewed") ?? [];
-  const others = submissions?.filter((s) => s.status !== "ai_reviewed") ?? [];
+  if (courseIds !== null) {
+    if (courseIds.length === 0) {
+      // no courses visible
+      return <EmptyPage message="No courses assigned to you." />;
+    }
+    // Filter by assignment lesson course
+    // We need to filter indirectly — fetch assignment IDs for the courses
+    const { data: lessons } = await admin
+      .from("lessons")
+      .select("id")
+      .in("course_id", courseIds);
+    const lessonIds = (lessons ?? []).map((l) => l.id);
+    if (lessonIds.length === 0) return <EmptyPage message="No lessons in your courses yet." />;
+
+    const { data: assignments } = await admin
+      .from("assignments")
+      .select("id")
+      .in("lesson_id", lessonIds);
+    const assignmentIds = (assignments ?? []).map((a) => a.id);
+    if (assignmentIds.length === 0) return <EmptyPage message="No assignments in your courses yet." />;
+
+    query = query.in("assignment_id", assignmentIds);
+  }
+
+  if (learnerIds !== null) {
+    if (learnerIds.length === 0) return <EmptyPage message="No learners assigned to your cohort yet." />;
+    query = query.in("user_id", learnerIds);
+  }
+
+  const { data: submissions } = await query;
+
+  if (!submissions?.length) {
+    return <EmptyPage message="No submissions yet." />;
+  }
+
+  // ── Group: course → lesson → submissions ────────────────────────────────────
+  type SubRow = typeof submissions[number];
+
+  const courseMap = new Map<string, { title: string; lessons: Map<string, { order: number; title: string; subs: SubRow[] }> }>();
+
+  for (const sub of submissions) {
+    const assignment = sub.assignments as any;
+    const lesson = assignment?.lessons as any;
+    const course = lesson?.courses as any;
+    if (!course || !lesson) continue;
+
+    if (!courseMap.has(course.id)) {
+      courseMap.set(course.id, { title: course.title, lessons: new Map() });
+    }
+    const cm = courseMap.get(course.id)!;
+    if (!cm.lessons.has(lesson.id)) {
+      cm.lessons.set(lesson.id, { order: lesson.order, title: lesson.title, subs: [] });
+    }
+    cm.lessons.get(lesson.id)!.subs.push(sub);
+  }
+
+  const pendingTotal = submissions.filter((s) => NEEDS_REVIEW.has(s.status)).length;
 
   return (
-    <div>
-      <h1 className="text-2xl font-bold mb-8">Submissions</h1>
-
-      {pending.length > 0 && (
-        <div className="mb-8">
-          <h2 className="text-sm font-semibold text-blue-700 uppercase tracking-wide mb-3">
-            Needs review ({pending.length})
-          </h2>
-          <SubmissionTable submissions={pending} />
-        </div>
-      )}
-
-      {others.length > 0 && (
+    <div className="max-w-5xl">
+      <div className="flex items-center justify-between mb-6">
         <div>
-          <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
-            All other submissions
-          </h2>
-          <SubmissionTable submissions={others} />
+          <h1 className="text-2xl font-bold">Submissions</h1>
+          <p className="text-sm text-gray-500 mt-0.5">
+            {submissions.length} total
+            {pendingTotal > 0 && (
+              <span className="ml-2 text-blue-600 font-medium">· {pendingTotal} need review</span>
+            )}
+          </p>
         </div>
-      )}
+      </div>
 
-      {!submissions?.length && (
-        <p className="text-gray-500">No submissions yet.</p>
-      )}
+      <div className="space-y-8">
+        {Array.from(courseMap.entries()).map(([courseId, courseData]) => {
+          const sortedLessons = Array.from(courseData.lessons.entries()).sort(
+            ([, a], [, b]) => a.order - b.order
+          );
+          const coursePending = sortedLessons.reduce(
+            (sum, [, l]) => sum + l.subs.filter((s) => NEEDS_REVIEW.has(s.status)).length, 0
+          );
+
+          return (
+            <div key={courseId}>
+              <div className="flex items-center gap-2 mb-3">
+                <h2 className="text-base font-bold text-gray-800">{courseData.title}</h2>
+                {coursePending > 0 && (
+                  <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium">
+                    {coursePending} to review
+                  </span>
+                )}
+              </div>
+
+              <div className="space-y-4">
+                {sortedLessons.map(([lessonId, lessonData]) => {
+                  const pending = lessonData.subs.filter((s) => NEEDS_REVIEW.has(s.status));
+                  const done = lessonData.subs.filter((s) => !NEEDS_REVIEW.has(s.status));
+                  const allSubs = [...pending, ...done]; // pending first
+
+                  return (
+                    <div key={lessonId} className="bg-white border rounded-xl overflow-hidden">
+                      {/* Lesson header */}
+                      <div className="px-5 py-3 bg-gray-50 border-b flex items-center justify-between">
+                        <div>
+                          <span className="text-xs text-gray-400 mr-2">Module {lessonData.order}</span>
+                          <span className="text-sm font-semibold text-gray-800">{lessonData.title}</span>
+                        </div>
+                        <div className="flex items-center gap-3 text-xs text-gray-500">
+                          <span>{allSubs.length} submission{allSubs.length !== 1 ? "s" : ""}</span>
+                          {pending.length > 0 && (
+                            <span className="text-blue-600 font-medium">{pending.length} pending</span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Submission rows */}
+                      <div className="divide-y">
+                        {allSubs.map((sub) => {
+                          const assignment = sub.assignments as any;
+                          const p = sub.profiles as any;
+                          const name = p?.full_name || p?.email || "Unknown";
+                          const score = sub.final_score ?? sub.ai_total_score;
+                          const isPending = NEEDS_REVIEW.has(sub.status);
+
+                          return (
+                            <div
+                              key={sub.id}
+                              className={`px-5 py-3 flex items-center gap-4 text-sm hover:bg-gray-50 transition-colors ${isPending ? "bg-blue-50/40" : ""}`}
+                            >
+                              {/* Learner name */}
+                              <div className="w-44 shrink-0">
+                                <p className="font-medium text-gray-900 truncate">{name}</p>
+                              </div>
+
+                              {/* Assignment title */}
+                              <div className="flex-1 min-w-0">
+                                <p className="text-gray-600 truncate text-xs">{assignment?.title}</p>
+                              </div>
+
+                              {/* Score */}
+                              <div className="w-16 text-right shrink-0">
+                                {score != null ? (
+                                  <span className={`text-sm font-semibold ${score >= 80 ? "text-green-600" : score >= 60 ? "text-amber-600" : "text-red-600"}`}>
+                                    {score}
+                                  </span>
+                                ) : (
+                                  <span className="text-gray-300 text-xs">—</span>
+                                )}
+                              </div>
+
+                              {/* Status */}
+                              <div className="w-32 text-center shrink-0">
+                                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_STYLES[sub.status] ?? "bg-gray-100 text-gray-500"}`}>
+                                  {STATUS_LABELS[sub.status] ?? sub.status}
+                                </span>
+                              </div>
+
+                              {/* Date */}
+                              <div className="w-24 text-right text-xs text-gray-400 shrink-0">
+                                {sub.submitted_at
+                                  ? new Date(sub.submitted_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" })
+                                  : "—"}
+                              </div>
+
+                              {/* Action */}
+                              <div className="w-20 text-right shrink-0">
+                                <Link
+                                  href={`/admin/submissions/${sub.id}`}
+                                  className={`text-xs font-medium hover:underline ${isPending ? "text-blue-600" : "text-brand-600"}`}
+                                >
+                                  {isPending ? "Review →" : "View →"}
+                                </Link>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
 
-function SubmissionTable({ submissions }: { submissions: any[] }) {
+function EmptyPage({ message }: { message: string }) {
   return (
-    <div className="bg-white border rounded-xl overflow-hidden">
-      <table className="w-full text-sm">
-        <thead className="bg-gray-50 border-b">
-          <tr>
-            <th className="text-left px-4 py-3 font-medium text-gray-500">Learner</th>
-            <th className="text-left px-4 py-3 font-medium text-gray-500">Assignment</th>
-            <th className="text-left px-4 py-3 font-medium text-gray-500">Course</th>
-            <th className="text-center px-4 py-3 font-medium text-gray-500">AI Score</th>
-            <th className="text-center px-4 py-3 font-medium text-gray-500">Status</th>
-            <th className="text-right px-4 py-3 font-medium text-gray-500">Action</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y">
-          {submissions.map((s) => {
-            const assignment = s.assignments as any;
-            const lesson = assignment?.lessons as any;
-            const course = lesson?.courses as any;
-            const profile = s.profiles as any;
-
-            return (
-              <tr key={s.id} className="hover:bg-gray-50">
-                <td className="px-4 py-3">{profile?.full_name ?? "—"}</td>
-                <td className="px-4 py-3">{assignment?.title ?? "—"}</td>
-                <td className="px-4 py-3 text-gray-500">{course?.title ?? "—"}</td>
-                <td className="px-4 py-3 text-center">
-                  {s.ai_total_score != null ? `${s.ai_total_score}` : "—"}
-                </td>
-                <td className="px-4 py-3 text-center">
-                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${STATUS_STYLES[s.status]}`}>
-                    {STATUS_LABELS[s.status]}
-                  </span>
-                </td>
-                <td className="px-4 py-3 text-right">
-                  <Link
-                    href={`/admin/submissions/${s.id}`}
-                    className="text-brand-600 hover:underline text-sm"
-                  >
-                    Review →
-                  </Link>
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+    <div className="max-w-5xl">
+      <h1 className="text-2xl font-bold mb-8">Submissions</h1>
+      <div className="bg-white border rounded-xl p-12 text-center text-gray-400">{message}</div>
     </div>
   );
 }
