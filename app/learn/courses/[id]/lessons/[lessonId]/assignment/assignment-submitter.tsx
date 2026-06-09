@@ -27,6 +27,8 @@ export function AssignmentSubmitter({
   const [aiFeedback, setAiFeedback] = useState("");
   const [loadingAiFeedback, setLoadingAiFeedback] = useState(false);
   const [aiFeedbackError, setAiFeedbackError] = useState("");
+  // allows learner to start revision without refreshing the page
+  const [revising, setRevising] = useState(false);
 
   const hasAnything = content.trim() || file || linkUrl.trim();
 
@@ -119,23 +121,29 @@ export function AssignmentSubmitter({
     router.refresh();
   }
 
-  // Already submitted — show status and feedback
-  if (existingSubmission) {
+  // Already submitted — show status and feedback (unless learner clicked "Start revision")
+  if (existingSubmission && !revising) {
     const sub = existingSubmission;
     const isApproved = sub.status === "approved";
     const isReturned = sub.status === "returned";
-    const supabase = createClient();
+    const isNeedsRevision = sub.status === "needs_revision";
+    const isNotApproved = sub.status === "not_approved";
+    const isFinal = isApproved || isNotApproved;
 
     return (
       <div className="space-y-4">
         <div className={`rounded-xl p-4 text-sm font-medium ${
-          isApproved ? "bg-green-50 text-green-700" :
+          isApproved ? "bg-green-50 text-green-700 border border-green-200" :
+          isNeedsRevision ? "bg-amber-50 text-amber-800 border border-amber-200" :
+          isNotApproved ? "bg-red-50 text-red-700 border border-red-200" :
           isReturned ? "bg-orange-50 text-orange-700" :
           "bg-blue-50 text-blue-700"
         }`}>
           {isApproved && "✓ Your submission has been reviewed and approved."}
+          {isNeedsRevision && "↩ Your submission needs revision. Please read the facilitator's note below, then revise and resubmit."}
+          {isNotApproved && "✕ Your submission was not approved. Please read the feedback below."}
           {isReturned && "↩ Your submission has been returned with feedback."}
-          {!isApproved && !isReturned && "⏳ Submitted! Your instructor will review it shortly."}
+          {!isFinal && !isNeedsRevision && !isReturned && "⏳ Submitted — your facilitator will review it shortly."}
         </div>
 
         {(isApproved || isReturned) && sub.final_feedback && (
@@ -182,6 +190,22 @@ export function AssignmentSubmitter({
           )}
         </div>
 
+        {/* Resubmit section for needs_revision */}
+        {isNeedsRevision && (
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-5">
+            <p className="text-sm font-semibold text-amber-800 mb-2">Ready to revise?</p>
+            <p className="text-xs text-amber-700 mb-3">
+              Your previous submission will be replaced. Make sure your revision addresses all the facilitator's feedback.
+            </p>
+            <button
+              onClick={() => setRevising(true)}
+              className="text-sm bg-amber-600 text-white px-4 py-2 rounded-lg hover:bg-amber-700 font-medium"
+            >
+              Start revision →
+            </button>
+          </div>
+        )}
+
         <Link href={`/learn/courses/${courseId}/lessons/${lessonId}`} className="inline-block text-sm text-brand-600 hover:underline">
           ← Back to lesson
         </Link>
@@ -191,6 +215,19 @@ export function AssignmentSubmitter({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
+      {/* Revision banner */}
+      {revising && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex items-center justify-between text-sm">
+          <span className="text-amber-800 font-medium">↩ Revision — your new submission will replace the previous one.</span>
+          <button
+            type="button"
+            onClick={() => setRevising(false)}
+            className="text-amber-600 hover:underline text-xs ml-3 shrink-0"
+          >
+            Cancel
+          </button>
+        </div>
+      )}
       {/* Text */}
       <div className="bg-white border rounded-xl p-5">
         <label className="block text-sm font-medium mb-1">

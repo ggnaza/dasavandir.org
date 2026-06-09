@@ -7,10 +7,13 @@ import { z } from "zod";
 
 const schema = z.object({
   submission_id: z.string().uuid(),
-  action: z.enum(["approve", "return"]),
+  // approve       → Approved (final, released to learner)
+  // needs_revision → Needs to be Revised (reopened; note is mandatory)
+  // not_approved  → Not Approved (final rejection; no resubmission)
+  action: z.enum(["approve", "needs_revision", "not_approved"]),
   final_score: z.number().min(0).max(100).nullable().optional(),
   instructor_note: z.string().max(2000).nullable().optional(),
-  final_feedback: z.string().max(5000).nullable().optional(),
+  final_feedback: z.any().optional(),
 });
 
 export async function POST(req: Request) {
@@ -28,31 +31,40 @@ export async function POST(req: Request) {
   if (!parsed.success) return new Response("Invalid input", { status: 400 });
   const { submission_id, action, final_score, instructor_note, final_feedback } = parsed.data;
 
+  // needs_revision requires a note — enforce server-side
+  if (action === "needs_revision" && !instructor_note?.trim()) {
+    return new Response("A revision note is required when returning for revision.", { status: 400 });
+  }
+
   const { data: subCourse } = await admin
     .from("submissions")
-    .select("assignments(lessons(course_id))")
+    .select("assignments(lesson_id, lessons(course_id))")
     .eq("id", submission_id)
     .single();
 
   const courseId = (subCourse?.assignments as any)?.lessons?.course_id;
+  const lessonId = (subCourse?.assignments as any)?.lesson_id;
   if (!courseId) return new Response("Course not found", { status: 404 });
 
   const ownerErr = await assertCourseOwner(courseId, user.id);
   if (ownerErr) return ownerErr;
 
-  const status = action === "approve" ? "approved" : "returned";
+  const status =
+    action === "approve" ? "approved" :
+    action === "needs_revision" ? "needs_revision" :
+    "not_approved";
 
   const { data: submission, error } = await admin
     .from("submissions")
     .update({
       status,
       final_score: final_score ?? null,
-      instructor_note: instructor_note ?? null,
+      instructor_note: instructor_note?.trim() ?? null,
       final_feedback: final_feedback ?? null,
       reviewed_at: new Date().toISOString(),
     })
     .eq("id", submission_id)
-    .select("user_id, assignment_id, assignments(title, lessons(course_id))")
+    .select("user_id, assignment_id, assignments(title)")
     .single();
 
   if (error) return new Response(error.message, { status: 500 });
@@ -61,14 +73,35 @@ export async function POST(req: Request) {
 
   if (submission) {
     const assignment = submission.assignments as any;
-    const submissionCourseId = assignment?.lessons?.course_id;
-    await createNotification({
-      user_id: submission.user_id,
-      type: status,
-      title: status === "approved" ? "Submission approved" : "Submission returned",
-      body: `Your submission for "${assignment?.title}" has been ${status === "approved" ? "approved" : "returned with feedback"}.`,
-      link: submissionCourseId ? `/learn/courses/${submissionCourseId}/lessons/${assignment?.lesson_id}/assignment` : "/learn",
-    });
+    const notifLink = lessonId
+      ? `/learn/courses/${courseId}/lessons/${lessonId}/assignment`
+      : "/learn";
+
+    const messages: Record<string, { title: string; body: string }> = {
+      approved: {
+        title: "Submission approved ✓",
+        body: `Your submission for "${assignment?.title}" has been approved.`,
+      },
+      needs_revision: {
+        title: "Revision needed ↩",
+        body: `Your submission for "${assignment?.title}" needs revision. See your facilitator's note.`,
+      },
+      not_approved: {
+        title: "Submission not approved",
+        body: `Your submission for "${assignment?.title}" was not approved. See feedback for details.`,
+      },
+    };
+
+    const notif = messages[status];
+    if (notif) {
+      await createNotification({
+        user_id: submission.user_id,
+        type: status,
+        title: notif.title,
+        body: notif.body,
+        link: notifLink,
+      });
+    }
   }
 
   return new Response("OK");

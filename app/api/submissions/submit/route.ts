@@ -57,14 +57,64 @@ export async function POST(req: Request) {
     if (!enrollment) return new Response("Not enrolled in this course", { status: 403 });
   }
 
-  // Save submission
-  const { data: submission, error: subError } = await admin
+  // Check for existing submission that is open for revision
+  const { data: existing } = await admin
     .from("submissions")
-    .insert({ assignment_id, user_id: user.id, content, file_path, file_name, link_url, status: "submitted" })
-    .select("id")
-    .single();
+    .select("id, status")
+    .eq("assignment_id", assignment_id)
+    .eq("user_id", user.id)
+    .in("status", ["needs_revision"])
+    .maybeSingle();
 
-  if (subError) {
+  let submission: { id: string } | null = null;
+  let subError: any = null;
+
+  if (existing) {
+    // Resubmission — reset the row, clear old AI feedback
+    const { data: updated, error: upErr } = await admin
+      .from("submissions")
+      .update({
+        content, file_path, file_name, link_url,
+        status: "submitted",
+        ai_feedback: null, ai_total_score: null,
+        final_score: null, final_feedback: null, instructor_note: null,
+        reviewed_at: null,
+        submitted_at: new Date().toISOString(),
+      })
+      .eq("id", existing.id)
+      .select("id")
+      .single();
+    submission = updated;
+    subError = upErr;
+  } else {
+    // Check there's no already-final submission (approved / not_approved)
+    const { data: finalSub } = await admin
+      .from("submissions")
+      .select("id, status")
+      .eq("assignment_id", assignment_id)
+      .eq("user_id", user.id)
+      .in("status", ["approved", "not_approved"])
+      .maybeSingle();
+    if (finalSub) {
+      return new Response(
+        finalSub.status === "approved"
+          ? "This assignment has already been approved."
+          : "This assignment was not approved and cannot be resubmitted.",
+        { status: 400 }
+      );
+    }
+
+    // New submission
+    const { data: inserted, error: insErr } = await admin
+      .from("submissions")
+      .insert({ assignment_id, user_id: user.id, content, file_path, file_name, link_url, status: "submitted" })
+      .select("id")
+      .single();
+    submission = inserted;
+    subError = insErr;
+  }
+
+  if (subError || !submission) {
     console.error("[submission/save]", subError);
     return new Response("Failed to save submission", { status: 500 });
   }
