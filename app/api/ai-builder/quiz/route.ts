@@ -125,9 +125,12 @@ The "correct" field is the 0-based index of the correct option.`;
       const json = JSON.parse(raw.replace(/```json|```/g, "").trim());
       return Response.json({ questions: json.questions });
     } catch {
+      console.error("[quiz-gen] JSON parse failed. Model:", model, "Raw response:", raw?.slice(0, 500));
       return new Response("AI returned invalid response. Please try again.", { status: 500 });
     }
-  } catch {
-    return new Response("Failed to generate questions. Please try again.", { status: 500 });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("[quiz-gen] LLM call failed. Model:", model, "Error:", msg);
+    return new Response(`Failed to generate questions: ${msg}`, { status: 500 });
   }
 }
