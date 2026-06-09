@@ -1,17 +1,28 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { LearnerRows } from "./learner-rows";
 import { InviteStudentsButton } from "./invite-students-modal";
 import { EnrollLearnersButton } from "./enroll-learners-modal";
-
+import { getModeratorCohort } from "@/lib/get-moderator-cohort";
 
 export const dynamic = "force-dynamic";
 
 export default async function CourseLearnerPage({ params }: { params: { id: string } }) {
+  const supabase = createClient();
   const admin = createAdminClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return notFound();
 
-  const [{ data: course }, { data: lessons }, { data: enrollments }, { data: invitations }] = await Promise.all([
+  const { data: viewerProfile } = await admin.from("profiles").select("role").eq("id", user.id).single();
+  const viewerRole = viewerProfile?.role ?? "";
+
+  // course_manager sees only their assigned cohort; others see all
+  const cohortIds = await getModeratorCohort(user.id, params.id, viewerRole);
+  const isCohortLimited = cohortIds !== null && cohortIds.length > 0;
+
+  const [{ data: course }, { data: lessons }, { data: allEnrollments }, { data: invitations }] = await Promise.all([
     admin.from("courses").select("id, title").eq("id", params.id).single(),
     admin.from("lessons").select("id, title, order").eq("course_id", params.id).order("order"),
     admin
@@ -19,13 +30,24 @@ export default async function CourseLearnerPage({ params }: { params: { id: stri
       .select("user_id, enrolled_at")
       .eq("course_id", params.id)
       .order("enrolled_at", { ascending: false }),
-    admin
-      .from("invitations")
-      .select("id, email, first_name, last_name, status, created_at")
-      .eq("course_id", params.id)
-      .eq("status", "pending")
-      .order("created_at", { ascending: false }),
+    viewerRole !== "course_manager"
+      ? admin
+          .from("invitations")
+          .select("id, email, first_name, last_name, status, created_at")
+          .eq("course_id", params.id)
+          .eq("status", "pending")
+          .order("created_at", { ascending: false })
+      : Promise.resolve({ data: [] }),
   ]);
+
+  if (!course) notFound();
+
+  // Filter enrollments to cohort if applicable
+  const enrollments = isCohortLimited
+    ? (allEnrollments ?? []).filter((e) => cohortIds!.includes(e.user_id))
+    : (cohortIds !== null && cohortIds.length === 0 && viewerRole === "course_manager")
+    ? [] // course_manager with no assignments yet — show empty
+    : (allEnrollments ?? []);
 
   if (!course) notFound();
 
@@ -88,13 +110,27 @@ export default async function CourseLearnerPage({ params }: { params: { id: stri
 
   return (
     <div className="max-w-4xl">
+      {isCohortLimited && (
+        <div className="mb-4 bg-blue-50 border border-blue-100 rounded-xl px-4 py-3 text-sm text-blue-700">
+          Showing your assigned cohort ({cohortIds!.length} learner{cohortIds!.length !== 1 ? "s" : ""}).
+        </div>
+      )}
+      {cohortIds !== null && cohortIds.length === 0 && viewerRole === "course_manager" && (
+        <div className="mb-4 bg-amber-50 border border-amber-100 rounded-xl px-4 py-3 text-sm text-amber-700">
+          No learners have been assigned to your cohort yet. Contact the course administrator.
+        </div>
+      )}
       <div className="mb-6">
         <Link href="/admin/courses" className="text-sm text-gray-500 hover:text-gray-700">← Back to courses</Link>
         <div className="flex items-center justify-between mt-2">
           <h1 className="text-2xl font-bold">{course.title}</h1>
           <div className="flex items-center gap-2">
-            <EnrollLearnersButton courseId={course.id} enrolledIds={(enrollments ?? []).map((e) => e.user_id)} />
-            <InviteStudentsButton courseId={course.id} />
+            {viewerRole !== "course_manager" && (
+              <>
+                <EnrollLearnersButton courseId={course.id} enrolledIds={(allEnrollments ?? []).map((e) => e.user_id)} />
+                <InviteStudentsButton courseId={course.id} />
+              </>
+            )}
             <Link
               href={`/admin/courses/${course.id}`}
               className="text-sm border rounded-lg px-4 py-2 hover:bg-gray-50 text-gray-600"

@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { getAIModel } from "@/lib/llm";
 import { assertCourseOwner } from "@/lib/assert-course-owner";
+import { getModeratorCohort } from "@/lib/get-moderator-cohort";
 import OpenAI from "openai";
 import { GoogleGenAI } from "@google/genai";
 import Anthropic from "@anthropic-ai/sdk";
@@ -49,27 +50,133 @@ export async function POST(req: Request) {
     if (accessErr) return accessErr;
   }
 
-  // Load learner progress summary
-  const { data: enrollments } = await admin
-    .from("enrollments")
-    .select("id, progress, completed, user_id")
-    .eq("course_id", courseId);
+  // Cohort filter for course_managers
+  const cohortIds = await getModeratorCohort(user.id, courseId, profile.role);
 
-  const totalLearners = enrollments?.length ?? 0;
-  const completed = enrollments?.filter((e) => e.completed).length ?? 0;
-  const avgProgress = totalLearners > 0
-    ? Math.round((enrollments ?? []).reduce((sum, e) => sum + (e.progress ?? 0), 0) / totalLearners)
-    : 0;
-
-  // Load lessons for context
+  // Load lessons
   const { data: lessons } = await admin
     .from("lessons")
-    .select("title, order")
+    .select("id, title, order")
     .eq("course_id", courseId)
     .order("order");
 
-  const lessonList = (lessons ?? []).map((l) => `- Module ${l.order}: ${l.title}`).join("\n");
+  const lessonIds = (lessons ?? []).map((l) => l.id);
 
+  // Load all enrollments, then filter to cohort if applicable
+  const { data: allEnrollments } = await admin
+    .from("enrollments")
+    .select("user_id")
+    .eq("course_id", courseId);
+
+  const enrollments = cohortIds !== null
+    ? (allEnrollments ?? []).filter((e) => cohortIds.includes(e.user_id))
+    : (allEnrollments ?? []);
+
+  const userIds = enrollments.map((e) => e.user_id);
+  const totalLearners = userIds.length;
+
+  // Parallel fetch: profiles, progress, quiz scores, submissions
+  const [
+    { data: learnerProfiles },
+    { data: progressRows },
+    { data: quizzes },
+    { data: assignments },
+  ] = await Promise.all([
+    userIds.length > 0
+      ? admin.from("profiles").select("id, full_name, email").in("id", userIds)
+      : Promise.resolve({ data: [] }),
+    userIds.length > 0 && lessonIds.length > 0
+      ? admin.from("progress").select("user_id, lesson_id").in("user_id", userIds).in("lesson_id", lessonIds)
+      : Promise.resolve({ data: [] }),
+    lessonIds.length > 0
+      ? admin.from("quizzes").select("id, lesson_id").in("lesson_id", lessonIds)
+      : Promise.resolve({ data: [] }),
+    lessonIds.length > 0
+      ? admin.from("assignments").select("id, lesson_id, title, max_score").in("lesson_id", lessonIds)
+      : Promise.resolve({ data: [] }),
+  ]);
+
+  const quizIds = (quizzes ?? []).map((q: { id: string }) => q.id);
+  const assignmentIds = (assignments ?? []).map((a: { id: string }) => a.id);
+
+  const [{ data: quizResponses }, { data: submissions }] = await Promise.all([
+    quizIds.length > 0 && userIds.length > 0
+      ? admin.from("quiz_responses").select("quiz_id, user_id, score").in("quiz_id", quizIds).in("user_id", userIds).order("submitted_at", { ascending: false })
+      : Promise.resolve({ data: [] }),
+    assignmentIds.length > 0 && userIds.length > 0
+      ? admin.from("submissions").select("assignment_id, user_id, status, final_score, ai_total_score").in("assignment_id", assignmentIds).in("user_id", userIds)
+      : Promise.resolve({ data: [] }),
+  ]);
+
+  // Build per-learner snapshot
+  const quizIdToLessonId = Object.fromEntries((quizzes ?? []).map((q: { id: string; lesson_id: string }) => [q.id, q.lesson_id]));
+  const assignmentById = Object.fromEntries((assignments ?? []).map((a: { id: string; lesson_id: string; title: string; max_score: number }) => [a.id, a]));
+
+  const progressByUser: Record<string, Set<string>> = {};
+  for (const p of progressRows ?? []) {
+    if (!progressByUser[p.user_id]) progressByUser[p.user_id] = new Set();
+    progressByUser[p.user_id].add(p.lesson_id);
+  }
+
+  const quizScoreByUserLesson: Record<string, Record<string, number>> = {};
+  for (const r of quizResponses ?? []) {
+    const lid = quizIdToLessonId[r.quiz_id];
+    if (!lid) continue;
+    if (!quizScoreByUserLesson[r.user_id]) quizScoreByUserLesson[r.user_id] = {};
+    if (quizScoreByUserLesson[r.user_id][lid] === undefined) {
+      quizScoreByUserLesson[r.user_id][lid] = r.score ?? 0;
+    }
+  }
+
+  const submissionByUserAssignment: Record<string, Record<string, { status: string; score: number | null }>> = {};
+  for (const s of submissions ?? []) {
+    if (!submissionByUserAssignment[s.user_id]) submissionByUserAssignment[s.user_id] = {};
+    submissionByUserAssignment[s.user_id][s.assignment_id] = {
+      status: s.status,
+      score: s.final_score ?? s.ai_total_score ?? null,
+    };
+  }
+
+  const profileById = Object.fromEntries((learnerProfiles ?? []).map((p) => [p.id, p]));
+
+  const totalLessons = lessonIds.length;
+  const learnerRows = userIds.map((uid) => {
+    const p = profileById[uid];
+    const name = p?.full_name || p?.email || uid.slice(0, 8);
+    const completedCount = progressByUser[uid]?.size ?? 0;
+    const pct = totalLessons > 0 ? Math.round((completedCount / totalLessons) * 100) : 0;
+
+    const quizScores = Object.values(quizScoreByUserLesson[uid] ?? {});
+    const avgQuiz = quizScores.length > 0
+      ? Math.round(quizScores.reduce((a, b) => a + b, 0) / quizScores.length)
+      : null;
+
+    const subs = submissionByUserAssignment[uid] ?? {};
+    const assignmentStatuses = assignmentIds.map((aid) => {
+      const sub = subs[aid];
+      if (!sub) return "not submitted";
+      const scoreStr = sub.score !== null ? ` (${sub.score}/${assignmentById[aid]?.max_score ?? "?"})` : "";
+      return `${sub.status}${scoreStr}`;
+    });
+
+    const assignStr = assignmentIds.length > 0
+      ? ` | assignments: ${assignmentStatuses.join(", ")}`
+      : "";
+    const quizStr = avgQuiz !== null ? ` | avg quiz: ${avgQuiz}%` : "";
+
+    return `  • ${name}: ${pct}% progress (${completedCount}/${totalLessons} lessons)${quizStr}${assignStr}`;
+  });
+
+  const cohortCompleted = userIds.filter((uid) => (progressByUser[uid]?.size ?? 0) === totalLessons && totalLessons > 0).length;
+  const avgProgress = totalLearners > 0
+    ? Math.round(userIds.reduce((sum, uid) => {
+        const c = progressByUser[uid]?.size ?? 0;
+        return sum + (totalLessons > 0 ? (c / totalLessons) * 100 : 0);
+      }, 0) / totalLearners)
+    : 0;
+
+  const lessonList = (lessons ?? []).map((l) => `- Module ${l.order}: ${l.title}`).join("\n");
+  const cohortLabel = cohortIds !== null ? "your cohort" : "all enrolled learners";
   const firstName = profile.full_name?.split(" ")[0]?.trim() ?? "";
 
   const systemPrompt = `You are an AI facilitation coach supporting ${firstName || "the facilitator"} — a course moderator or subject matter expert (SME) for "${course.title}".
@@ -79,19 +186,23 @@ ${course.description ? `Description: ${course.description}` : ""}
 Modules:
 ${lessonList || "(no modules yet)"}
 
-COHORT SNAPSHOT (live data):
-- Total enrolled teacher-leaders: ${totalLearners}
-- Completed the course: ${completed}
+COHORT SNAPSHOT — ${cohortLabel} (live data):
+- Total teacher-leaders: ${totalLearners}
+- Completed all lessons: ${cohortCompleted}
 - Average progress: ${avgProgress}%
 
+PER-LEARNER BREAKDOWN:
+${learnerRows.join("\n") || "  (no learners enrolled)"}
+
 YOUR ROLE:
-You are a facilitation support coach. You help the SME think through their work — grading, feedback, cohort support, calibration. You do NOT manage learners directly.
+You are a facilitation support coach. You help the SME think through their work — grading, feedback, cohort support, calibration.
 
 WHAT YOU CAN HELP WITH:
 - Drafting or refining written feedback for learner submissions
 - Thinking through how to apply the grading rubric (Approved / Needs Revision / Not Approved)
 - Identifying patterns in cohort progress and suggesting facilitation strategies
 - Calibrating grading standards — e.g., "Here's a borderline submission, how should I think about it?"
+- Flagging learners who may need outreach based on progress data above
 - Preparing for 1-on-1 or group check-ins with teacher-leaders
 - General questions about adult learning, facilitation, and professional development coaching
 
@@ -99,8 +210,8 @@ BEHAVIOR:
 - Be direct and practical — this is a professional tool, not a student-facing coach
 - You CAN give concrete suggestions and recommendations (unlike the learner coach)
 - When helping draft feedback, always ask what the SME wants to emphasize before writing
+- Reference learner names and specific data from the breakdown above when relevant
 - Keep responses focused and concise
-- If asked about a specific learner by name, note that you don't have individual learner details here — refer them to the Students tab
 
 LANGUAGE: Reply in the same language the SME writes in.`;
 

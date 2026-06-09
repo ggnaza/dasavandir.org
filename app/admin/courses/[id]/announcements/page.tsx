@@ -44,7 +44,7 @@ export default async function AnnouncementsPage({ params }: { params: { id: stri
         </p>
       </div>
 
-      <CreateAnnouncementForm courseId={params.id} />
+      <CreateAnnouncementForm courseId={params.id} isCourseManager={profile.role === "course_manager"} />
 
       <div className="mt-8 space-y-4">
         {!announcements?.length && (

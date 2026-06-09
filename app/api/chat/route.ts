@@ -71,13 +71,115 @@ export async function POST(req: Request) {
     return new Response("Course not found", { status: 404 });
   }
 
-  // Load all other lessons for context
+  // Load all lessons for context + learner data
   const { data: allLessons } = await admin
     .from("lessons")
-    .select("title, content, slides_text, document_text")
+    .select("id, title, content, slides_text, document_text, order")
     .eq("course_id", lesson?.course_id)
-    .neq("id", lessonId)
     .order("order");
+
+  const allLessonIds = (allLessons ?? []).map((l: { id: string }) => l.id);
+  const otherLessons = (allLessons ?? []).filter((l: { id: string }) => l.id !== lessonId);
+
+  // Learner data: progress, quiz scores, submissions, announcements
+  const [
+    { data: progressRows },
+    { data: allQuizzes },
+    { data: allAssignments },
+    { data: recentAnnouncements },
+  ] = await Promise.all([
+    allLessonIds.length > 0
+      ? admin.from("progress").select("lesson_id").eq("user_id", userId).in("lesson_id", allLessonIds)
+      : Promise.resolve({ data: [] }),
+    allLessonIds.length > 0
+      ? admin.from("quizzes").select("id, lesson_id").in("lesson_id", allLessonIds)
+      : Promise.resolve({ data: [] }),
+    allLessonIds.length > 0
+      ? admin.from("assignments").select("id, lesson_id, title, max_score").in("lesson_id", allLessonIds)
+      : Promise.resolve({ data: [] }),
+    resolvedCourseId
+      ? admin.from("announcements").select("title, body, created_at").eq("course_id", resolvedCourseId).order("created_at", { ascending: false }).limit(3)
+      : Promise.resolve({ data: [] }),
+  ]);
+
+  const completedLessonIds = new Set((progressRows ?? []).map((p: { lesson_id: string }) => p.lesson_id));
+  const completedCount = completedLessonIds.size;
+  const totalLessons = (allLessons ?? []).length;
+
+  // Quiz scores per lesson
+  const quizIdToLessonId = Object.fromEntries((allQuizzes ?? []).map((q: { id: string; lesson_id: string }) => [q.id, q.lesson_id]));
+  const quizIds = (allQuizzes ?? []).map((q: { id: string }) => q.id);
+  const { data: quizResponses } = quizIds.length > 0
+    ? await admin.from("quiz_responses").select("quiz_id, score").eq("user_id", userId).in("quiz_id", quizIds).order("submitted_at", { ascending: false })
+    : { data: [] };
+
+  // Latest score per lesson (quiz)
+  const quizScoreByLesson: Record<string, number> = {};
+  for (const r of quizResponses ?? []) {
+    const lid = quizIdToLessonId[r.quiz_id];
+    if (lid && quizScoreByLesson[lid] === undefined) {
+      quizScoreByLesson[lid] = r.score ?? 0;
+    }
+  }
+
+  // Submission status per assignment
+  const assignmentIds = (allAssignments ?? []).map((a: { id: string }) => a.id);
+  const { data: submissions } = assignmentIds.length > 0
+    ? await admin.from("submissions").select("assignment_id, status, final_score, ai_total_score, feedback").eq("user_id", userId).in("assignment_id", assignmentIds)
+    : { data: [] };
+
+  const submissionByAssignment = Object.fromEntries(
+    (submissions ?? []).map((s: { assignment_id: string; status: string; final_score: number | null; ai_total_score: number | null; feedback: string | null }) => [s.assignment_id, s])
+  );
+
+  // Build learner snapshot text
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+  const lessonListText = (allLessons ?? []).map((l: { id: string; title: string; order: number }) => {
+    const done = completedLessonIds.has(l.id) ? "✓" : "○";
+    const score = quizScoreByLesson[l.id] !== undefined ? ` | quiz: ${quizScoreByLesson[l.id]}%` : "";
+    const link = `${siteUrl}/learn/courses/${resolvedCourseId}/lessons/${l.id}`;
+    return `  ${done} Lesson ${l.order}: ${l.title}${score} — ${link}`;
+  }).join("\n");
+
+  const assignmentText = (allAssignments ?? []).map((a: { id: string; lesson_id: string; title: string; max_score: number }) => {
+    const sub = submissionByAssignment[a.id];
+    if (!sub) return `  • ${a.title}: not submitted`;
+    const score = sub.final_score ?? sub.ai_total_score;
+    const scoreStr = score !== null ? ` (${score}/${a.max_score})` : "";
+    const feedbackStr = sub.feedback ? ` — feedback: "${sub.feedback.slice(0, 150)}"` : "";
+    return `  • ${a.title}: ${sub.status}${scoreStr}${feedbackStr}`;
+  }).join("\n");
+
+  const announcementsText = (recentAnnouncements ?? []).length > 0
+    ? (recentAnnouncements ?? []).map((a: { title: string; body: string; created_at: string }) =>
+        `  [${new Date(a.created_at).toLocaleDateString()}] ${a.title}: ${a.body.slice(0, 100)}`
+      ).join("\n")
+    : "  (none)";
+
+  const platformLinksText = `  • Course overview: ${siteUrl}/learn/courses/${resolvedCourseId}
+  • My submissions & feedback: ${siteUrl}/learn/courses/${resolvedCourseId}/feedback
+  • My journal: ${siteUrl}/learn/courses/${resolvedCourseId}/journal
+  • Resources: ${siteUrl}/learn/courses/${resolvedCourseId}/resources
+  • Announcements: ${siteUrl}/learn/announcements`;
+
+  const learnerDataBlock = `
+════════════════════════════════════════
+LEARNER PROGRESS DATA (real-time, current session)
+════════════════════════════════════════
+Completion: ${completedCount}/${totalLessons} lessons
+
+Lessons:
+${lessonListText || "  (none)"}
+
+Assignments:
+${assignmentText || "  (no assignments in this course)"}
+
+Recent announcements from instructors:
+${announcementsText}
+
+Platform links (share if relevant):
+${platformLinksText}
+════════════════════════════════════════`;
 
   // Load course-level supplementary resources for AI context
   let courseResourcesText = "";
@@ -128,7 +230,7 @@ export async function POST(req: Request) {
   const currentDoc = (lesson as any)?.document_text ?? "";
   const currentCombined = [currentText, currentSlides, currentDoc].filter(Boolean).join("\n").slice(0, 12000);
 
-  const otherLessonsText = (allLessons ?? []).map(lessonToText).join("\n\n").slice(0, 8000);
+  const otherLessonsText = otherLessons.map(lessonToText).join("\n\n").slice(0, 8000);
 
   const systemPrompt = `You are an AI Coach for the course "${courseTitle}" — a professional development program for teacher-leaders.
 ${courseDesc ? `Course description: ${courseDesc}` : ""}
@@ -145,7 +247,7 @@ Other lessons in this course:
 ${otherLessonsText || "(none yet)"}
 ${courseResourcesText ? `\nSupplementary resources:\n${courseResourcesText}` : ""}
 ${memoryContext ? `\nMemory from previous sessions:\n${memoryContext}` : ""}
-════════════════════════════════════════
+${learnerDataBlock}
 
 YOUR ROLE — SOUNDING BOARD, NOT ANSWER KEY:
 
