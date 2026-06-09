@@ -12,7 +12,10 @@ const ALLOWED_HOSTS = ["docs.google.com", "drive.google.com"];
 function isAllowedUrl(url: string): boolean {
   try {
     const { hostname } = new URL(url);
-    return ALLOWED_HOSTS.some((h) => hostname === h || hostname.endsWith("." + h));
+    if (ALLOWED_HOSTS.some((h) => hostname === h || hostname.endsWith("." + h))) return true;
+    // Allow Supabase storage URLs (uploaded PDFs)
+    if (hostname.endsWith(".supabase.co")) return true;
+    return false;
   } catch {
     return false;
   }
@@ -46,7 +49,7 @@ export async function POST(req: Request) {
   if (!documentUrl || !lessonId) return new Response("Missing fields", { status: 400 });
 
   if (!isAllowedUrl(documentUrl)) {
-    return new Response("URL not allowed — only Google Drive and Docs links are supported", { status: 400 });
+    return new Response("URL not allowed — only Google Drive, Google Docs, and uploaded files are supported", { status: 400 });
   }
 
   let text = "";
