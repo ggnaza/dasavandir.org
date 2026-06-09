@@ -18,6 +18,7 @@ export default async function CoursesPage() {
     .single();
 
   const isAdmin = profile?.role === "admin";
+  const isManager = profile?.role === "course_manager";
 
   let courses: any[] = [];
 
@@ -27,6 +28,13 @@ export default async function CoursesPage() {
       .select("id, title, description, published, created_at, created_by, course_type")
       .order("created_at", { ascending: false });
     courses = data ?? [];
+  } else if (isManager) {
+    // course_managers see only courses they're explicitly assigned to via course_manager_access
+    const { data } = await admin
+      .from("course_manager_access")
+      .select("course_id, courses(id, title, description, published, created_at, created_by, course_type)")
+      .eq("manager_id", user!.id);
+    courses = (data ?? []).map((r: any) => r.courses).filter(Boolean);
   } else {
     // Course creators see only courses they're assigned to
     const { data } = await admin
@@ -80,16 +88,28 @@ export default async function CoursesPage() {
             <p className="text-xs text-gray-400 mt-0.5">by {creatorNames[course.created_by]}</p>
           )}
         </div>
-        <div className="flex items-center ml-4 shrink-0">
-          <Link
-            href={`/admin/courses/${course.id}`}
-            className="text-sm text-brand-600 hover:underline"
-          >
-            Edit →
-          </Link>
-          <CloneCourseButton courseId={course.id} />
-          <DeleteCourseButton courseId={course.id} />
-        </div>
+        {!isManager && (
+          <div className="flex items-center ml-4 shrink-0">
+            <Link
+              href={`/admin/courses/${course.id}`}
+              className="text-sm text-brand-600 hover:underline"
+            >
+              Edit →
+            </Link>
+            <CloneCourseButton courseId={course.id} />
+            <DeleteCourseButton courseId={course.id} />
+          </div>
+        )}
+        {isManager && (
+          <div className="ml-4 shrink-0">
+            <Link
+              href={`/admin/courses/${course.id}/learners`}
+              className="text-sm text-brand-600 hover:underline font-medium"
+            >
+              View cohort →
+            </Link>
+          </div>
+        )}
       </div>
     );
   }
@@ -97,13 +117,15 @@ export default async function CoursesPage() {
   return (
     <div>
       <div className="flex items-center justify-between mb-8">
-        <h1 className="text-2xl font-bold">Courses</h1>
-        <Link
-          href="/admin/courses/new"
-          className="bg-brand-600 text-white px-4 py-2 rounded-lg hover:bg-brand-700 text-sm font-medium"
-        >
-          + New Course
-        </Link>
+        <h1 className="text-2xl font-bold">{isManager ? "My Courses" : "Courses"}</h1>
+        {!isManager && (
+          <Link
+            href="/admin/courses/new"
+            className="bg-brand-600 text-white px-4 py-2 rounded-lg hover:bg-brand-700 text-sm font-medium"
+          >
+            + New Course
+          </Link>
+        )}
       </div>
 
       {courses.length === 0 && (
