@@ -22,6 +22,7 @@ export default function CourseAdminLayout({ children, params }: { children: Reac
     { label: "Announcements", href: `${base}/announcements` },
     { label: "Question Bank", href: `${base}/question-bank` },
     { label: "Capstone", href: `${base}/capstone` },
+    { label: "Analytics", href: `${base}/analytics` },
     { label: "AI Coach", href: `${base}/ai-coach` },
   ];
 

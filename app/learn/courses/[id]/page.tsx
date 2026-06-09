@@ -9,11 +9,13 @@ export default async function LearnCoursePage({ params }: { params: { id: string
   const admin = createAdminClient();
   const { data: { user } } = await supabase.auth.getUser();
 
-  const [{ data: course }, { data: lessons }, { data: progress }, { data: capstone }] = await Promise.all([
+  const [{ data: course }, { data: lessons }, { data: progress }, { data: capstone }, { data: allEnrollments }, { data: allProgress }] = await Promise.all([
     admin.from("courses").select("*").eq("id", params.id).eq("published", true).single(),
     admin.from("lessons").select("id, title, order, what_you_learn, skills, duration_seconds").eq("course_id", params.id).order("order"),
     admin.from("progress").select("lesson_id").eq("user_id", user!.id),
     admin.from("capstones").select("id").eq("course_id", params.id).single(),
+    admin.from("enrollments").select("user_id").eq("course_id", params.id),
+    admin.from("progress").select("user_id, lesson_id").eq("course_id", params.id),
   ]);
 
   if (!course) notFound();
@@ -69,6 +71,27 @@ export default async function LearnCoursePage({ params }: { params: { id: string
   const completed = lessons?.filter((l) => completedIds.has(l.id)).length ?? 0;
   const outcomes: string[] = course.outcomes ?? [];
 
+  // Cohort average progress
+  const lessonIds = new Set((lessons ?? []).map((l) => l.id));
+  const cohortEnrolled = (allEnrollments ?? []).filter((e) => e.user_id !== user!.id);
+  const cohortAvgPct = (() => {
+    if (cohortEnrolled.length === 0 || total === 0) return null;
+    const cohortUserIds = new Set(cohortEnrolled.map((e) => e.user_id));
+    const progressPerUser: Record<string, number> = {};
+    for (const p of allProgress ?? []) {
+      if (cohortUserIds.has(p.user_id) && lessonIds.has(p.lesson_id)) {
+        progressPerUser[p.user_id] = (progressPerUser[p.user_id] ?? 0) + 1;
+      }
+    }
+    const totals = Object.values(progressPerUser);
+    if (totals.length === 0) return 0;
+    const avg = totals.reduce((s, c) => s + c, 0) / cohortEnrolled.length;
+    return Math.round((avg / total) * 100);
+  })();
+
+  // Next up: first incomplete lesson
+  const nextLesson = (lessons ?? []).find((l) => !completedIds.has(l.id)) ?? null;
+
   const displayHours = (() => {
     if (course.hours_to_complete) return `${course.hours_to_complete} hr`;
     const totalSeconds = (lessons ?? []).reduce((sum, l) => sum + (l.duration_seconds ?? 0), 0);
@@ -104,29 +127,73 @@ export default async function LearnCoursePage({ params }: { params: { id: string
         <p className="text-gray-500 mb-5 leading-relaxed">{course.description}</p>
       )}
 
+      {/* Next Up widget */}
+      {nextLesson && completed < total && (
+        <Link
+          href={`/learn/courses/${course.id}/lessons/${nextLesson.id}`}
+          className="block bg-brand-600 text-white rounded-xl px-5 py-4 mb-5 hover:bg-brand-700 transition-colors"
+        >
+          <p className="text-xs font-medium opacity-75 mb-1 uppercase tracking-wide">Next up</p>
+          <p className="font-semibold text-base">{nextLesson.title}</p>
+          <p className="text-xs opacity-75 mt-1">Continue where you left off →</p>
+        </Link>
+      )}
+      {completed === total && total > 0 && (
+        <div className="bg-green-50 border border-green-200 rounded-xl px-5 py-4 mb-5 text-green-800">
+          <p className="font-semibold">All modules complete!</p>
+          {capstone && <p className="text-sm mt-0.5">Head to the Capstone project to finish the course.</p>}
+        </div>
+      )}
+
       {/* Progress bar */}
       {total > 0 && (
         <div className="mb-6">
           <div className="flex justify-between text-sm text-gray-500 mb-1">
             <span>{completed} of {total} modules completed</span>
-            <span>{Math.round((completed / total) * 100)}%</span>
+            <span className="font-medium">{Math.round((completed / total) * 100)}%</span>
           </div>
-          <div className="h-2 bg-gray-200 rounded-full">
+          <div className="h-2 bg-gray-200 rounded-full mb-1.5">
             <div
               className="h-2 bg-brand-600 rounded-full transition-all"
               style={{ width: `${(completed / total) * 100}%` }}
             />
           </div>
+          {cohortAvgPct !== null && (
+            <p className="text-xs text-gray-400">
+              Cohort average: {cohortAvgPct}%
+              {completed > 0 && Math.round((completed / total) * 100) >= cohortAvgPct
+                ? <span className="text-green-600 ml-1">· You&apos;re ahead</span>
+                : completed > 0 ? <span className="text-amber-500 ml-1">· Keep going</span> : null}
+            </p>
+          )}
         </div>
       )}
 
       {/* Action buttons */}
-      <div className="mb-6 flex gap-3">
+      <div className="mb-6 flex flex-wrap gap-2">
         <Link
           href={`/learn/courses/${course.id}/discussions`}
           className="inline-flex items-center gap-2 text-sm border rounded-lg px-4 py-2 hover:bg-gray-50 text-gray-600"
         >
           <span>💬</span> Discussions
+        </Link>
+        <Link
+          href={`/learn/courses/${course.id}/feedback`}
+          className="inline-flex items-center gap-2 text-sm border rounded-lg px-4 py-2 hover:bg-gray-50 text-gray-600"
+        >
+          <span>📋</span> My submissions
+        </Link>
+        <Link
+          href={`/learn/courses/${course.id}/journal`}
+          className="inline-flex items-center gap-2 text-sm border rounded-lg px-4 py-2 hover:bg-gray-50 text-gray-600"
+        >
+          <span>📓</span> My journal
+        </Link>
+        <Link
+          href={`/learn/courses/${course.id}/resources`}
+          className="inline-flex items-center gap-2 text-sm border rounded-lg px-4 py-2 hover:bg-gray-50 text-gray-600"
+        >
+          <span>📚</span> Resources
         </Link>
         {capstone && (
           <Link

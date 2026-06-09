@@ -32,6 +32,12 @@ function formatTime(seconds: number): string {
   return rem === 0 ? `${h}h` : `${h}h ${rem}m`;
 }
 
+function StatusDot({ pct }: { pct: number }) {
+  if (pct >= 75) return <span className="inline-block w-2.5 h-2.5 rounded-full bg-green-500 shrink-0" title="On track" />;
+  if (pct >= 30) return <span className="inline-block w-2.5 h-2.5 rounded-full bg-amber-400 shrink-0" title="In progress" />;
+  return <span className="inline-block w-2.5 h-2.5 rounded-full bg-red-400 shrink-0" title="Needs attention" />;
+}
+
 export function LearnerRows({ learners, lessons, courseId }: { learners: Learner[]; lessons: Lesson[]; courseId: string }) {
   return (
     <div className="divide-y">
@@ -41,9 +47,12 @@ export function LearnerRows({ learners, lessons, courseId }: { learners: Learner
           href={`/admin/courses/${courseId}/learners/${l.userId}`}
           className="grid grid-cols-12 gap-3 items-center px-5 py-4 hover:bg-gray-50 transition text-left"
         >
-          <div className="col-span-3">
-            <p className="text-sm font-medium text-gray-900 truncate">{l.name}</p>
-            <p className="text-xs text-gray-400 truncate">{l.email}</p>
+          <div className="col-span-3 flex items-center gap-2">
+            <StatusDot pct={l.pct} />
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-gray-900 truncate">{l.name}</p>
+              <p className="text-xs text-gray-400 truncate">{l.email}</p>
+            </div>
           </div>
 
           <div className="col-span-4">

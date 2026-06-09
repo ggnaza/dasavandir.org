@@ -22,7 +22,7 @@ export async function POST(req: Request) {
   const admin = createAdminClient();
   const { data: profile } = await admin.from("profiles").select("role").eq("id", user.id).single();
   if (!profile) return new Response("Unauthorized", { status: 401 });
-  if (!["admin", "course_creator", "moderator"].includes(profile.role)) return new Response("Forbidden", { status: 403 });
+  if (!["admin", "course_creator", "course_manager"].includes(profile.role)) return new Response("Forbidden", { status: 403 });
 
   const { allowed } = await checkRateLimit(`quiz-gen:${user.id}`, 10, 60 * 60_000);
   if (!allowed) return rateLimitResponse({ limit: 10, windowSecs: 3600 });

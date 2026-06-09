@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { getAIModel } from "@/lib/llm";
+import { assertCourseOwner } from "@/lib/assert-course-owner";
 import OpenAI from "openai";
 import { GoogleGenAI } from "@google/genai";
 import Anthropic from "@anthropic-ai/sdk";
@@ -23,7 +24,7 @@ export async function POST(req: Request) {
   const admin = createAdminClient();
   const { data: profile } = await admin.from("profiles").select("role, full_name").eq("id", user.id).single();
   if (!profile) return new Response("Unauthorized", { status: 401 });
-  if (!["admin", "course_creator", "moderator"].includes(profile.role)) {
+  if (!["admin", "course_creator", "course_manager"].includes(profile.role)) {
     return new Response("Forbidden", { status: 403 });
   }
 
@@ -44,13 +45,8 @@ export async function POST(req: Request) {
 
   // Verify access: admin sees all, moderator/creator must be assigned to this course
   if (profile.role !== "admin") {
-    const { data: access } = await admin
-      .from("course_manager_access")
-      .select("manager_id")
-      .eq("course_id", courseId)
-      .eq("manager_id", user.id)
-      .maybeSingle();
-    if (!access) return new Response("Not assigned to this course", { status: 403 });
+    const accessErr = await assertCourseOwner(courseId, user.id);
+    if (accessErr) return accessErr;
   }
 
   // Load learner progress summary
