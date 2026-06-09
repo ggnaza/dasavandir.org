@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createNotification } from "@/lib/notifications";
+import { sendSubmissionVerdictEmail } from "@/lib/email";
 import { assertCourseOwner } from "@/lib/assert-course-owner";
 import { logAudit } from "@/lib/audit-log";
 import { z } from "zod";
@@ -101,6 +102,32 @@ export async function POST(req: Request) {
         body: notif.body,
         link: notifLink,
       });
+    }
+
+    // Also send an email so learners are notified even if they haven't logged in
+    const { data: learnerProfile } = await admin
+      .from("profiles")
+      .select("email, full_name")
+      .eq("id", submission.user_id)
+      .maybeSingle();
+
+    const { data: courseData } = await admin
+      .from("courses")
+      .select("title")
+      .eq("id", courseId)
+      .maybeSingle();
+
+    if (learnerProfile?.email && (status === "approved" || status === "needs_revision" || status === "not_approved")) {
+      const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://dasavandir.org";
+      sendSubmissionVerdictEmail({
+        to: learnerProfile.email,
+        firstName: learnerProfile.full_name?.split(" ")[0] || "",
+        assignmentTitle: assignment?.title ?? "Assignment",
+        courseTitle: courseData?.title ?? "",
+        verdict: status as "approved" | "needs_revision" | "not_approved",
+        instructorNote: instructor_note ?? null,
+        assignmentUrl: `${baseUrl}${notifLink}`,
+      }).catch((err) => console.error("[submission/verdict-email]", err));
     }
   }
 

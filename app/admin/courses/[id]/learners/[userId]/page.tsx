@@ -1,6 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import { SendMessageDialog } from "@/app/admin/components/send-message-dialog";
 
 export const dynamic = "force-dynamic";
 
@@ -113,11 +114,18 @@ export default async function LearnerDetailPage({ params }: { params: { id: stri
         <Link href={`/admin/courses/${params.id}/learners`} className="text-sm text-gray-500 hover:text-gray-700">
           ← Back to students
         </Link>
-        <div className="mt-2">
-          <h1 className="text-2xl font-bold">{profile.full_name || profile.email}</h1>
-          <p className="text-sm text-gray-500 mt-0.5">
-            {profile.email} · Enrolled {enrollment ? formatDate(enrollment.enrolled_at) : "—"} · {course.title}
-          </p>
+        <div className="mt-2 flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold">{profile.full_name || profile.email}</h1>
+            <p className="text-sm text-gray-500 mt-0.5">
+              {profile.email} · Enrolled {enrollment ? formatDate(enrollment.enrolled_at) : "—"} · {course.title}
+            </p>
+          </div>
+          <SendMessageDialog
+            userId={profile.id}
+            learnerName={profile.full_name?.split(" ")[0] || profile.full_name || profile.email}
+            variant="button"
+          />
         </div>
       </div>
 
