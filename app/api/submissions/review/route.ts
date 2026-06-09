@@ -6,6 +6,44 @@ import { assertCourseOwner } from "@/lib/assert-course-owner";
 import { logAudit } from "@/lib/audit-log";
 import { z } from "zod";
 
+// Helper: notify a single learner (in-app + email) about a submission verdict
+async function notifyLearner(
+  admin: any,
+  userId: string,
+  status: "approved" | "needs_revision" | "not_approved",
+  assignmentTitle: string,
+  courseTitle: string,
+  notifLink: string,
+  instructorNote: string | null,
+  courseId: string,
+  lessonId: string | null,
+) {
+  const messages = {
+    approved:       { title: "Submission approved ✓",    body: `Your submission for "${assignmentTitle}" has been approved.` },
+    needs_revision: { title: "Revision needed ↩",        body: `Your submission for "${assignmentTitle}" needs revision. See your facilitator's note.` },
+    not_approved:   { title: "Submission not approved",  body: `Your submission for "${assignmentTitle}" was not approved. See feedback for details.` },
+  };
+  const notif = messages[status];
+
+  await createNotification({ user_id: userId, type: status, title: notif.title, body: notif.body, link: notifLink });
+
+  const { data: learnerProfile } = await admin.from("profiles").select("email, full_name").eq("id", userId).maybeSingle();
+  const { data: courseData } = await admin.from("courses").select("title").eq("id", courseId).maybeSingle();
+
+  if (learnerProfile?.email) {
+    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://dasavandir.org";
+    sendSubmissionVerdictEmail({
+      to: learnerProfile.email,
+      firstName: learnerProfile.full_name?.split(" ")[0] || "",
+      assignmentTitle,
+      courseTitle: courseTitle || courseData?.title || "",
+      verdict: status,
+      instructorNote,
+      assignmentUrl: `${baseUrl}${notifLink}`,
+    }).catch((err) => console.error("[submission/verdict-email]", err));
+  }
+}
+
 const schema = z.object({
   submission_id: z.string().uuid(),
   // approve       → Approved (final, released to learner)
@@ -65,7 +103,7 @@ export async function POST(req: Request) {
       reviewed_at: new Date().toISOString(),
     })
     .eq("id", submission_id)
-    .select("user_id, assignment_id, assignments(title)")
+    .select("user_id, assignment_id, group_id, assignments(title)")
     .single();
 
   if (error) return new Response(error.message, { status: 500 });
@@ -78,56 +116,59 @@ export async function POST(req: Request) {
       ? `/learn/courses/${courseId}/lessons/${lessonId}/assignment`
       : "/learn";
 
-    const messages: Record<string, { title: string; body: string }> = {
-      approved: {
-        title: "Submission approved ✓",
-        body: `Your submission for "${assignment?.title}" has been approved.`,
-      },
-      needs_revision: {
-        title: "Revision needed ↩",
-        body: `Your submission for "${assignment?.title}" needs revision. See your facilitator's note.`,
-      },
-      not_approved: {
-        title: "Submission not approved",
-        body: `Your submission for "${assignment?.title}" was not approved. See feedback for details.`,
-      },
-    };
+    const { data: courseData } = await admin.from("courses").select("title").eq("id", courseId).maybeSingle();
+    const courseTitle = courseData?.title ?? "";
+    const assignmentTitle = assignment?.title ?? "Assignment";
+    const isFinalVerdict = status === "approved" || status === "not_approved";
 
-    const notif = messages[status];
-    if (notif) {
-      await createNotification({
-        user_id: submission.user_id,
-        type: status,
-        title: notif.title,
-        body: notif.body,
-        link: notifLink,
-      });
-    }
+    // ── Group submission: fan-out + notify all members ─────────────────────
+    if ((submission as any).group_id) {
+      const groupId = (submission as any).group_id;
 
-    // Also send an email so learners are notified even if they haven't logged in
-    const { data: learnerProfile } = await admin
-      .from("profiles")
-      .select("email, full_name")
-      .eq("id", submission.user_id)
-      .maybeSingle();
+      const { data: members } = await admin
+        .from("course_group_members")
+        .select("user_id")
+        .eq("group_id", groupId);
 
-    const { data: courseData } = await admin
-      .from("courses")
-      .select("title")
-      .eq("id", courseId)
-      .maybeSingle();
+      const allMemberIds = (members ?? []).map((m: any) => m.user_id);
+      const otherMemberIds = allMemberIds.filter((id: string) => id !== submission.user_id);
 
-    if (learnerProfile?.email && (status === "approved" || status === "needs_revision" || status === "not_approved")) {
-      const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://dasavandir.org";
-      sendSubmissionVerdictEmail({
-        to: learnerProfile.email,
-        firstName: learnerProfile.full_name?.split(" ")[0] || "",
-        assignmentTitle: assignment?.title ?? "Assignment",
-        courseTitle: courseData?.title ?? "",
-        verdict: status as "approved" | "needs_revision" | "not_approved",
-        instructorNote: instructor_note ?? null,
-        assignmentUrl: `${baseUrl}${notifLink}`,
-      }).catch((err) => console.error("[submission/verdict-email]", err));
+      // Fan-out: create individual approved/not_approved rows for all other members
+      // so their scoresheets and gradebook work without any query changes
+      if (isFinalVerdict && otherMemberIds.length > 0) {
+        await admin.from("submissions").insert(
+          otherMemberIds.map((memberId: string) => ({
+            assignment_id: submission.assignment_id,
+            user_id: memberId,
+            group_id: groupId,
+            status,
+            final_score: final_score ?? null,
+            final_feedback: final_feedback ?? null,
+            instructor_note: instructor_note?.trim() ?? null,
+            reviewed_at: new Date().toISOString(),
+            submitted_at: new Date().toISOString(),
+            content: null,
+          }))
+        );
+      }
+
+      // Notify every group member (submitter + others)
+      for (const memberId of allMemberIds) {
+        await notifyLearner(
+          admin, memberId,
+          status as "approved" | "needs_revision" | "not_approved",
+          assignmentTitle, courseTitle, notifLink,
+          instructor_note ?? null, courseId, lessonId,
+        );
+      }
+    } else {
+      // ── Individual submission: notify just the submitter ─────────────────
+      await notifyLearner(
+        admin, submission.user_id,
+        status as "approved" | "needs_revision" | "not_approved",
+        assignmentTitle, courseTitle, notifLink,
+        instructor_note ?? null, courseId, lessonId,
+      );
     }
   }
 

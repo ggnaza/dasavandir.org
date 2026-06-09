@@ -12,6 +12,7 @@ const schema = z.object({
   file_path: z.string().max(500).optional(),
   file_name: z.string().max(255).optional(),
   link_url: z.string().url().max(2000).optional(),
+  group_id: z.string().uuid().nullable().optional(),
 });
 
 export async function POST(req: Request) {
@@ -30,7 +31,7 @@ export async function POST(req: Request) {
   const parsed = schema.safeParse(await req.json());
   if (!parsed.success) return new Response("Invalid input", { status: 400 });
 
-  const { assignment_id, content, file_path, file_name, link_url } = parsed.data;
+  const { assignment_id, content, file_path, file_name, link_url, group_id } = parsed.data;
 
   if (!content && !file_path && !link_url) {
     return new Response("Submission is empty", { status: 400 });
@@ -57,12 +58,27 @@ export async function POST(req: Request) {
     if (!enrollment) return new Response("Not enrolled in this course", { status: 403 });
   }
 
-  // Check for existing submission that is open for revision
+  // Verify group membership if this is a group submission
+  if (group_id) {
+    const { data: membership } = await admin
+      .from("course_group_members")
+      .select("user_id")
+      .eq("group_id", group_id)
+      .eq("user_id", user.id)
+      .maybeSingle();
+    if (!membership) return new Response("You are not a member of this group", { status: 403 });
+  }
+
+  // For group submissions, look up existing by group_id; for individual, by user_id
+  const lookupField = group_id ? "group_id" : "user_id";
+  const lookupValue = group_id ?? user.id;
+
+  // Check for existing submission open for revision
   const { data: existing } = await admin
     .from("submissions")
-    .select("id, status")
+    .select("id, status, user_id")
     .eq("assignment_id", assignment_id)
-    .eq("user_id", user.id)
+    .eq(lookupField, lookupValue)
     .in("status", ["needs_revision"])
     .maybeSingle();
 
@@ -70,10 +86,11 @@ export async function POST(req: Request) {
   let subError: any = null;
 
   if (existing) {
-    // Resubmission — reset the row, clear old AI feedback
+    // Resubmission — update the row, update user_id to the new submitter
     const { data: updated, error: upErr } = await admin
       .from("submissions")
       .update({
+        user_id: user.id, // track who last submitted
         content, file_path, file_name, link_url,
         status: "submitted",
         ai_feedback: null, ai_total_score: null,
@@ -87,12 +104,12 @@ export async function POST(req: Request) {
     submission = updated;
     subError = upErr;
   } else {
-    // Check there's no already-final submission (approved / not_approved)
+    // Check for a final submission already (approved / not_approved)
     const { data: finalSub } = await admin
       .from("submissions")
       .select("id, status")
       .eq("assignment_id", assignment_id)
-      .eq("user_id", user.id)
+      .eq(lookupField, lookupValue)
       .in("status", ["approved", "not_approved"])
       .maybeSingle();
     if (finalSub) {
@@ -107,7 +124,13 @@ export async function POST(req: Request) {
     // New submission
     const { data: inserted, error: insErr } = await admin
       .from("submissions")
-      .insert({ assignment_id, user_id: user.id, content, file_path, file_name, link_url, status: "submitted" })
+      .insert({
+        assignment_id,
+        user_id: user.id,
+        group_id: group_id ?? null,
+        content, file_path, file_name, link_url,
+        status: "submitted",
+      })
       .select("id")
       .single();
     submission = inserted;
