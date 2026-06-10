@@ -105,7 +105,7 @@ export default async function LessonPage({
     admin.from("quizzes").select("id").eq("lesson_id", params.lessonId).single(),
     admin.from("lesson_files").select("id, file_name, storage_path").eq("lesson_id", params.lessonId).order("created_at"),
     admin.from("assignments").select("id").eq("lesson_id", params.lessonId).single(),
-    admin.from("enrollments").select("id, created_at").eq("user_id", user!.id).eq("course_id", params.id).single(),
+    admin.from("enrollments").select("id, enrolled_at").eq("user_id", user!.id).eq("course_id", params.id).single(),
     admin.from("courses").select("allow_shuffled_learning, pre_submission_ai, ai_coach_enabled, title, access_type, course_type").eq("id", params.id).single(),
     admin.from("profiles").select("full_name").eq("id", user!.id).single(),
   ]);
@@ -137,7 +137,7 @@ export default async function LessonPage({
         );
         const { data: newEnrollment } = await admin
           .from("enrollments")
-          .select("id, created_at")
+          .select("id, enrolled_at")
           .eq("user_id", user!.id)
           .eq("course_id", params.id)
           .single();
@@ -219,7 +219,7 @@ export default async function LessonPage({
   const totalLessons = lessons?.length ?? 0;
   const completedCount = lessons?.filter((l) => completedIds.has(l.id)).length ?? 0;
 
-  const enrolledAt: string | null = (effectiveEnrollment as any)?.created_at ?? null;
+  const enrolledAt: string | null = (effectiveEnrollment as any)?.enrolled_at ?? null;
   const deadlineInfo = deadlineLabel(lesson, enrolledAt);
 
   return (
