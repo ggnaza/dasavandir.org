@@ -109,7 +109,11 @@ export function LessonEditor({
     if (error) { setDocError(error.message); setUploadingDoc(false); return; }
     const { data } = supabase.storage.from("lesson-documents").getPublicUrl(path);
     setDocumentUrl(data.publicUrl);
-    await supabase.from("lessons").update({ document_url: data.publicUrl }).eq("id", lesson.id);
+    await fetch(`/api/admin/lessons/${lesson.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ document_url: data.publicUrl }),
+    });
     // Auto-extract PDF text for AI coach
     fetch("/api/admin/extract-document", {
       method: "POST",
@@ -209,8 +213,11 @@ export function LessonEditor({
     setUploadProgress(null);
 
     // Persist immediately so the path is saved
-    const supabase = createClient();
-    await supabase.from("lessons").update({ video_url: path }).eq("id", lesson.id);
+    await fetch(`/api/admin/lessons/${lesson.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ video_url: path }),
+    });
     router.refresh();
   }
 
@@ -249,10 +256,10 @@ export function LessonEditor({
       }
     }
 
-    const supabase = createClient();
-    await supabase
-      .from("lessons")
-      .update({
+    const saveRes = await fetch(`/api/admin/lessons/${lesson.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
         title,
         content,
         video_url: videoUrl || null,
@@ -264,8 +271,13 @@ export function LessonEditor({
         deadline_date: deadlineMode === "date" && deadlineDate ? deadlineDate : null,
         links: links.filter((l) => l.url.trim()),
         ...(duration_seconds !== null ? { duration_seconds } : {}),
-      })
-      .eq("id", lesson.id);
+      }),
+    });
+    if (!saveRes.ok) {
+      setSaving(false);
+      alert("Failed to save lesson: " + (await saveRes.text()));
+      return;
+    }
 
     // Auto-extract Google Slides/Docs/Sheets text for AI coach
     if (slidesUrl && slidesUrl.includes("docs.google.com")) {
@@ -300,8 +312,8 @@ export function LessonEditor({
 
   async function handleDelete() {
     if (!confirm("Delete this lesson? This cannot be undone.")) return;
-    const supabase = createClient();
-    await supabase.from("lessons").delete().eq("id", lesson.id);
+    const res = await fetch(`/api/admin/lessons/${lesson.id}`, { method: "DELETE" });
+    if (!res.ok) { alert("Failed to delete lesson: " + (await res.text())); return; }
     router.push(`/admin/courses/${courseId}`);
   }
 
