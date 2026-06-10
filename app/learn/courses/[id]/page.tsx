@@ -62,7 +62,8 @@ export default async function LearnCoursePage({ params }: { params: { id: string
         { onConflict: "user_id,course_id" }
       );
     } else {
-      redirect(`/courses/${params.id}`);
+      const isPrivate = course?.access_type === "private" || course?.course_type === "internal";
+      redirect(isPrivate ? "/learn" : `/courses/${params.id}`);
     }
   }
 
