@@ -23,8 +23,8 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const creator_id = searchParams.get("creator_id");
   const admin = createAdminClient();
-  const query = admin.from("course_creator_access").select("*, courses(id, title)");
-  if (creator_id) query.eq("creator_id", creator_id);
+  let query = admin.from("course_creator_access").select("*, courses(id, title)");
+  if (creator_id) query = query.eq("creator_id", creator_id);
   const { data, error } = await query;
   if (error) {
     console.error("[course-access/get]", error);
