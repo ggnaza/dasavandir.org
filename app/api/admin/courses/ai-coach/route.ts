@@ -241,17 +241,32 @@ LANGUAGE: Reply in the same language the SME writes in.`;
   }
 
   if (model.startsWith("gemini-")) {
+    if (!process.env.GOOGLE_GEMINI_API_KEY) {
+      console.error("[ai-coach] GOOGLE_GEMINI_API_KEY is not set");
+      return new Response("AI service is not configured. Please contact an administrator.", { status: 503 });
+    }
     const gemini = new GoogleGenAI({ apiKey: process.env.GOOGLE_GEMINI_API_KEY });
-    const stream = await gemini.models.generateContentStream({
-      model,
-      contents: messages.map((m) => ({ role: m.role === "assistant" ? "model" : "user", parts: [{ text: m.content }] })),
-      config: { systemInstruction: systemPrompt, maxOutputTokens: 1500, temperature: 0.4 },
-    });
+    let stream: AsyncIterable<any>;
+    try {
+      stream = await gemini.models.generateContentStream({
+        model,
+        contents: messages.map((m) => ({ role: m.role === "assistant" ? "model" : "user", parts: [{ text: m.content }] })),
+        config: { systemInstruction: systemPrompt, maxOutputTokens: 1500, temperature: 0.4 },
+      });
+    } catch (err: any) {
+      console.error("[ai-coach] Gemini stream init failed:", err?.message ?? err);
+      return new Response(`AI error: ${err?.message ?? "Unknown error"}`, { status: 502 });
+    }
     const readable = new ReadableStream({
       async start(controller) {
-        for await (const chunk of stream) {
-          const text = chunk.text ?? "";
-          if (text) controller.enqueue(encoder.encode(text));
+        try {
+          for await (const chunk of stream) {
+            const text = chunk.text ?? "";
+            if (text) controller.enqueue(encoder.encode(text));
+          }
+        } catch (err: any) {
+          console.error("[ai-coach] Gemini stream read failed:", err?.message ?? err);
+          controller.enqueue(encoder.encode("\n\n[AI error — please try again]"));
         }
         controller.close();
       },
