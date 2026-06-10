@@ -3,19 +3,21 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { ModuleAccordion } from "./module-accordion";
+import { AiCoach } from "./ai-coach";
 
 export default async function LearnCoursePage({ params }: { params: { id: string } }) {
   const supabase = createClient();
   const admin = createAdminClient();
   const { data: { user } } = await supabase.auth.getUser();
 
-  const [{ data: course }, { data: lessons }, { data: progress }, { data: capstone }, { data: allEnrollments }, { data: allProgress }] = await Promise.all([
+  const [{ data: course }, { data: lessons }, { data: progress }, { data: capstone }, { data: allEnrollments }, { data: allProgress }, { data: profile }] = await Promise.all([
     admin.from("courses").select("*").eq("id", params.id).eq("published", true).single(),
     admin.from("lessons").select("id, title, order, what_you_learn, skills, duration_seconds").eq("course_id", params.id).order("order"),
     admin.from("progress").select("lesson_id").eq("user_id", user!.id),
     admin.from("capstones").select("id").eq("course_id", params.id).single(),
     admin.from("enrollments").select("user_id").eq("course_id", params.id),
     admin.from("progress").select("user_id, lesson_id").eq("course_id", params.id),
+    admin.from("profiles").select("full_name").eq("id", user!.id).single(),
   ]);
 
   if (!course) notFound();
@@ -92,6 +94,9 @@ export default async function LearnCoursePage({ params }: { params: { id: string
 
   // Next up: first incomplete lesson
   const nextLesson = (lessons ?? []).find((l) => !completedIds.has(l.id)) ?? null;
+  const firstName = profile?.full_name?.split(" ")[0]?.trim() ?? "";
+  const aiCoachEnabled = (course as any)?.ai_coach_enabled ?? true;
+  const coachLessonId = nextLesson?.id ?? lessons?.[0]?.id ?? null;
 
   const displayHours = (() => {
     if (course.hours_to_complete) return `${course.hours_to_complete} hr`;
@@ -156,6 +161,7 @@ export default async function LearnCoursePage({ params }: { params: { id: string
   );
 
   return (
+    <>
     <div className="max-w-2xl">
       <Link href="/learn" className="text-sm text-gray-500 hover:text-gray-700">← My Courses</Link>
 
@@ -284,5 +290,15 @@ export default async function LearnCoursePage({ params }: { params: { id: string
         </div>
       )}
     </div>
+
+    {aiCoachEnabled && coachLessonId && (
+      <AiCoach
+        lessonId={coachLessonId}
+        courseId={params.id}
+        userId={user!.id}
+        firstName={firstName}
+      />
+    )}
+    </>
   );
 }

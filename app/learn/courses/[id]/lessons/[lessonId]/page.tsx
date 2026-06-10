@@ -3,7 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { MarkCompleteButton } from "./mark-complete-button";
-import { AiCoach } from "./ai-coach";
+import { AiCoach } from "../../ai-coach";
 import { LessonHtmlRenderer } from "@/components/lesson-html-renderer";
 import { LessonFiles } from "./lesson-files";
 import { SessionTracker } from "./session-tracker";
