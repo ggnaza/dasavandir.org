@@ -104,6 +104,57 @@ export default async function LearnCoursePage({ params }: { params: { id: string
     return `${h} hr ${m} min`;
   })();
 
+  // Fetch lesson files and course resources (after confirming enrollment)
+  const lessonIdArray = (lessons ?? []).map((l) => l.id);
+  const [{ data: allLessonFiles }, { data: courseResources }] = await Promise.all([
+    lessonIdArray.length > 0
+      ? admin
+          .from("lesson_files")
+          .select("id, lesson_id, file_name, storage_path")
+          .in("lesson_id", lessonIdArray)
+      : Promise.resolve({ data: [] as { id: string; lesson_id: string; file_name: string; storage_path: string }[] }),
+    admin
+      .from("course_resources")
+      .select("id, title, url, storage_path, file_name, description")
+      .eq("course_id", params.id)
+      .order("created_at"),
+  ]);
+
+  // Build lesson files map with signed URLs
+  const lessonFilesMap: Record<string, { id: string; file_name: string; url: string }[]> = {};
+  if (allLessonFiles && allLessonFiles.length > 0) {
+    await Promise.all(
+      allLessonFiles.map(async (f) => {
+        const { data } = await admin.storage
+          .from("lesson-files")
+          .createSignedUrl(f.storage_path, 3600);
+        const url = data?.signedUrl ?? "#";
+        if (!lessonFilesMap[f.lesson_id]) lessonFilesMap[f.lesson_id] = [];
+        lessonFilesMap[f.lesson_id].push({ id: f.id, file_name: f.file_name, url });
+      })
+    );
+  }
+
+  // Build course resources list, generating signed URLs for storage-backed files
+  const processedResources = await Promise.all(
+    (courseResources ?? []).map(async (r) => {
+      let url = r.url ?? null;
+      if (!url && r.storage_path) {
+        const { data } = await admin.storage
+          .from("course-resources")
+          .createSignedUrl(r.storage_path, 3600);
+        url = data?.signedUrl ?? null;
+      }
+      return {
+        id: r.id,
+        title: r.title,
+        url,
+        file_name: r.file_name ?? null,
+        description: (r as any).description ?? null,
+      };
+    })
+  );
+
   return (
     <div className="max-w-2xl">
       <Link href="/learn" className="text-sm text-gray-500 hover:text-gray-700">← My Courses</Link>
@@ -182,19 +233,13 @@ export default async function LearnCoursePage({ params }: { params: { id: string
           href={`/learn/courses/${course.id}/feedback`}
           className="inline-flex items-center gap-2 text-sm border rounded-lg px-4 py-2 hover:bg-gray-50 text-gray-600"
         >
-          <span>📋</span> My submissions
+          <span>📋</span> My grades
         </Link>
         <Link
           href={`/learn/courses/${course.id}/journal`}
           className="inline-flex items-center gap-2 text-sm border rounded-lg px-4 py-2 hover:bg-gray-50 text-gray-600"
         >
           <span>📓</span> My journal
-        </Link>
-        <Link
-          href={`/learn/courses/${course.id}/resources`}
-          className="inline-flex items-center gap-2 text-sm border rounded-lg px-4 py-2 hover:bg-gray-50 text-gray-600"
-        >
-          <span>📚</span> Resources
         </Link>
         {capstone && (
           <Link
@@ -209,7 +254,7 @@ export default async function LearnCoursePage({ params }: { params: { id: string
       {/* Outcomes */}
       {outcomes.length > 0 && (
         <div className="bg-white border rounded-xl p-5 mb-5">
-          <h2 className="font-semibold text-gray-900 mb-3">What you'll achieve</h2>
+          <h2 className="font-semibold text-gray-900 mb-3">What you&apos;ll achieve</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
             {outcomes.map((outcome, i) => (
               <div key={i} className="flex items-start gap-2">
@@ -231,6 +276,10 @@ export default async function LearnCoursePage({ params }: { params: { id: string
             lessons={lessons}
             courseId={course.id}
             completedIds={completedIds}
+            nextLessonId={nextLesson?.id ?? null}
+            cohortAvgPct={cohortAvgPct}
+            lessonFiles={lessonFilesMap}
+            courseResources={processedResources}
           />
         </div>
       )}
