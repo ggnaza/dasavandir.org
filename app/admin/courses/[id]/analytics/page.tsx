@@ -72,7 +72,7 @@ export default async function AnalyticsPage({ params }: { params: { id: string }
     lessonIds.length > 0
       ? admin.from("lesson_sessions").select("user_id, duration_seconds, created_at").in("lesson_id", lessonIds)
       : Promise.resolve({ data: [] }),
-    admin.from("ai_coach_sessions").select("user_id, started_at, last_message_at, message_count").eq("course_id", params.id),
+    admin.from("ai_coach_sessions").select("user_id, lesson_id, started_at, last_message_at, message_count").eq("course_id", params.id),
   ]);
 
   const enrollments = cohortIds !== null
@@ -228,11 +228,12 @@ export default async function AnalyticsPage({ params }: { params: { id: string }
     messages: number;
     durationSeconds: number;
     lastActive: string | null;
+    lessonIds: Set<string>;
   };
   const coachStatsMap: Record<string, CoachStats> = {};
   for (const s of coachSessions ?? []) {
     if (!coachStatsMap[s.user_id]) {
-      coachStatsMap[s.user_id] = { sessions: 0, messages: 0, durationSeconds: 0, lastActive: null };
+      coachStatsMap[s.user_id] = { sessions: 0, messages: 0, durationSeconds: 0, lastActive: null, lessonIds: new Set() };
     }
     const stats = coachStatsMap[s.user_id];
     stats.sessions += 1;
@@ -245,6 +246,7 @@ export default async function AnalyticsPage({ params }: { params: { id: string }
     if (!stats.lastActive || (s.last_message_at && s.last_message_at > stats.lastActive)) {
       stats.lastActive = s.last_message_at;
     }
+    if (s.lesson_id) stats.lessonIds.add(s.lesson_id);
   }
 
   function engagementLevel(stats: CoachStats | undefined): "none" | "low" | "medium" | "high" {
@@ -375,8 +377,8 @@ export default async function AnalyticsPage({ params }: { params: { id: string }
             <span className="col-span-2 text-center">Engagement</span>
             <span className="col-span-1 text-right">Sessions</span>
             <span className="col-span-1 text-right">Messages</span>
-            <span className="col-span-1 text-right">Msg/session</span>
-            <span className="col-span-2 text-right">Time in coach</span>
+            <span className="col-span-2 text-right">Lessons used</span>
+            <span className="col-span-1 text-right">Time</span>
             <span className="col-span-2 text-right">Last active</span>
           </div>
 
@@ -392,26 +394,32 @@ export default async function AnalyticsPage({ params }: { params: { id: string }
                   ? (stats.messages / stats.sessions).toFixed(1)
                   : null;
                 return (
-                  <div key={r.uid} className="px-5 py-3 grid grid-cols-12 items-center text-sm">
-                    <span className="col-span-3 font-medium text-gray-800 truncate">{r.name}</span>
-                    <span className="col-span-2 text-center">
+                  <div key={r.uid} className="px-5 py-3 grid grid-cols-12 items-start text-sm">
+                    <span className="col-span-3 font-medium text-gray-800 truncate pt-0.5">{r.name}</span>
+                    <span className="col-span-2 text-center pt-0.5">
                       <span className={`inline-flex items-center text-xs px-2 py-0.5 rounded-full font-medium ${badge.cls}`}>
                         {level === "high" && "✦ "}{badge.label}
                       </span>
                     </span>
-                    <span className="col-span-1 text-right text-xs text-gray-600 tabular-nums">
+                    <span className="col-span-1 text-right text-xs text-gray-600 tabular-nums pt-0.5">
                       {stats?.sessions ?? 0}
                     </span>
-                    <span className="col-span-1 text-right text-xs text-gray-600 tabular-nums">
+                    <span className="col-span-1 text-right text-xs text-gray-600 tabular-nums pt-0.5">
                       {stats?.messages ?? 0}
                     </span>
-                    <span className="col-span-1 text-right text-xs text-gray-400 tabular-nums">
-                      {avgPerSession ?? "—"}
+                    <span className="col-span-2 text-right text-xs text-gray-500">
+                      {stats && stats.lessonIds.size > 0
+                        ? Array.from(stats.lessonIds).map((lid) => (
+                            <span key={lid} className="block truncate" title={lessonMap[lid]?.title}>
+                              {lessonMap[lid] ? `M${lessonMap[lid].order}` : "—"}
+                            </span>
+                          ))
+                        : <span className="text-gray-300">—</span>}
                     </span>
-                    <span className="col-span-2 text-right text-xs text-gray-500 tabular-nums">
+                    <span className="col-span-1 text-right text-xs text-gray-500 tabular-nums pt-0.5">
                       {stats && stats.durationSeconds > 0 ? formatTime(stats.durationSeconds) : "—"}
                     </span>
-                    <span className="col-span-2 text-right text-xs text-gray-400">
+                    <span className="col-span-2 text-right text-xs text-gray-400 pt-0.5">
                       {stats?.lastActive ? formatDate(stats.lastActive) : "—"}
                     </span>
                   </div>

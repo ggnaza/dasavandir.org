@@ -10,6 +10,8 @@ import { z } from "zod";
 const chatSchema = z.object({
   lessonId: z.string().uuid(),
   courseId: z.string().uuid().optional(),
+  sessionId: z.string().uuid().optional().nullable(),
+  newSession: z.boolean().optional().default(false),
   messages: z.array(z.object({
     role: z.enum(["user", "assistant"]),
     content: z.string().max(10_000),
@@ -31,7 +33,7 @@ export async function POST(req: Request) {
 
   const parsed = chatSchema.safeParse(await req.json());
   if (!parsed.success) return new Response("Invalid input", { status: 400 });
-  const { messages, lessonId, courseId } = parsed.data;
+  const { messages, lessonId, courseId, sessionId: requestedSessionId, newSession } = parsed.data;
   const userId = user.id;
 
   const admin = createAdminClient();
@@ -69,6 +71,21 @@ export async function POST(req: Request) {
     learnerFirstName = profile?.full_name?.split(" ")[0]?.trim() ?? "";
   } else {
     return new Response("Course not found", { status: 404 });
+  }
+
+  // Resolve or create session before streaming so we have an ID for message saving
+  const sessionId = await resolveSession(admin, userId, resolvedCourseId!, lessonId, requestedSessionId ?? null, newSession ?? false);
+
+  // Save the user's message (last in array) immediately
+  const userMessage = messages[messages.length - 1];
+  if (userMessage?.role === "user") {
+    await admin.from("ai_coach_messages").insert({
+      session_id: sessionId,
+      user_id: userId,
+      course_id: resolvedCourseId,
+      role: "user",
+      content: userMessage.content,
+    }).then(undefined, () => {});
   }
 
   // Load all lessons for context + learner data
@@ -307,13 +324,14 @@ FORMAT: Use **bold** for the three section headings. Keep each section concise. 
         }
         controller.close();
         if (effectiveCourseId && fullReply) {
+          saveAssistantMessage(admin, sessionId, userId, effectiveCourseId, fullReply).catch(() => {});
+          updateSessionAfterReply(admin, sessionId).catch(() => {});
           updateMemory(admin, userId, effectiveCourseId, messages, fullReply, memoryContext).catch(() => {});
-          logCoachSession(admin, userId, effectiveCourseId, lessonId).catch(() => {});
         }
       },
     });
 
-    return new Response(readable, { headers: { "Content-Type": "text/plain; charset=utf-8" } });
+    return new Response(readable, { headers: { "Content-Type": "text/plain; charset=utf-8", "X-Session-Id": sessionId } });
   }
 
   if (model.startsWith("gemini-")) {
@@ -361,14 +379,15 @@ FORMAT: Use **bold** for the three section headings. Keep each section concise. 
         controller.close();
 
         if (effectiveCourseId && fullReply) {
+          saveAssistantMessage(admin, sessionId, userId, effectiveCourseId, fullReply).catch(() => {});
+          updateSessionAfterReply(admin, sessionId).catch(() => {});
           updateMemory(admin, userId, effectiveCourseId, messages, fullReply, memoryContext).catch(() => {});
-          logCoachSession(admin, userId, effectiveCourseId, lessonId).catch(() => {});
         }
       },
     });
 
     return new Response(readable, {
-      headers: { "Content-Type": "text/plain; charset=utf-8" },
+      headers: { "Content-Type": "text/plain; charset=utf-8", "X-Session-Id": sessionId },
     });
   }
 
@@ -398,20 +417,81 @@ FORMAT: Use **bold** for the three section headings. Keep each section concise. 
       controller.close();
 
       if (effectiveCourseId && fullReply) {
+        saveAssistantMessage(admin, sessionId, userId, effectiveCourseId, fullReply).catch(() => {});
+        updateSessionAfterReply(admin, sessionId).catch(() => {});
         updateMemory(admin, userId, effectiveCourseId, messages, fullReply, memoryContext).catch(() => {});
-        logCoachSession(admin, userId, effectiveCourseId, lessonId).catch(() => {});
       }
     },
   });
 
   return new Response(readable, {
-    headers: { "Content-Type": "text/plain; charset=utf-8" },
+    headers: { "Content-Type": "text/plain; charset=utf-8", "X-Session-Id": sessionId },
   });
 }
 
-// Log or update an AI Coach session.
-// Sessions are grouped by 30-min inactivity windows — same session if last message < 30 min ago.
-// No chat content stored — only timing and message counts.
+async function resolveSession(
+  admin: any,
+  userId: string,
+  courseId: string,
+  lessonId: string,
+  requestedSessionId: string | null,
+  newSession: boolean,
+): Promise<string> {
+  // Explicit session from client — verify ownership and reuse it
+  if (requestedSessionId && !newSession) {
+    const { data } = await admin
+      .from("ai_coach_sessions")
+      .select("id")
+      .eq("id", requestedSessionId)
+      .eq("user_id", userId)
+      .eq("course_id", courseId)
+      .maybeSingle();
+    if (data) return data.id;
+  }
+
+  // New session explicitly requested — always create fresh
+  if (newSession) {
+    const { data } = await admin
+      .from("ai_coach_sessions")
+      .insert({ user_id: userId, course_id: courseId, lesson_id: lessonId, started_at: new Date().toISOString(), last_message_at: new Date().toISOString(), message_count: 0 })
+      .select("id").single();
+    return data!.id;
+  }
+
+  // Auto-continue: reuse an open session within the last 30 minutes
+  const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+  const { data: existing } = await admin
+    .from("ai_coach_sessions")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("course_id", courseId)
+    .gte("last_message_at", thirtyMinutesAgo)
+    .order("last_message_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (existing) return existing.id;
+
+  // Create a new session
+  const { data } = await admin
+    .from("ai_coach_sessions")
+    .insert({ user_id: userId, course_id: courseId, lesson_id: lessonId, started_at: new Date().toISOString(), last_message_at: new Date().toISOString(), message_count: 0 })
+    .select("id").single();
+  return data!.id;
+}
+
+async function saveAssistantMessage(admin: any, sessionId: string, userId: string, courseId: string, content: string) {
+  await admin.from("ai_coach_messages").insert({ session_id: sessionId, user_id: userId, course_id: courseId, role: "assistant", content });
+}
+
+async function updateSessionAfterReply(admin: any, sessionId: string) {
+  const { data: session } = await admin.from("ai_coach_sessions").select("message_count").eq("id", sessionId).single();
+  await admin.from("ai_coach_sessions").update({
+    message_count: (session?.message_count ?? 0) + 2, // user + assistant
+    last_message_at: new Date().toISOString(),
+  }).eq("id", sessionId);
+}
+
+// Legacy — kept for reference but no longer called; replaced by resolveSession + updateSessionAfterReply
 async function logCoachSession(
   admin: any,
   userId: string,
