@@ -317,6 +317,10 @@ FORMAT: Use **bold** for the three section headings. Keep each section concise. 
   }
 
   if (model.startsWith("gemini-")) {
+    if (!process.env.GOOGLE_GEMINI_API_KEY) {
+      console.error("[chat] GOOGLE_GEMINI_API_KEY is not set");
+      return new Response("AI service is not configured. Please contact an administrator.", { status: 503 });
+    }
     const gemini = new GoogleGenAI({ apiKey: process.env.GOOGLE_GEMINI_API_KEY });
 
     const geminiMessages = messages.map((m: { role: string; content: string }) => ({
@@ -324,24 +328,35 @@ FORMAT: Use **bold** for the three section headings. Keep each section concise. 
       parts: [{ text: m.content }],
     }));
 
-    const stream = await gemini.models.generateContentStream({
-      model,
-      contents: geminiMessages,
-      config: {
-        systemInstruction: systemPrompt,
-        maxOutputTokens: 1200,
-        temperature: 0.3,
-      },
-    });
+    let stream: AsyncIterable<any>;
+    try {
+      stream = await gemini.models.generateContentStream({
+        model,
+        contents: geminiMessages,
+        config: {
+          systemInstruction: systemPrompt,
+          maxOutputTokens: 1200,
+          temperature: 0.3,
+        },
+      });
+    } catch (err: any) {
+      console.error("[chat] Gemini stream init failed:", err?.message ?? err);
+      return new Response(`AI error: ${err?.message ?? "Unknown error"}`, { status: 502 });
+    }
 
     const readable = new ReadableStream({
       async start(controller) {
-        for await (const chunk of stream) {
-          const text = chunk.text ?? "";
-          if (text) {
-            fullReply += text;
-            controller.enqueue(encoder.encode(text));
+        try {
+          for await (const chunk of stream) {
+            const text = chunk.text ?? "";
+            if (text) {
+              fullReply += text;
+              controller.enqueue(encoder.encode(text));
+            }
           }
+        } catch (err: any) {
+          console.error("[chat] Gemini stream read failed:", err?.message ?? err);
+          controller.enqueue(encoder.encode("\n\n[AI error — please try again]"));
         }
         controller.close();
 
