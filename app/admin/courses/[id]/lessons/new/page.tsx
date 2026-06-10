@@ -1,7 +1,6 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
 import { LessonContentEditor } from "@/components/lesson-content-editor-dynamic";
 
@@ -17,29 +16,19 @@ export default function NewLessonPage({ params }: { params: { id: string } }) {
     e.preventDefault();
     setLoading(true);
     setError("");
-    const supabase = createClient();
 
-    const { data: existing } = await supabase
-      .from("lessons")
-      .select("order")
-      .eq("course_id", params.id)
-      .order("order", { ascending: false })
-      .limit(1)
-      .single();
+    const res = await fetch("/api/admin/lessons", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ course_id: params.id, title, content, video_url: videoUrl || null }),
+    });
 
-    const nextOrder = (existing?.order ?? 0) + 1;
-
-    const { data, error } = await supabase
-      .from("lessons")
-      .insert({ course_id: params.id, title, content, video_url: videoUrl || null, order: nextOrder })
-      .select("id")
-      .single();
-
-    if (error) {
-      setError(error.message);
+    if (!res.ok) {
+      setError(await res.text());
       setLoading(false);
     } else {
-      router.push(`/admin/courses/${params.id}/lessons/${data.id}`);
+      const { id } = await res.json();
+      router.push(`/admin/courses/${params.id}/lessons/${id}`);
     }
   }
 
