@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import OpenAI from "openai";
+import { getAIModel, callLLM } from "@/lib/llm";
 
 export const runtime = "nodejs";
 export const maxDuration = 90;
@@ -57,27 +57,17 @@ Return ONLY valid JSON with the same structure as the input — no markdown, no 
   ]
 }`;
 
-  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-
-  const completion = await openai.chat.completions.create({
-    model: "gpt-4o",
-    messages: [
-      { role: "system", content: systemPrompt },
-      {
-        role: "user",
-        content: `Current course:\n${JSON.stringify(currentCourse, null, 2)}\n\nInstruction: ${instruction}`,
-      },
-    ],
-    response_format: { type: "json_object" },
-    max_tokens: 12000,
-    temperature: 0.3,
-  });
-
-  const raw = completion.choices[0]?.message?.content ?? "";
+  const model = await getAIModel();
+  const raw = await callLLM(
+    model,
+    systemPrompt,
+    `Current course:\n${JSON.stringify(currentCourse, null, 2)}\n\nInstruction: ${instruction}`,
+    { maxTokens: 12000, temperature: 0.3, jsonMode: true }
+  );
 
   let parsed: any;
   try {
-    parsed = JSON.parse(raw);
+    parsed = JSON.parse(raw.replace(/^```json\s*/i, "").replace(/```\s*$/i, "").trim());
   } catch {
     return new Response("AI returned unexpected output. Please try again.", { status: 500 });
   }
