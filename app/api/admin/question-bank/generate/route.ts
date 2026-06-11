@@ -9,6 +9,12 @@ const schema = z.object({
   lesson_id: z.string().uuid(),
   course_id: z.string().uuid(),
   count: z.number().int().min(1).max(20).optional().default(5),
+  sources: z.object({
+    content: z.boolean(),
+    slides: z.boolean(),
+    uploads: z.boolean(),
+  }).optional().default({ content: true, slides: true, uploads: true }),
+  adHocText: z.string().max(30000).optional(),
 });
 
 export async function POST(req: Request) {
@@ -27,7 +33,11 @@ export async function POST(req: Request) {
   const parsed = schema.safeParse(await req.json());
   if (!parsed.success) return new Response("Invalid input", { status: 400 });
 
-  const { lesson_id, course_id, count } = parsed.data;
+  const { lesson_id, course_id, count, sources, adHocText } = parsed.data;
+
+  if (!sources.content && !sources.slides && !sources.uploads && !adHocText?.trim()) {
+    return new Response("Select at least one content source to generate questions from.", { status: 400 });
+  }
 
   const ownerErr = await assertCourseOwner(course_id, user.id);
   if (ownerErr) return ownerErr;
@@ -42,13 +52,33 @@ export async function POST(req: Request) {
 
   if (!lesson) return new Response("Lesson not found", { status: 404 });
 
-  const text = [
-    (lesson.content ?? "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim(),
-    (lesson.slides_text ?? "").trim(),
-    (lesson.document_text ?? "").trim(),
-  ].filter(Boolean).join("\n\n").slice(0, 12000);
+  const contentText = sources.content ? (lesson.content ?? "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim() : "";
+  const slidesText = sources.slides ? (lesson.slides_text ?? "").trim() : "";
+  const documentText = sources.uploads ? (lesson.document_text ?? "").trim() : "";
 
-  if (!text) return new Response("This lesson has no text content to generate questions from.", { status: 422 });
+  let resourcesText = "";
+  if (sources.uploads) {
+    const { data: resources } = await admin
+      .from("course_resources")
+      .select("title, extracted_text")
+      .eq("course_id", course_id)
+      .order("created_at");
+    resourcesText = (resources ?? [])
+      .filter((r) => r.extracted_text?.trim())
+      .map((r) => `### ${r.title}\n${r.extracted_text!.trim()}`)
+      .join("\n\n")
+      .slice(0, 6000);
+  }
+
+  const text = [
+    contentText,
+    slidesText,
+    documentText,
+    resourcesText ? `Course supplementary resources:\n${resourcesText}` : "",
+    adHocText?.trim() ? `Additional uploaded materials:\n${adHocText.trim()}` : "",
+  ].filter(Boolean).join("\n\n").slice(0, 18000);
+
+  if (!text.trim()) return new Response("The selected sources have no text content. Try selecting different sources or extracting slides/documents first.", { status: 422 });
 
   const model = await getAIModel();
   const raw = await callLLM(
