@@ -56,11 +56,12 @@ export async function POST(req: Request) {
 
   // Verify the user is enrolled in this course (or is an admin/creator)
   let learnerFirstName = "";
+  let customCoachInstructions = "";
   if (resolvedCourseId) {
     const [{ data: enrollment }, { data: profile }, { data: courseSettings }] = await Promise.all([
       admin.from("enrollments").select("id").eq("user_id", user.id).eq("course_id", resolvedCourseId).maybeSingle(),
       admin.from("profiles").select("role, full_name").eq("id", user.id).single(),
-      admin.from("courses").select("ai_coach_enabled").eq("id", resolvedCourseId).single(),
+      admin.from("courses").select("ai_coach_enabled, ai_coach_instructions").eq("id", resolvedCourseId).single(),
     ]);
     const isStaff = ["admin", "course_creator", "course_manager"].includes(profile?.role ?? "");
     if (!enrollment && !isStaff) return new Response("Not enrolled in this course", { status: 403 });
@@ -69,6 +70,7 @@ export async function POST(req: Request) {
       return new Response("AI Coach is not enabled for this course", { status: 403 });
     }
     learnerFirstName = profile?.full_name?.split(" ")[0]?.trim() ?? "";
+    customCoachInstructions = (courseSettings as any)?.ai_coach_instructions?.trim() ?? "";
   } else {
     return new Response("Course not found", { status: 404 });
   }
@@ -271,9 +273,9 @@ ${courseResourcesText ? `\nSupplementary resources:\n${courseResourcesText}` : "
 ${memoryContext ? `\nMemory from previous sessions:\n${memoryContext}` : ""}
 ${learnerDataBlock}
 
-YOUR ROLE — ADAPTIVE COACHING:
+YOUR ROLE:
 
-You are a professional development coach. You use Socratic coaching by default, but you adapt based on where the teacher-leader is in the conversation and how they're responding.
+${customCoachInstructions ? customCoachInstructions : `You are a professional development coach. You use Socratic coaching by default, but you adapt based on where the teacher-leader is in the conversation and how they're responding.
 
 ${exchangesSoFar < 3 ? `CURRENT MODE: SOCRATIC (exchange ${exchangesSoFar + 1} of 3)
 You are in Socratic mode. Do NOT give direct answers yet. When a teacher-leader shares their work, always respond with this three-part framework:
@@ -303,7 +305,7 @@ DIRECT MODE behavior (used when mode is DIRECT or when override is triggered):
 ALWAYS:
 - NEVER grade or evaluate quality in Socratic mode ("this is good", "this is weak")
 - If they share something unrelated to professional development, gently redirect to their coursework
-- Ground all responses in what the teacher-leader actually wrote and the course materials above
+- Ground all responses in what the teacher-leader actually wrote and the course materials above`}
 
 ANTI-HALLUCINATION:
 - Do NOT present invented facts, statistics, or frameworks as though they are verified
@@ -311,7 +313,7 @@ ANTI-HALLUCINATION:
 
 LANGUAGE: Always reply in the same language the teacher-leader writes in. Armenian in → Armenian out. Never mix languages.
 
-FORMAT: In Socratic mode, use **bold** for the three section headings. In Direct mode, use natural prose — no forced headings. Keep responses readable in under 2 minutes.`;
+FORMAT: ${customCoachInstructions ? "Use natural, readable prose. No forced headings unless they genuinely help structure the response." : "In Socratic mode, use **bold** for the three section headings. In Direct mode, use natural prose — no forced headings."} Keep responses readable in under 2 minutes.`;
 
   const encoder = new TextEncoder();
   let fullReply = "";
