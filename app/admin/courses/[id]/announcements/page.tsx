@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { notFound, redirect } from "next/navigation";
 import { CreateAnnouncementForm } from "./create-form";
+import { AnnouncementCard } from "@/components/announcement-card";
 
 export const dynamic = "force-dynamic";
 
@@ -24,16 +25,66 @@ export default async function AnnouncementsPage({ params }: { params: { id: stri
 
   if (!course) notFound();
 
-  const { data: announcements } = await admin
+  type RawAnnouncement = {
+    id: string;
+    title: string;
+    body: string;
+    created_at: string;
+    profiles: { full_name: string | null } | null;
+    announcement_reactions: { id: string; emoji: string; user_id: string }[];
+    announcement_comments: {
+      id: string;
+      body: string;
+      user_id: string;
+      created_at: string;
+      profiles: { full_name: string | null } | null;
+    }[];
+  };
+
+  const { data } = await admin
     .from("announcements")
     .select(`
       id, title, body, created_at,
       profiles!author_id ( full_name ),
-      comment_count:announcement_comments ( count ),
-      reaction_count:announcement_reactions ( count )
+      announcement_reactions ( id, emoji, user_id ),
+      announcement_comments (
+        id, body, user_id, created_at,
+        profiles!user_id ( full_name )
+      )
     `)
     .eq("course_id", params.id)
     .order("created_at", { ascending: false });
+
+  const announcements = (data as unknown as RawAnnouncement[]) ?? [];
+
+  const items = announcements.map((a) => {
+    const reactionMap: Record<string, { count: number; reacted: boolean }> = {};
+    for (const r of a.announcement_reactions ?? []) {
+      if (!reactionMap[r.emoji]) reactionMap[r.emoji] = { count: 0, reacted: false };
+      reactionMap[r.emoji].count++;
+      if (r.user_id === user.id) reactionMap[r.emoji].reacted = true;
+    }
+    const reactions = Object.entries(reactionMap).map(([emoji, d]) => ({ emoji, ...d }));
+
+    const comments = (a.announcement_comments ?? []).map((c) => ({
+      id: c.id,
+      body: c.body,
+      user_id: c.user_id,
+      author: c.profiles?.full_name ?? "Unknown",
+      created_at: c.created_at,
+    }));
+
+    return {
+      id: a.id,
+      title: a.title,
+      body: a.body,
+      createdAt: a.created_at,
+      author: a.profiles?.full_name ?? "Unknown",
+      courseTitle: course.title,
+      reactions,
+      comments,
+    };
+  });
 
   return (
     <div className="max-w-2xl">
@@ -47,32 +98,12 @@ export default async function AnnouncementsPage({ params }: { params: { id: stri
       <CreateAnnouncementForm courseId={params.id} isCourseManager={profile.role === "course_manager"} />
 
       <div className="mt-8 space-y-4">
-        {!announcements?.length && (
+        {!items.length && (
           <p className="text-sm text-gray-400 text-center py-8">No announcements yet.</p>
         )}
-        {announcements?.map((a) => {
-          const author = (a.profiles as any)?.full_name ?? "Unknown";
-          const commentCount = (a.comment_count as any)?.[0]?.count ?? 0;
-          const reactionCount = (a.reaction_count as any)?.[0]?.count ?? 0;
-
-          return (
-            <div key={a.id} className="bg-white border rounded-xl p-5">
-              <div className="flex items-start justify-between gap-4">
-                <h3 className="font-semibold text-gray-900">{a.title}</h3>
-                <div className="flex items-center gap-3 shrink-0 text-xs text-gray-400">
-                  {reactionCount > 0 && <span>👍 {reactionCount}</span>}
-                  {commentCount > 0 && <span>💬 {commentCount}</span>}
-                </div>
-              </div>
-              <div className="flex items-center gap-2 text-xs text-gray-400 mt-1">
-                <span>{author}</span>
-                <span>·</span>
-                <span>{new Date(a.created_at).toLocaleDateString()}</span>
-              </div>
-              <p className="text-sm text-gray-700 mt-3 whitespace-pre-wrap">{a.body}</p>
-            </div>
-          );
-        })}
+        {items.map((item) => (
+          <AnnouncementCard key={item.id} {...item} currentUserId={user.id} />
+        ))}
       </div>
     </div>
   );

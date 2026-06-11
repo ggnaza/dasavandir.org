@@ -11,13 +11,14 @@ async function checkAccess(userId: string, announcementId: string, admin: Return
 
   if (!announcement) return null;
 
-  const [{ data: enrollment }, { data: creatorAccess }, { data: profile }] = await Promise.all([
+  const [{ data: enrollment }, { data: creatorAccess }, { data: managerAccess }, { data: profile }] = await Promise.all([
     admin.from("enrollments").select("id").eq("user_id", userId).eq("course_id", announcement.course_id).single(),
     admin.from("course_creator_access").select("id").eq("creator_id", userId).eq("course_id", announcement.course_id).single(),
+    admin.from("course_manager_access").select("id").eq("manager_id", userId).eq("course_id", announcement.course_id).single(),
     admin.from("profiles").select("role").eq("id", userId).single(),
   ]);
 
-  return enrollment || creatorAccess || profile?.role === "admin" ? announcement : null;
+  return enrollment || creatorAccess || managerAccess || profile?.role === "admin" ? announcement : null;
 }
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
