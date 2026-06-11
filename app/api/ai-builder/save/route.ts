@@ -45,6 +45,15 @@ export async function POST(req: Request) {
     return new Response("Failed to create course", { status: 500 });
   }
 
+  // Course creators must be explicitly linked to see/edit their course
+  if (profile?.role === "course_creator") {
+    await admin.from("course_creator_access").insert({
+      creator_id: user.id,
+      course_id: course.id,
+      granted_by: user.id,
+    });
+  }
+
   for (let i = 0; i < lessons.length; i++) {
     const lesson = lessons[i];
 
