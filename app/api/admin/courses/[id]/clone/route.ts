@@ -42,6 +42,15 @@ export async function POST(req: Request, { params }: { params: { id: string } })
 
   const newCourseId = cloned.id;
 
+  // Course creators must be explicitly linked to see/edit their course
+  if (profile?.role === "course_creator") {
+    await admin.from("course_creator_access").insert({
+      creator_id: user.id,
+      course_id: newCourseId,
+      granted_by: user.id,
+    });
+  }
+
   // Fetch all source lessons
   const { data: lessons } = await admin
     .from("lessons")

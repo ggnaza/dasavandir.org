@@ -38,10 +38,17 @@ export async function POST(req: Request) {
     if (existingProfile) {
       await admin.from("profiles").update({ role, full_name: fullName }).eq("id", existingProfile.id);
       if (courseId) {
-        await admin.from("enrollments").upsert(
-          { user_id: existingProfile.id, course_id: courseId },
-          { onConflict: "user_id,course_id" }
-        );
+        if (role === "course_creator") {
+          await admin.from("course_creator_access").upsert(
+            { creator_id: existingProfile.id, course_id: courseId, granted_by: user.id },
+            { onConflict: "creator_id,course_id" }
+          );
+        } else {
+          await admin.from("enrollments").upsert(
+            { user_id: existingProfile.id, course_id: courseId },
+            { onConflict: "user_id,course_id" }
+          );
+        }
       }
       return new Response(
         JSON.stringify({ success: true, message: "User already exists — role updated." }),
@@ -89,10 +96,17 @@ export async function POST(req: Request) {
     }
 
     if (courseId) {
-      await admin.from("enrollments").upsert(
-        { user_id: linkData.user.id, course_id: courseId },
-        { onConflict: "user_id,course_id" }
-      );
+      if (role === "course_creator") {
+        await admin.from("course_creator_access").upsert(
+          { creator_id: linkData.user.id, course_id: courseId, granted_by: user.id },
+          { onConflict: "creator_id,course_id" }
+        );
+      } else {
+        await admin.from("enrollments").upsert(
+          { user_id: linkData.user.id, course_id: courseId },
+          { onConflict: "user_id,course_id" }
+        );
+      }
     }
 
     await sendInviteLinkEmail({ to: email, fullName, inviteUrl: linkData.properties.action_link });
