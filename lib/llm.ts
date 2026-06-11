@@ -63,6 +63,10 @@ export async function callLLM(
         maxOutputTokens: maxTokens,
         temperature,
         ...(jsonMode ? { responseMimeType: "application/json" } : {}),
+        // Gemini 2.5 thinking tokens count against maxOutputTokens and can
+        // consume the entire budget, returning empty text. Flash models allow
+        // disabling thinking; Pro does not (minimum budget is enforced).
+        ...(model.includes("flash") ? { thinkingConfig: { thinkingBudget: 0 } } : {}),
       },
     });
     return result.text ?? "";
