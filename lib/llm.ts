@@ -58,7 +58,12 @@ export async function callLLM(
     const result = await gemini.models.generateContent({
       model,
       contents: [{ role: "user", parts: [{ text: userMessage }] }],
-      config: { systemInstruction: effectiveSystem, maxOutputTokens: maxTokens, temperature },
+      config: {
+        systemInstruction: effectiveSystem,
+        maxOutputTokens: maxTokens,
+        temperature,
+        ...(jsonMode ? { responseMimeType: "application/json" } : {}),
+      },
     });
     return result.text ?? "";
   }
