@@ -17,6 +17,7 @@ const schema = z.object({
     slides: z.boolean(),
     uploads: z.boolean(),
   }).optional().default({ content: true, slides: true, uploads: true }),
+  adHocText: z.string().max(30000).optional(),
 });
 
 export async function POST(req: Request) {
@@ -35,9 +36,9 @@ export async function POST(req: Request) {
   const parsed = schema.safeParse(await req.json());
   if (!parsed.success) return new Response("Invalid input", { status: 400 });
 
-  const { lessonId, count, chapterTitle, chapterStart, chapterEnd, sources } = parsed.data;
+  const { lessonId, count, chapterTitle, chapterStart, chapterEnd, sources, adHocText } = parsed.data;
 
-  if (!sources.content && !sources.slides && !sources.uploads) {
+  if (!sources.content && !sources.slides && !sources.uploads && !adHocText?.trim()) {
     return new Response("Select at least one content source to generate questions from.", { status: 400 });
   }
 
@@ -90,6 +91,7 @@ export async function POST(req: Request) {
   const fullContext = [
     lessonText,
     resourcesText ? `Course supplementary resources:\n${resourcesText}` : "",
+    adHocText?.trim() ? `Additional uploaded materials:\n${adHocText.trim()}` : "",
   ].filter(Boolean).join("\n\n");
 
   if (!fullContext.trim() || fullContext.trim() === `Lesson title: ${lesson.title}`) {
