@@ -23,6 +23,12 @@ export default function CourseAdminLayout({ children, params }: { children: Reac
 
   const isPeoplePage = peopleSubTabs.some((t) => pathname.startsWith(t.href));
 
+  const aiCoachSubTabs = [
+    { label: "Facilitation Chat", href: `${base}/ai-coach` },
+    { label: "Coach Configuration", href: `${base}/ai-coach/configuration` },
+  ];
+  const isAiCoachPage = pathname.startsWith(`${base}/ai-coach`);
+
   // course_managers get a limited read-only view
   const tabs = isManager
     ? [
@@ -74,7 +80,7 @@ export default function CourseAdminLayout({ children, params }: { children: Reac
         })}
       </nav>
 
-      {/* People sub-tabs — only visible when on a People page */}
+      {/* People sub-tabs */}
       {!isManager && isPeoplePage && (
         <div className="flex gap-1 border-b bg-gray-50 px-2 mb-6">
           {peopleSubTabs.map((sub) => {
@@ -96,8 +102,32 @@ export default function CourseAdminLayout({ children, params }: { children: Reac
         </div>
       )}
 
+      {/* AI Coach sub-tabs */}
+      {isAiCoachPage && (
+        <div className="flex gap-1 border-b bg-gray-50 px-2 mb-6">
+          {aiCoachSubTabs.map((sub) => {
+            const active = sub.href === `${base}/ai-coach`
+              ? pathname === sub.href
+              : pathname.startsWith(sub.href);
+            return (
+              <Link
+                key={sub.href}
+                href={sub.href}
+                className={`px-3 py-2 text-xs font-medium border-b-2 -mb-px transition-colors ${
+                  active
+                    ? "border-brand-500 text-brand-700"
+                    : "border-transparent text-gray-400 hover:text-gray-700 hover:border-gray-300"
+                }`}
+              >
+                {sub.label}
+              </Link>
+            );
+          })}
+        </div>
+      )}
+
       {/* Spacer when no sub-tabs shown */}
-      {(isManager || !isPeoplePage) && <div className="mb-6" />}
+      {(isManager || (!isPeoplePage && !isAiCoachPage)) && <div className="mb-6" />}
 
       {children}
     </div>
