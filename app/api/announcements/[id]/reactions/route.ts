@@ -24,14 +24,15 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
   if (!announcement) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  // Check enrollment or creator/admin access
-  const [{ data: enrollment }, { data: creatorAccess }, { data: profile }] = await Promise.all([
+  // Check enrollment or creator/manager/admin access
+  const [{ data: enrollment }, { data: creatorAccess }, { data: managerAccess }, { data: profile }] = await Promise.all([
     admin.from("enrollments").select("id").eq("user_id", user.id).eq("course_id", announcement.course_id).single(),
     admin.from("course_creator_access").select("id").eq("creator_id", user.id).eq("course_id", announcement.course_id).single(),
+    admin.from("course_manager_access").select("id").eq("manager_id", user.id).eq("course_id", announcement.course_id).single(),
     admin.from("profiles").select("role").eq("id", user.id).single(),
   ]);
 
-  const hasAccess = enrollment || creatorAccess || profile?.role === "admin";
+  const hasAccess = enrollment || creatorAccess || managerAccess || profile?.role === "admin";
   if (!hasAccess) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   // Toggle: delete if exists, insert if not
