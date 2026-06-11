@@ -28,6 +28,14 @@ export function QuizEditor({ lessonId, courseId, existing, bankQuestionCount }: 
   const [genWarnings, setGenWarnings] = useState<string[]>([]);
   const [genCount, setGenCount] = useState(5);
   const [deleting, setDeleting] = useState(false);
+  const [sources, setSources] = useState({ content: true, slides: true, uploads: true });
+
+  const allSources = sources.content && sources.slides && sources.uploads;
+  const noSources = !sources.content && !sources.slides && !sources.uploads;
+
+  function toggleAllSources(checked: boolean) {
+    setSources({ content: checked, slides: checked, uploads: checked });
+  }
 
   async function handleGenerate() {
     setGenerating(true);
@@ -36,7 +44,7 @@ export function QuizEditor({ lessonId, courseId, existing, bankQuestionCount }: 
     const res = await fetch("/api/ai-builder/quiz", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ lessonId, count: genCount }),
+      body: JSON.stringify({ lessonId, count: genCount, sources }),
     });
     if (!res.ok) {
       setGenError(await res.text());
@@ -117,16 +125,63 @@ export function QuizEditor({ lessonId, courseId, existing, bankQuestionCount }: 
             </div>
             <button
               onClick={handleGenerate}
-              disabled={generating}
+              disabled={generating || noSources}
               className="bg-brand-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-brand-700 disabled:opacity-50"
             >
               {generating ? "Generating…" : "Generate"}
             </button>
           </div>
         </div>
+
+        {/* Source selection */}
+        <div className="mt-4 pt-3 border-t border-brand-200">
+          <p className="text-xs font-medium text-brand-800 mb-2">Generate questions from:</p>
+          <div className="flex items-center gap-5 flex-wrap">
+            <label className="flex items-center gap-2 text-xs text-brand-900 font-medium cursor-pointer">
+              <input
+                type="checkbox"
+                checked={allSources}
+                onChange={(e) => toggleAllSources(e.target.checked)}
+                className="w-4 h-4"
+              />
+              Use all lesson materials
+            </label>
+            <span className="text-brand-300">|</span>
+            <label className="flex items-center gap-2 text-xs text-brand-700 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={sources.slides}
+                onChange={(e) => setSources({ ...sources, slides: e.target.checked })}
+                className="w-4 h-4"
+              />
+              Use Slides
+            </label>
+            <label className="flex items-center gap-2 text-xs text-brand-700 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={sources.content}
+                onChange={(e) => setSources({ ...sources, content: e.target.checked })}
+                className="w-4 h-4"
+              />
+              Use Content Section
+            </label>
+            <label className="flex items-center gap-2 text-xs text-brand-700 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={sources.uploads}
+                onChange={(e) => setSources({ ...sources, uploads: e.target.checked })}
+                className="w-4 h-4"
+              />
+              Use uploaded materials
+            </label>
+          </div>
+          {noSources && (
+            <p className="text-xs text-amber-700 mt-2">Select at least one source to generate questions.</p>
+          )}
+        </div>
         {genError && <p className="text-red-600 text-xs mt-3">{genError}</p>}
         {generating && (
-          <p className="text-xs text-brand-600 mt-3 animate-pulse">Reading lesson content, slides, and documents…</p>
+          <p className="text-xs text-brand-600 mt-3 animate-pulse">Reading the selected lesson materials…</p>
         )}
         {genWarnings.length > 0 && (
           <div className="mt-3 bg-amber-50 border border-amber-200 rounded-lg p-3 space-y-1">
