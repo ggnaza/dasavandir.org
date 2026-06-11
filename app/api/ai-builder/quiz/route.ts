@@ -120,7 +120,7 @@ Return this exact JSON structure:
 The "correct" field is the 0-based index of the correct option.`;
 
   try {
-    const raw = await callLLM(model, systemPrompt, userMessage, { temperature: 0.3, maxTokens: 2000, jsonMode: true });
+    const raw = await callLLM(model, systemPrompt, userMessage, { temperature: 0.3, maxTokens: 8000, jsonMode: true });
     try {
       const json = JSON.parse(raw.replace(/```json|```/g, "").trim());
       return Response.json({ questions: json.questions });
