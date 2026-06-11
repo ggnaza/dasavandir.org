@@ -7,6 +7,9 @@ const MAX_BODY_BYTES = 1_048_576; // 1 MB
 // misuse early. Vercel enforces a hard 4.5 MB function limit as the backstop.
 function bodySizeGuard(request: NextRequest): NextResponse | null {
   if (!["POST", "PUT", "PATCH"].includes(request.method)) return null;
+  // Skip for file uploads — they use multipart/form-data and are larger by design
+  const contentType = request.headers.get("content-type") ?? "";
+  if (contentType.startsWith("multipart/form-data")) return null;
   const contentLength = parseInt(request.headers.get("content-length") ?? "0", 10);
   if (!isNaN(contentLength) && contentLength > MAX_BODY_BYTES) {
     return new NextResponse("Payload too large", { status: 413 });

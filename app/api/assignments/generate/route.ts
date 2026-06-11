@@ -22,7 +22,9 @@ export async function POST(req: Request) {
   const { allowed } = await checkRateLimit(`assign-gen:${user.id}`, 10, 60 * 60_000);
   if (!allowed) return rateLimitResponse({ limit: 10, windowSecs: 3600 });
 
-  const { lessonId } = await req.json();
+  const body = await req.json();
+  const { lessonId, adHocText } = body;
+  const sources = body.sources ?? { content: true, slides: true, uploads: true };
   if (!lessonId || !UUID_RE.test(lessonId)) return new Response("Missing lessonId", { status: 400 });
 
   const { data: lesson } = await admin
@@ -42,10 +44,10 @@ export async function POST(req: Request) {
   const languageMap: Record<string, string> = { hy: "Armenian", en: "English" };
   const language = languageMap[course?.language ?? ""] ?? null;
 
-  // Build lesson text from pre-extracted DB fields
-  const contentText = (lesson.content ?? "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
-  const slidesText = (lesson.slides_text ?? "").trim();
-  const documentText = (lesson.document_text ?? "").trim();
+  // Build lesson text from pre-extracted DB fields, respecting selected sources
+  const contentText = sources.content ? (lesson.content ?? "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim() : "";
+  const slidesText = sources.slides ? (lesson.slides_text ?? "").trim() : "";
+  const documentText = sources.uploads ? (lesson.document_text ?? "").trim() : "";
 
   const lessonText = [
     `Lesson title: ${lesson.title}`,
@@ -55,22 +57,26 @@ export async function POST(req: Request) {
     lesson.video_url ? `(This lesson also includes a video — AI cannot read video content)` : "",
   ].filter(Boolean).join("\n\n").slice(0, 12000);
 
-  // Load course-level resources
-  const { data: resources } = await admin
-    .from("course_resources")
-    .select("title, extracted_text")
-    .eq("course_id", lesson.course_id)
-    .order("created_at");
+  // Load course-level resources (only when uploads source is selected)
+  let resourcesText = "";
+  if (sources.uploads) {
+    const { data: resources } = await admin
+      .from("course_resources")
+      .select("title, extracted_text")
+      .eq("course_id", lesson.course_id)
+      .order("created_at");
 
-  const resourcesText = (resources ?? [])
-    .filter((r) => r.extracted_text?.trim())
-    .map((r) => `### ${r.title}\n${r.extracted_text!.trim()}`)
-    .join("\n\n")
-    .slice(0, 6000);
+    resourcesText = (resources ?? [])
+      .filter((r) => r.extracted_text?.trim())
+      .map((r) => `### ${r.title}\n${r.extracted_text!.trim()}`)
+      .join("\n\n")
+      .slice(0, 6000);
+  }
 
   const fullContext = [
     lessonText,
     resourcesText ? `Course supplementary resources:\n${resourcesText}` : "",
+    adHocText?.trim() ? `Additional uploaded materials:\n${adHocText.trim()}` : "",
   ].filter(Boolean).join("\n\n");
 
   if (!fullContext.trim() || fullContext.trim() === `Lesson title: ${lesson.title}`) {

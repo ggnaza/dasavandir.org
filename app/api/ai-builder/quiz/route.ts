@@ -12,6 +12,12 @@ const schema = z.object({
   chapterTitle: z.string().max(200).optional(),
   chapterStart: z.number().int().min(0).optional(),
   chapterEnd: z.number().int().min(0).optional(),
+  sources: z.object({
+    content: z.boolean(),
+    slides: z.boolean(),
+    uploads: z.boolean(),
+  }).optional().default({ content: true, slides: true, uploads: true }),
+  adHocText: z.string().max(30000).optional(),
 });
 
 export async function POST(req: Request) {
@@ -30,7 +36,11 @@ export async function POST(req: Request) {
   const parsed = schema.safeParse(await req.json());
   if (!parsed.success) return new Response("Invalid input", { status: 400 });
 
-  const { lessonId, count, chapterTitle, chapterStart, chapterEnd } = parsed.data;
+  const { lessonId, count, chapterTitle, chapterStart, chapterEnd, sources, adHocText } = parsed.data;
+
+  if (!sources.content && !sources.slides && !sources.uploads && !adHocText?.trim()) {
+    return new Response("Select at least one content source to generate questions from.", { status: 400 });
+  }
 
   const { data: lesson } = await admin
     .from("lessons")
@@ -49,10 +59,10 @@ export async function POST(req: Request) {
   const languageMap: Record<string, string> = { hy: "Armenian", en: "English" };
   const language = languageMap[course?.language ?? ""] ?? null;
 
-  // Build lesson text from pre-extracted DB fields
-  const contentText = (lesson.content ?? "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
-  const slidesText = (lesson.slides_text ?? "").trim();
-  const documentText = (lesson.document_text ?? "").trim();
+  // Build lesson text from pre-extracted DB fields, respecting the selected sources
+  const contentText = sources.content ? (lesson.content ?? "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim() : "";
+  const slidesText = sources.slides ? (lesson.slides_text ?? "").trim() : "";
+  const documentText = sources.uploads ? (lesson.document_text ?? "").trim() : "";
 
   const lessonText = [
     `Lesson title: ${lesson.title}`,
@@ -62,26 +72,30 @@ export async function POST(req: Request) {
     lesson.video_url ? `(This lesson also includes a video — AI cannot read video content)` : "",
   ].filter(Boolean).join("\n\n").slice(0, 12000);
 
-  // Load course-level resources
-  const { data: resources } = await admin
-    .from("course_resources")
-    .select("title, extracted_text")
-    .eq("course_id", lesson.course_id)
-    .order("created_at");
+  // Load course-level resources (only when uploaded materials are selected)
+  let resourcesText = "";
+  if (sources.uploads) {
+    const { data: resources } = await admin
+      .from("course_resources")
+      .select("title, extracted_text")
+      .eq("course_id", lesson.course_id)
+      .order("created_at");
 
-  const resourcesText = (resources ?? [])
-    .filter((r) => r.extracted_text?.trim())
-    .map((r) => `### ${r.title}\n${r.extracted_text!.trim()}`)
-    .join("\n\n")
-    .slice(0, 6000);
+    resourcesText = (resources ?? [])
+      .filter((r) => r.extracted_text?.trim())
+      .map((r) => `### ${r.title}\n${r.extracted_text!.trim()}`)
+      .join("\n\n")
+      .slice(0, 6000);
+  }
 
   const fullContext = [
     lessonText,
     resourcesText ? `Course supplementary resources:\n${resourcesText}` : "",
+    adHocText?.trim() ? `Additional uploaded materials:\n${adHocText.trim()}` : "",
   ].filter(Boolean).join("\n\n");
 
   if (!fullContext.trim() || fullContext.trim() === `Lesson title: ${lesson.title}`) {
-    return new Response("Lesson has no text content to generate questions from. Please extract slides or documents first.", { status: 400 });
+    return new Response("The selected sources have no text content to generate questions from. Try selecting different sources, or extract slides/documents first.", { status: 400 });
   }
 
   let chapterNote = "";

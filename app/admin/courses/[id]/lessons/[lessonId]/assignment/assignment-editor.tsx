@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { LessonContentEditor } from "@/components/lesson-content-editor";
 
@@ -30,6 +30,33 @@ export function AssignmentEditor({
   const [generating, setGenerating] = useState(false);
   const [genWarnings, setGenWarnings] = useState<string[]>([]);
 
+  // Source selection
+  const [sources, setSources] = useState({ content: true, slides: true, uploads: true });
+  const [useAdHoc, setUseAdHoc] = useState(false);
+  const [adHocFiles, setAdHocFiles] = useState<File[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const allPersistentSources = sources.content && sources.slides && sources.uploads;
+
+  function toggleAllSources(checked: boolean) {
+    setSources({ content: checked, slides: checked, uploads: checked });
+  }
+
+  function addFiles(incoming: FileList | null) {
+    if (!incoming) return;
+    const allowed = Array.from(incoming).filter((f) =>
+      /\.(pdf|docx?|txt)$/i.test(f.name)
+    );
+    setAdHocFiles((prev) => {
+      const names = new Set(prev.map((f) => f.name));
+      return [...prev, ...allowed.filter((f) => !names.has(f.name))].slice(0, 5);
+    });
+  }
+
+  function removeFile(name: string) {
+    setAdHocFiles((prev) => prev.filter((f) => f.name !== name));
+  }
+
   function addCriterion() {
     setRubric([...rubric, { criterion: "", description: "", max_points: 10 }]);
   }
@@ -50,10 +77,28 @@ export function AssignmentEditor({
     setGenerating(true);
     setError("");
     setGenWarnings([]);
+
+    // Extract ad-hoc files first if needed
+    let adHocText = "";
+    if (useAdHoc && adHocFiles.length > 0) {
+      const fd = new FormData();
+      adHocFiles.forEach((f) => fd.append("files", f));
+      const extractRes = await fetch("/api/extract-upload", { method: "POST", body: fd });
+      if (!extractRes.ok) {
+        setError(await extractRes.text());
+        setGenerating(false);
+        return;
+      }
+      const { results } = await extractRes.json();
+      adHocText = (results as Array<{ name: string; text: string }>)
+        .map((r) => `### ${r.name}\n${r.text}`)
+        .join("\n\n");
+    }
+
     const res = await fetch("/api/assignments/generate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ lessonId }),
+      body: JSON.stringify({ lessonId, sources, adHocText: adHocText || undefined }),
     });
     if (!res.ok) {
       setError("AI generation failed. Try again.");
@@ -128,8 +173,111 @@ export function AssignmentEditor({
           </button>
         </div>
 
+        {/* Source selection */}
+        <div className="bg-purple-50 border border-purple-200 rounded-xl p-4 space-y-2.5">
+          <p className="text-xs font-medium text-purple-800">Generate assignment from:</p>
+
+          {/* All lesson materials master toggle */}
+          <label className="flex items-center gap-2 text-xs text-purple-900 font-semibold cursor-pointer">
+            <input
+              type="checkbox"
+              checked={allPersistentSources}
+              onChange={(e) => toggleAllSources(e.target.checked)}
+              className="w-4 h-4"
+            />
+            Use all lesson materials
+          </label>
+
+          {/* Individual sources */}
+          <div className="flex flex-wrap gap-x-5 gap-y-2 ml-1">
+            <label className="flex items-center gap-2 text-xs text-purple-700 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={sources.slides}
+                onChange={(e) => setSources({ ...sources, slides: e.target.checked })}
+                className="w-4 h-4"
+              />
+              Use Slides
+            </label>
+            <label className="flex items-center gap-2 text-xs text-purple-700 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={sources.content}
+                onChange={(e) => setSources({ ...sources, content: e.target.checked })}
+                className="w-4 h-4"
+              />
+              Use Content Section
+            </label>
+            <label className="flex items-center gap-2 text-xs text-purple-700 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={sources.uploads}
+                onChange={(e) => setSources({ ...sources, uploads: e.target.checked })}
+                className="w-4 h-4"
+              />
+              Use uploaded materials
+            </label>
+            <label className="flex items-center gap-2 text-xs text-purple-700 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={useAdHoc}
+                onChange={(e) => setUseAdHoc(e.target.checked)}
+                className="w-4 h-4"
+              />
+              Upload materials
+            </label>
+          </div>
+
+          {/* Ad-hoc file upload area */}
+          {useAdHoc && (
+            <div className="mt-1 ml-1">
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                accept=".pdf,.doc,.docx,.txt"
+                className="hidden"
+                onChange={(e) => addFiles(e.target.files)}
+              />
+              {adHocFiles.length === 0 ? (
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="w-full border-2 border-dashed border-purple-300 rounded-lg py-4 text-xs text-purple-600 hover:bg-purple-100 transition-colors"
+                >
+                  Click to select files (PDF, DOCX, DOC, TXT — up to 5 files, 10 MB each)
+                </button>
+              ) : (
+                <div className="space-y-1.5">
+                  {adHocFiles.map((f) => (
+                    <div key={f.name} className="flex items-center justify-between bg-white border border-purple-200 rounded-lg px-3 py-2">
+                      <span className="text-xs text-purple-800 truncate max-w-xs">{f.name}</span>
+                      <button
+                        type="button"
+                        onClick={() => removeFile(f.name)}
+                        className="text-purple-400 hover:text-red-500 text-sm ml-3 shrink-0"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                  {adHocFiles.length < 5 && (
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="text-xs text-purple-600 hover:underline"
+                    >
+                      + Add more files
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
         {generating && (
-          <p className="text-xs text-purple-600 animate-pulse">Reading lesson content, slides, and documents…</p>
+          <p className="text-xs text-purple-600 animate-pulse">Reading the selected lesson materials…</p>
         )}
         {genWarnings.length > 0 && (
           <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 space-y-1">
