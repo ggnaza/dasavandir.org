@@ -371,7 +371,7 @@ FORMAT: ${customCoachInstructions ? "Use natural, readable prose. No forced head
 
   if (model.startsWith("gemini-")) {
     if (!GEMINI_API_KEY) {
-      console.error("[chat] GOOGLE_GEMINI_API_KEY is not set");
+      console.error("[chat] Gemini API key (GOOGLE_GEMINI_API_KEY or GOOGLE_API_KEY) is not set");
       return new Response("AI service is not configured. Please contact an administrator.", { status: 503 });
     }
     const gemini = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
@@ -390,6 +390,7 @@ FORMAT: ${customCoachInstructions ? "Use natural, readable prose. No forced head
           systemInstruction: systemPrompt,
           maxOutputTokens: 1200,
           temperature: 0.3,
+          ...(model.includes("flash") ? { thinkingConfig: { thinkingBudget: 0 } } : {}),
         },
       });
     } catch (err: any) {
