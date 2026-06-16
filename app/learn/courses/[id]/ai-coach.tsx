@@ -3,7 +3,12 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
-type Message = { role: "user" | "assistant"; content: string };
+type Message = {
+  role: "user" | "assistant";
+  content: string;        // sent to the model (may include extracted file text)
+  display?: string;       // shown in the bubble (user's typed text only)
+  file?: string;          // attached file name, rendered as a chip
+};
 type Session = {
   id: string;
   lessonTitle: string | null;
@@ -48,6 +53,7 @@ export function AiCoach({ lessonId, courseId, userId, firstName, lessonTitle }: 
   const [recording, setRecording] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [attachedFile, setAttachedFile] = useState<{ name: string; text: string } | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -87,18 +93,27 @@ export function AiCoach({ lessonId, courseId, userId, firstName, lessonTitle }: 
   }
 
   async function send(text: string) {
-    if (!text.trim() || loading) return;
-    const userMsg: Message = { role: "user", content: text.trim() };
+    const typed = text.trim();
+    const file = attachedFile;
+    if ((!typed && !file) || loading) return;
+
+    // What the model sees: typed text + extracted file content.
+    // What the bubble shows: just the typed text, with a file chip.
+    const modelContent = file
+      ? `${typed ? typed + "\n\n" : ""}[Attached file: ${file.name}]\n${file.text}`
+      : typed;
+    const userMsg: Message = { role: "user", content: modelContent, display: typed, file: file?.name };
     const updated = [...messages, userMsg];
     setMessages(updated);
     setInput("");
+    setAttachedFile(null);
     setLoading(true);
 
     const res = await fetch("/api/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        messages: updated,
+        messages: updated.map((m) => ({ role: m.role, content: m.content })),
         lessonId,
         courseId,
         userId,
@@ -142,7 +157,7 @@ export function AiCoach({ lessonId, courseId, userId, firstName, lessonTitle }: 
       const res = await fetch("/api/chat/upload", { method: "POST", body: fd });
       if (!res.ok) { alert(await res.text()); return; }
       const { text, name } = await res.json();
-      setInput((prev) => (prev ? prev + "\n\n" : "") + `[File: ${name}]\n${text}`);
+      setAttachedFile({ name, text });
     } finally {
       setUploading(false);
     }
@@ -308,7 +323,14 @@ export function AiCoach({ lessonId, courseId, userId, firstName, lessonTitle }: 
                       }`}
                     >
                       {m.role === "user" ? (
-                        m.content || <span className="opacity-50">Thinking…</span>
+                        <>
+                          {m.file && (
+                            <span className="inline-flex items-center gap-1 bg-white/20 rounded-md px-2 py-0.5 text-xs mb-1">
+                              📎 {m.file}
+                            </span>
+                          )}
+                          {(m.display ?? m.content) && <div>{m.display ?? m.content}</div>}
+                        </>
                       ) : m.content ? (
                         <ReactMarkdown remarkPlugins={[remarkGfm]}>{m.content}</ReactMarkdown>
                       ) : (
@@ -329,6 +351,19 @@ export function AiCoach({ lessonId, courseId, userId, firstName, lessonTitle }: 
                   className="hidden"
                   onChange={handleFileUpload}
                 />
+                {attachedFile && (
+                  <div className="mb-2 flex items-center gap-2 bg-gray-100 rounded-lg px-2.5 py-1.5 text-xs text-gray-600">
+                    <span className="truncate">📎 {attachedFile.name}</span>
+                    <button
+                      type="button"
+                      onClick={() => setAttachedFile(null)}
+                      className="ml-auto text-gray-400 hover:text-gray-600 shrink-0 text-sm leading-none"
+                      title="Remove file"
+                    >
+                      ×
+                    </button>
+                  </div>
+                )}
                 <form
                   onSubmit={(e) => { e.preventDefault(); send(input); }}
                   className="flex gap-2 items-center"
@@ -365,13 +400,13 @@ export function AiCoach({ lessonId, courseId, userId, firstName, lessonTitle }: 
                     type="text"
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
-                    placeholder={uploading ? "Extracting file…" : recording ? "Recording…" : transcribing ? "Transcribing…" : "Share your work or reflection…"}
+                    placeholder={uploading ? "Extracting file…" : recording ? "Recording…" : transcribing ? "Transcribing…" : attachedFile ? "Add a note about this file (optional)…" : "Share your work or reflection…"}
                     disabled={loading || recording || transcribing || uploading}
                     className="flex-1 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 disabled:opacity-50 min-w-0"
                   />
                   <button
                     type="submit"
-                    disabled={loading || !input.trim()}
+                    disabled={loading || (!input.trim() && !attachedFile)}
                     className="bg-brand-600 text-white px-3 py-2 rounded-lg hover:bg-brand-700 disabled:opacity-50 text-sm font-medium shrink-0"
                   >
                     Send
