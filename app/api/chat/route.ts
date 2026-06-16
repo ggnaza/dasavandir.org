@@ -474,15 +474,17 @@ FORMAT: ${customCoachInstructions ? "Use natural, readable prose. No forced head
       controller.close();
 
       if (effectiveCourseId && fullReply) {
-        saveAssistantMessage(admin, sessionId, userId, effectiveCourseId, fullReply).catch(() => {});
-        updateSessionAfterReply(admin, sessionId).catch(() => {});
+        if (sessionId) {
+          saveAssistantMessage(admin, sessionId, userId, effectiveCourseId, fullReply).catch(() => {});
+          updateSessionAfterReply(admin, sessionId).catch(() => {});
+        }
         updateMemory(admin, userId, effectiveCourseId, messages, fullReply, memoryContext).catch(() => {});
       }
     },
   });
 
   return new Response(readable, {
-    headers: { "Content-Type": "text/plain; charset=utf-8", "X-Session-Id": sessionId },
+    headers: { "Content-Type": "text/plain; charset=utf-8", "X-Session-Id": sessionId ?? "" },
   });
 }
 
