@@ -242,7 +242,7 @@ LANGUAGE: Reply in the same language the SME writes in.`;
 
   if (model.startsWith("gemini-")) {
     if (!GEMINI_API_KEY) {
-      console.error("[ai-coach] GOOGLE_GEMINI_API_KEY is not set");
+      console.error("[ai-coach] Gemini API key (GOOGLE_GEMINI_API_KEY or GOOGLE_API_KEY) is not set");
       return new Response("AI service is not configured. Please contact an administrator.", { status: 503 });
     }
     const gemini = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
@@ -251,7 +251,12 @@ LANGUAGE: Reply in the same language the SME writes in.`;
       stream = await gemini.models.generateContentStream({
         model,
         contents: messages.map((m) => ({ role: m.role === "assistant" ? "model" : "user", parts: [{ text: m.content }] })),
-        config: { systemInstruction: systemPrompt, maxOutputTokens: 1500, temperature: 0.4 },
+        config: {
+          systemInstruction: systemPrompt,
+          maxOutputTokens: 1500,
+          temperature: 0.4,
+          ...(model.includes("flash") ? { thinkingConfig: { thinkingBudget: 0 } } : {}),
+        },
       });
     } catch (err: any) {
       console.error("[ai-coach] Gemini stream init failed:", err?.message ?? err);
