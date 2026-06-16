@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
-import { getAIModel } from "@/lib/llm";
+import { getAIModel, GEMINI_API_KEY } from "@/lib/llm";
 import { assertCourseOwner } from "@/lib/assert-course-owner";
 import { getModeratorCohort } from "@/lib/get-moderator-cohort";
 import OpenAI from "openai";
@@ -241,11 +241,11 @@ LANGUAGE: Reply in the same language the SME writes in.`;
   }
 
   if (model.startsWith("gemini-")) {
-    if (!process.env.GOOGLE_GEMINI_API_KEY) {
+    if (!GEMINI_API_KEY) {
       console.error("[ai-coach] GOOGLE_GEMINI_API_KEY is not set");
       return new Response("AI service is not configured. Please contact an administrator.", { status: 503 });
     }
-    const gemini = new GoogleGenAI({ apiKey: process.env.GOOGLE_GEMINI_API_KEY });
+    const gemini = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
     let stream: AsyncIterable<any>;
     try {
       stream = await gemini.models.generateContentStream({

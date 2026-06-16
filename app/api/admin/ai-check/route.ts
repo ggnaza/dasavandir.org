@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getAIModel } from "@/lib/llm";
+import { getAIModel, GEMINI_API_KEY } from "@/lib/llm";
 import { GoogleGenAI } from "@google/genai";
 import OpenAI from "openai";
 import Anthropic from "@anthropic-ai/sdk";
@@ -20,11 +20,11 @@ export async function GET() {
   const results: Record<string, any> = { configured_model: model };
 
   if (model.startsWith("gemini-")) {
-    const key = process.env.GOOGLE_GEMINI_API_KEY;
+    const key = GEMINI_API_KEY;
     results.key_present = !!key;
     results.key_prefix = key ? key.slice(0, 8) + "..." : null;
     if (!key) {
-      results.error = "GOOGLE_GEMINI_API_KEY is not set in environment";
+      results.error = "GOOGLE_GEMINI_API_KEY (or GOOGLE_API_KEY) is not set in environment";
     } else {
       try {
         const gemini = new GoogleGenAI({ apiKey: key });

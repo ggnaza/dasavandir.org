@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
-import { getAIModel, callLLM } from "@/lib/llm";
+import { getAIModel, callLLM, GEMINI_API_KEY } from "@/lib/llm";
 import OpenAI from "openai";
 import { GoogleGenAI } from "@google/genai";
 import Anthropic from "@anthropic-ai/sdk";
@@ -370,11 +370,11 @@ FORMAT: ${customCoachInstructions ? "Use natural, readable prose. No forced head
   }
 
   if (model.startsWith("gemini-")) {
-    if (!process.env.GOOGLE_GEMINI_API_KEY) {
+    if (!GEMINI_API_KEY) {
       console.error("[chat] GOOGLE_GEMINI_API_KEY is not set");
       return new Response("AI service is not configured. Please contact an administrator.", { status: 503 });
     }
-    const gemini = new GoogleGenAI({ apiKey: process.env.GOOGLE_GEMINI_API_KEY });
+    const gemini = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
 
     const geminiMessages = messages.map((m: { role: string; content: string }) => ({
       role: m.role === "assistant" ? "model" : "user",

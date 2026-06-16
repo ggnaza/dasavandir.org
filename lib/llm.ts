@@ -5,6 +5,9 @@ import { createAdminClient } from "@/lib/supabase/admin";
 export { AI_MODELS, VALID_MODEL_IDS } from "@/lib/ai-models";
 export type { AIModelId } from "@/lib/ai-models";
 
+// Google Gemini API key — supports both naming conventions
+export const GEMINI_API_KEY = process.env.GOOGLE_GEMINI_API_KEY ?? process.env.GOOGLE_API_KEY;
+
 // Retired model IDs → current replacements
 const DEPRECATED_MODELS: Record<string, string> = {
   "gemini-2.5-flash-preview-04-17": "gemini-2.5-flash",
@@ -54,7 +57,7 @@ export async function callLLM(
   }
 
   if (model.startsWith("gemini-")) {
-    const gemini = new GoogleGenAI({ apiKey: process.env.GOOGLE_GEMINI_API_KEY });
+    const gemini = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
     const result = await gemini.models.generateContent({
       model,
       contents: [{ role: "user", parts: [{ text: userMessage }] }],
