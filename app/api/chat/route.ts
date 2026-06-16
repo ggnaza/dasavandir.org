@@ -16,6 +16,13 @@ const chatSchema = z.object({
     role: z.enum(["user", "assistant"]),
     content: z.string().max(50_000),
   })).max(100),
+  // Optional file for multimodal (vision) analysis — base64. Only used by Gemini.
+  // Capped to fit Vercel's ~4.5 MB request-body limit (base64 of a 3 MB file ≈ 4 MB).
+  attachment: z.object({
+    data: z.string().max(4_500_000),
+    mimeType: z.string().max(100),
+    name: z.string().max(300),
+  }).optional(),
 });
 
 export async function POST(req: Request) {
@@ -33,7 +40,7 @@ export async function POST(req: Request) {
 
   const parsed = chatSchema.safeParse(await req.json());
   if (!parsed.success) return new Response("Invalid input", { status: 400 });
-  const { messages, lessonId, courseId, sessionId: requestedSessionId, newSession } = parsed.data;
+  const { messages, lessonId, courseId, sessionId: requestedSessionId, newSession, attachment } = parsed.data;
   const userId = user.id;
 
   const admin = createAdminClient();
@@ -380,10 +387,18 @@ FORMAT: ${customCoachInstructions ? "Use natural, readable prose. No forced head
     }
     const gemini = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
 
-    const geminiMessages = messages.map((m: { role: string; content: string }) => ({
+    const geminiMessages: { role: string; parts: any[] }[] = messages.map((m: { role: string; content: string }) => ({
       role: m.role === "assistant" ? "model" : "user",
       parts: [{ text: m.content }],
     }));
+
+    // Multimodal: attach the uploaded file (scanned PDF / image) to the latest user turn
+    if (attachment) {
+      const last = geminiMessages[geminiMessages.length - 1];
+      if (last?.role === "user") {
+        last.parts.push({ inlineData: { mimeType: attachment.mimeType, data: attachment.data } });
+      }
+    }
 
     let stream: AsyncIterable<any>;
     try {

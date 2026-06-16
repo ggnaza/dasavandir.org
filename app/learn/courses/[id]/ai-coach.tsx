@@ -53,7 +53,12 @@ export function AiCoach({ lessonId, courseId, userId, firstName, lessonTitle }: 
   const [recording, setRecording] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [attachedFile, setAttachedFile] = useState<{ name: string; text: string } | null>(null);
+  const [attachedFile, setAttachedFile] = useState<{
+    name: string;
+    text?: string;                 // extracted text (text-based files)
+    fileBase64?: string;           // raw bytes for vision (scanned/image files)
+    mimeType?: string;
+  } | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -97,11 +102,17 @@ export function AiCoach({ lessonId, courseId, userId, firstName, lessonTitle }: 
     const file = attachedFile;
     if ((!typed && !file) || loading) return;
 
-    // What the model sees: typed text + extracted file content.
-    // What the bubble shows: just the typed text, with a file chip.
-    const modelContent = file
-      ? `${typed ? typed + "\n\n" : ""}[Attached file: ${file.name}]\n${file.text}`
-      : typed;
+    // What the model sees as text. Extracted text is inlined; a vision file
+    // (sent separately as an attachment) just gets a short instruction so the
+    // user turn is never empty.
+    let modelContent: string;
+    if (file?.text) {
+      modelContent = `${typed ? typed + "\n\n" : ""}[Attached file: ${file.name}]\n${file.text}`;
+    } else if (file?.fileBase64) {
+      modelContent = typed || `Please read the attached file "${file.name}" and tell me how it relates to this course.`;
+    } else {
+      modelContent = typed;
+    }
     const userMsg: Message = { role: "user", content: modelContent, display: typed, file: file?.name };
     const updated = [...messages, userMsg];
     setMessages(updated);
@@ -114,6 +125,7 @@ export function AiCoach({ lessonId, courseId, userId, firstName, lessonTitle }: 
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         messages: updated.map((m) => ({ role: m.role, content: m.content })),
+        attachment: file?.fileBase64 ? { data: file.fileBase64, mimeType: file.mimeType, name: file.name } : undefined,
         lessonId,
         courseId,
         userId,
@@ -156,8 +168,12 @@ export function AiCoach({ lessonId, courseId, userId, firstName, lessonTitle }: 
       fd.append("file", file);
       const res = await fetch("/api/chat/upload", { method: "POST", body: fd });
       if (!res.ok) { alert(await res.text()); return; }
-      const { text, name } = await res.json();
-      setAttachedFile({ name, text });
+      const data = await res.json();
+      if (data.kind === "vision") {
+        setAttachedFile({ name: data.name, fileBase64: data.fileBase64, mimeType: data.mimeType });
+      } else {
+        setAttachedFile({ name: data.name, text: data.text });
+      }
     } finally {
       setUploading(false);
     }
@@ -347,7 +363,7 @@ export function AiCoach({ lessonId, courseId, userId, firstName, lessonTitle }: 
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept=".pdf,.doc,.docx,.txt"
+                  accept=".pdf,.doc,.docx,.txt,.png,.jpg,.jpeg,.webp"
                   className="hidden"
                   onChange={handleFileUpload}
                 />
@@ -372,7 +388,7 @@ export function AiCoach({ lessonId, courseId, userId, firstName, lessonTitle }: 
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
                     disabled={loading || recording || transcribing || uploading}
-                    title="Attach a file (PDF, DOCX, TXT)"
+                    title="Attach a file (PDF, DOCX, TXT, or image)"
                     className={`shrink-0 w-9 h-9 rounded-lg flex items-center justify-center text-base transition ${
                       uploading ? "bg-amber-400 text-white animate-pulse"
                       : "bg-gray-100 text-gray-500 hover:bg-gray-200"
