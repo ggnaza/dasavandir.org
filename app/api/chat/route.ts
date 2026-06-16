@@ -14,7 +14,7 @@ const chatSchema = z.object({
   newSession: z.boolean().optional().default(false),
   messages: z.array(z.object({
     role: z.enum(["user", "assistant"]),
-    content: z.string().max(10_000),
+    content: z.string().max(50_000),
   })).max(100),
 });
 
@@ -319,28 +319,43 @@ FORMAT: ${customCoachInstructions ? "Use natural, readable prose. No forced head
   let fullReply = "";
 
   if (model.startsWith("claude-")) {
-    const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-    const stream = anthropic.messages.stream({
-      model,
-      max_tokens: 1200,
-      temperature: 0.3,
-      system: systemPrompt,
-      messages: messages.map((m: { role: string; content: string }) => ({
-        role: m.role as "user" | "assistant",
-        content: m.content,
-      })),
-    });
+    if (!process.env.ANTHROPIC_API_KEY) {
+      console.error("[chat] ANTHROPIC_API_KEY is not set");
+      return new Response("AI service is not configured. Please contact an administrator.", { status: 503 });
+    }
+    let stream: ReturnType<Anthropic["messages"]["stream"]>;
+    try {
+      const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+      stream = anthropic.messages.stream({
+        model,
+        max_tokens: 1200,
+        temperature: 0.3,
+        system: systemPrompt,
+        messages: messages.map((m: { role: string; content: string }) => ({
+          role: m.role as "user" | "assistant",
+          content: m.content,
+        })),
+      });
+    } catch (err: any) {
+      console.error("[chat] Anthropic stream init failed:", err?.message ?? err);
+      return new Response(`AI error: ${err?.message ?? "Unknown error"}`, { status: 502 });
+    }
 
     const readable = new ReadableStream({
       async start(controller) {
-        for await (const event of stream) {
-          if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
-            const text = event.delta.text;
-            if (text) {
-              fullReply += text;
-              controller.enqueue(encoder.encode(text));
+        try {
+          for await (const event of stream) {
+            if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
+              const text = event.delta.text;
+              if (text) {
+                fullReply += text;
+                controller.enqueue(encoder.encode(text));
+              }
             }
           }
+        } catch (err: any) {
+          console.error("[chat] Anthropic stream read failed:", err?.message ?? err);
+          controller.enqueue(encoder.encode("\n\n[AI error — please try again]"));
         }
         controller.close();
         if (effectiveCourseId && fullReply) {
@@ -412,27 +427,42 @@ FORMAT: ${customCoachInstructions ? "Use natural, readable prose. No forced head
   }
 
   // Default: OpenAI
-  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY, timeout: 15_000 });
+  if (!process.env.OPENAI_API_KEY) {
+    console.error("[chat] OPENAI_API_KEY is not set");
+    return new Response("AI service is not configured. Please contact an administrator.", { status: 503 });
+  }
 
-  const stream = await openai.chat.completions.create({
-    model,
-    stream: true,
-    messages: [
-      { role: "system", content: systemPrompt },
-      ...messages,
-    ],
-    max_tokens: 1200,
-    temperature: 0.3,
-  });
+  let stream: Awaited<ReturnType<OpenAI["chat"]["completions"]["create"]>>;
+  try {
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY, timeout: 15_000 });
+    stream = await openai.chat.completions.create({
+      model,
+      stream: true,
+      messages: [
+        { role: "system", content: systemPrompt },
+        ...messages,
+      ],
+      max_tokens: 1200,
+      temperature: 0.3,
+    });
+  } catch (err: any) {
+    console.error("[chat] OpenAI stream init failed:", err?.message ?? err);
+    return new Response(`AI error: ${err?.message ?? "Unknown error"}`, { status: 502 });
+  }
 
   const readable = new ReadableStream({
     async start(controller) {
-      for await (const chunk of stream) {
-        const text = chunk.choices[0]?.delta?.content ?? "";
-        if (text) {
-          fullReply += text;
-          controller.enqueue(encoder.encode(text));
+      try {
+        for await (const chunk of stream) {
+          const text = chunk.choices[0]?.delta?.content ?? "";
+          if (text) {
+            fullReply += text;
+            controller.enqueue(encoder.encode(text));
+          }
         }
+      } catch (err: any) {
+        console.error("[chat] OpenAI stream read failed:", err?.message ?? err);
+        controller.enqueue(encoder.encode("\n\n[AI error — please try again]"));
       }
       controller.close();
 

@@ -3,6 +3,7 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
+
 type Question = {
   question: string;
   options: string[];
@@ -125,16 +126,25 @@ export function QuizEditor({ lessonId, courseId, existing, bankQuestionCount }: 
 
   async function handleSave() {
     setSaving(true);
-    const supabase = createClient();
-    const payload = { questions, use_bank: useBank, bank_count: bankCount };
-    if (existing) {
-      await supabase.from("quizzes").update(payload).eq("id", existing.id);
-    } else {
-      await supabase.from("quizzes").insert({ lesson_id: lessonId, ...payload });
-    }
+    const res = await fetch("/api/admin/quizzes/save", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        lessonId,
+        existingId: existing?.id ?? null,
+        questions,
+        use_bank: useBank,
+        bank_count: bankCount,
+      }),
+    });
     setSaving(false);
+    if (!res.ok) {
+      alert("Failed to save quiz: " + (await res.text()));
+      return;
+    }
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
+    router.refresh();
   }
 
   return (

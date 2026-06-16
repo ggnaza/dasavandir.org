@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { AssignmentSubmitter } from "./assignment-submitter";
+import { LessonHtmlRenderer } from "@/components/lesson-html-renderer";
 
 export default async function LearnAssignmentPage({
   params,
@@ -122,8 +123,8 @@ export default async function LearnAssignmentPage({
       <h1 className="text-2xl font-bold mt-2 mb-1">{assignment.title}</h1>
 
       {assignment.instructions && (
-        <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 mb-6 text-sm text-blue-800 whitespace-pre-wrap leading-relaxed">
-          {assignment.instructions}
+        <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 mb-6 text-sm text-blue-800 leading-relaxed">
+          <LessonHtmlRenderer content={assignment.instructions} />
         </div>
       )}
 
