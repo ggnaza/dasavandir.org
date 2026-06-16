@@ -47,9 +47,11 @@ export function AiCoach({ lessonId, courseId, userId, firstName, lessonTitle }: 
   const [loading, setLoading] = useState(false);
   const [recording, setRecording] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -127,6 +129,23 @@ export function AiCoach({ lessonId, courseId, userId, firstName, lessonTitle }: 
     }
 
     setLoading(false);
+  }
+
+  async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = "";
+    setUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch("/api/chat/upload", { method: "POST", body: fd });
+      if (!res.ok) { alert(await res.text()); return; }
+      const { text, name } = await res.json();
+      setInput((prev) => (prev ? prev + "\n\n" : "") + `[File: ${name}]\n${text}`);
+    } finally {
+      setUploading(false);
+    }
   }
 
   async function startRecording() {
@@ -303,17 +322,36 @@ export function AiCoach({ lessonId, courseId, userId, firstName, lessonTitle }: 
 
               {/* Input */}
               <div className="px-3 py-3 border-t shrink-0">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".pdf,.doc,.docx,.txt"
+                  className="hidden"
+                  onChange={handleFileUpload}
+                />
                 <form
                   onSubmit={(e) => { e.preventDefault(); send(input); }}
                   className="flex gap-2 items-center"
                 >
                   <button
                     type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={loading || recording || transcribing || uploading}
+                    title="Attach a file (PDF, DOCX, TXT)"
+                    className={`shrink-0 w-9 h-9 rounded-lg flex items-center justify-center text-base transition ${
+                      uploading ? "bg-amber-400 text-white animate-pulse"
+                      : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+                    }`}
+                  >
+                    {uploading ? "…" : "📎"}
+                  </button>
+                  <button
+                    type="button"
                     onMouseDown={startRecording}
                     onMouseUp={stopRecording}
                     onTouchStart={startRecording}
                     onTouchEnd={stopRecording}
-                    disabled={loading || transcribing}
+                    disabled={loading || transcribing || uploading}
                     title="Hold to speak"
                     className={`shrink-0 w-9 h-9 rounded-lg flex items-center justify-center text-base transition ${
                       recording ? "bg-red-500 text-white animate-pulse"
@@ -327,8 +365,8 @@ export function AiCoach({ lessonId, courseId, userId, firstName, lessonTitle }: 
                     type="text"
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
-                    placeholder={recording ? "Recording…" : transcribing ? "Transcribing…" : "Share your work or reflection…"}
-                    disabled={loading || recording || transcribing}
+                    placeholder={uploading ? "Extracting file…" : recording ? "Recording…" : transcribing ? "Transcribing…" : "Share your work or reflection…"}
+                    disabled={loading || recording || transcribing || uploading}
                     className="flex-1 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 disabled:opacity-50 min-w-0"
                   />
                   <button
@@ -339,7 +377,7 @@ export function AiCoach({ lessonId, courseId, userId, firstName, lessonTitle }: 
                     Send
                   </button>
                 </form>
-                <p className="text-xs text-gray-400 mt-1 text-center">Hold 🎤 to speak in any language</p>
+                <p className="text-xs text-gray-400 mt-1 text-center">📎 attach file &nbsp;·&nbsp; Hold 🎤 to speak</p>
               </div>
             </>
           )}
