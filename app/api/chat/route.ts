@@ -79,13 +79,15 @@ export async function POST(req: Request) {
   const sessionId = await resolveSession(admin, userId, resolvedCourseId!, lessonId, requestedSessionId ?? null, newSession ?? false);
 
   // Read how many exchanges have happened in this session so we can adapt coaching mode
-  const { data: sessionData } = await admin.from("ai_coach_sessions").select("message_count").eq("id", sessionId).single();
+  const { data: sessionData } = sessionId
+    ? await admin.from("ai_coach_sessions").select("message_count").eq("id", sessionId).single()
+    : { data: null };
   const exchangesSoFar = Math.floor((sessionData?.message_count ?? 0) / 2);
   // exchangesSoFar = number of completed coach responses in this session (before this one)
 
   // Save the user's message (last in array) immediately
   const userMessage = messages[messages.length - 1];
-  if (userMessage?.role === "user") {
+  if (sessionId && userMessage?.role === "user") {
     await admin.from("ai_coach_messages").insert({
       session_id: sessionId,
       user_id: userId,
@@ -359,14 +361,16 @@ FORMAT: ${customCoachInstructions ? "Use natural, readable prose. No forced head
         }
         controller.close();
         if (effectiveCourseId && fullReply) {
-          saveAssistantMessage(admin, sessionId, userId, effectiveCourseId, fullReply).catch(() => {});
-          updateSessionAfterReply(admin, sessionId).catch(() => {});
+          if (sessionId) {
+            saveAssistantMessage(admin, sessionId, userId, effectiveCourseId, fullReply).catch(() => {});
+            updateSessionAfterReply(admin, sessionId).catch(() => {});
+          }
           updateMemory(admin, userId, effectiveCourseId, messages, fullReply, memoryContext).catch(() => {});
         }
       },
     });
 
-    return new Response(readable, { headers: { "Content-Type": "text/plain; charset=utf-8", "X-Session-Id": sessionId } });
+    return new Response(readable, { headers: { "Content-Type": "text/plain; charset=utf-8", "X-Session-Id": sessionId ?? "" } });
   }
 
   if (model.startsWith("gemini-")) {
@@ -415,15 +419,17 @@ FORMAT: ${customCoachInstructions ? "Use natural, readable prose. No forced head
         controller.close();
 
         if (effectiveCourseId && fullReply) {
-          saveAssistantMessage(admin, sessionId, userId, effectiveCourseId, fullReply).catch(() => {});
-          updateSessionAfterReply(admin, sessionId).catch(() => {});
+          if (sessionId) {
+            saveAssistantMessage(admin, sessionId, userId, effectiveCourseId, fullReply).catch(() => {});
+            updateSessionAfterReply(admin, sessionId).catch(() => {});
+          }
           updateMemory(admin, userId, effectiveCourseId, messages, fullReply, memoryContext).catch(() => {});
         }
       },
     });
 
     return new Response(readable, {
-      headers: { "Content-Type": "text/plain; charset=utf-8", "X-Session-Id": sessionId },
+      headers: { "Content-Type": "text/plain; charset=utf-8", "X-Session-Id": sessionId ?? "" },
     });
   }
 
@@ -487,47 +493,55 @@ async function resolveSession(
   lessonId: string,
   requestedSessionId: string | null,
   newSession: boolean,
-): Promise<string> {
-  // Explicit session from client — verify ownership and reuse it
-  if (requestedSessionId && !newSession) {
-    const { data } = await admin
+): Promise<string | null> {
+  // Session tracking is best-effort — if the table is missing or an insert
+  // fails, we must NOT take down the whole chat. Return null and let the
+  // caller stream the AI response without persisting history.
+  try {
+    // Explicit session from client — verify ownership and reuse it
+    if (requestedSessionId && !newSession) {
+      const { data } = await admin
+        .from("ai_coach_sessions")
+        .select("id")
+        .eq("id", requestedSessionId)
+        .eq("user_id", userId)
+        .eq("course_id", courseId)
+        .maybeSingle();
+      if (data) return data.id;
+    }
+
+    // New session explicitly requested — always create fresh
+    if (newSession) {
+      const { data } = await admin
+        .from("ai_coach_sessions")
+        .insert({ user_id: userId, course_id: courseId, lesson_id: lessonId, started_at: new Date().toISOString(), last_message_at: new Date().toISOString(), message_count: 0 })
+        .select("id").single();
+      return data?.id ?? null;
+    }
+
+    // Auto-continue: reuse an open session within the last 30 minutes
+    const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+    const { data: existing } = await admin
       .from("ai_coach_sessions")
       .select("id")
-      .eq("id", requestedSessionId)
       .eq("user_id", userId)
       .eq("course_id", courseId)
+      .gte("last_message_at", thirtyMinutesAgo)
+      .order("last_message_at", { ascending: false })
+      .limit(1)
       .maybeSingle();
-    if (data) return data.id;
-  }
+    if (existing) return existing.id;
 
-  // New session explicitly requested — always create fresh
-  if (newSession) {
+    // Create a new session
     const { data } = await admin
       .from("ai_coach_sessions")
       .insert({ user_id: userId, course_id: courseId, lesson_id: lessonId, started_at: new Date().toISOString(), last_message_at: new Date().toISOString(), message_count: 0 })
       .select("id").single();
-    return data!.id;
+    return data?.id ?? null;
+  } catch (err: any) {
+    console.error("[chat] resolveSession failed (history disabled for this turn):", err?.message ?? err);
+    return null;
   }
-
-  // Auto-continue: reuse an open session within the last 30 minutes
-  const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000).toISOString();
-  const { data: existing } = await admin
-    .from("ai_coach_sessions")
-    .select("id")
-    .eq("user_id", userId)
-    .eq("course_id", courseId)
-    .gte("last_message_at", thirtyMinutesAgo)
-    .order("last_message_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  if (existing) return existing.id;
-
-  // Create a new session
-  const { data } = await admin
-    .from("ai_coach_sessions")
-    .insert({ user_id: userId, course_id: courseId, lesson_id: lessonId, started_at: new Date().toISOString(), last_message_at: new Date().toISOString(), message_count: 0 })
-    .select("id").single();
-  return data!.id;
 }
 
 async function saveAssistantMessage(admin: any, sessionId: string, userId: string, courseId: string, content: string) {
