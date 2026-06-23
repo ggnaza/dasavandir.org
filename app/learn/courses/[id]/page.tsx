@@ -247,6 +247,14 @@ export default async function LearnCoursePage({ params }: { params: { id: string
         >
           <span>📓</span> My journal
         </Link>
+        {course.timetable_enabled && (
+          <Link
+            href={`/learn/courses/${course.id}/timetable`}
+            className="inline-flex items-center gap-2 text-sm border rounded-lg px-4 py-2 hover:bg-gray-50 text-gray-600"
+          >
+            <span>📅</span> Schedule
+          </Link>
+        )}
         {capstone && (
           <Link
             href={`/learn/courses/${course.id}/capstone`}

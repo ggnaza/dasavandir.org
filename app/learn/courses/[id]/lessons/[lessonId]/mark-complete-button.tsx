@@ -8,16 +8,19 @@ type Props = {
   isCompleted: boolean;
   courseId: string;
   hasQuiz: boolean;
-  quizPassed: boolean;  // true if no quiz OR score >= 80
+  quizPassed: boolean;         // true if no quiz OR score >= 80
+  hasAssignment: boolean;
+  assignmentApproved: boolean; // true if no assignment OR submission is approved
 };
 
-export function MarkCompleteButton({ lessonId, userId: _userId, isCompleted, courseId, hasQuiz, quizPassed }: Props) {
+export function MarkCompleteButton({ lessonId, userId: _userId, isCompleted, courseId, hasQuiz, quizPassed, hasAssignment, assignmentApproved }: Props) {
   const router = useRouter();
   const [done, setDone] = useState(isCompleted);
   const [loading, setLoading] = useState(false);
 
-  // If quiz exists and not passed, block completion
-  const isBlocked = hasQuiz && !quizPassed && !done;
+  const quizBlocked = hasQuiz && !quizPassed && !done;
+  const assignmentBlocked = hasAssignment && !assignmentApproved && !done;
+  const isBlocked = quizBlocked || assignmentBlocked;
 
   async function toggle() {
     if (isBlocked) return;
@@ -32,7 +35,7 @@ export function MarkCompleteButton({ lessonId, userId: _userId, isCompleted, cou
     router.refresh();
   }
 
-  if (isBlocked) {
+  if (quizBlocked) {
     return (
       <div className="flex flex-col items-end gap-1">
         <button
@@ -42,6 +45,20 @@ export function MarkCompleteButton({ lessonId, userId: _userId, isCompleted, cou
           Take quiz to complete
         </button>
         <p className="text-xs text-orange-600">Quiz score of 80% required</p>
+      </div>
+    );
+  }
+
+  if (assignmentBlocked) {
+    return (
+      <div className="flex flex-col items-end gap-1">
+        <button
+          disabled
+          className="text-sm px-4 py-2 rounded-lg font-medium bg-gray-100 text-gray-400 cursor-not-allowed"
+        >
+          Assignment pending review
+        </button>
+        <p className="text-xs text-orange-600">Submit your assignment and wait for approval</p>
       </div>
     );
   }
