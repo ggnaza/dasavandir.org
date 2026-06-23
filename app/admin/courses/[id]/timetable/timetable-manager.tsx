@@ -39,7 +39,7 @@ export function TimetableManager({
   const [timetableEnabled, setTimetableEnabled] = useState(enabled);
   const [entries, setEntries] = useState<Entry[]>(initialEntries);
   const [form, setForm] = useState<FormState | null>(null);
-  const [saving, setSaving] = useState(false);
+  const [saving, setSaving] = useState<"save" | "announce" | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -51,19 +51,22 @@ export function TimetableManager({
     router.refresh();
   }
 
-  async function save() {
+  async function save(announce: boolean) {
     if (!form) return;
-    setSaving(true);
+    setSaving(announce ? "announce" : "save");
     setError(null);
     try {
       const method = form.id ? "PUT" : "POST";
-      const body = form.id
-        ? { ...form, end_time: form.end_time || null, description: form.description || null }
-        : { ...form, end_time: form.end_time || null, description: form.description || null };
+      const payload = {
+        ...form,
+        end_time: form.end_time || null,
+        description: form.description || null,
+        announce,
+      };
       const res = await fetch(`/api/admin/courses/${courseId}/timetable`, {
         method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
+        body: JSON.stringify(payload),
       });
       if (!res.ok) { setError(await res.text()); return; }
       const saved: Entry = await res.json();
@@ -74,7 +77,7 @@ export function TimetableManager({
       }
       setForm(null);
     } finally {
-      setSaving(false);
+      setSaving(null);
     }
   }
 
@@ -242,19 +245,26 @@ export function TimetableManager({
               className="w-full border rounded-lg px-3 py-2 text-sm resize-none"
             />
           </div>
-          <p className="text-xs text-orange-600">Saving will notify all enrolled learners via announcement.</p>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <button
-              onClick={save}
-              disabled={saving || !form.date || !form.start_time || !form.title || !form.location}
+              onClick={() => save(false)}
+              disabled={!!saving || !form.date || !form.start_time || !form.title || !form.location}
               className="text-sm bg-brand-600 text-white px-4 py-2 rounded-lg hover:bg-brand-700 disabled:opacity-40"
             >
-              {saving ? "Saving..." : form.id ? "Save changes" : "Add entry"}
+              {saving === "save" ? "Saving..." : form.id ? "Save changes" : "Add entry"}
+            </button>
+            <button
+              onClick={() => save(true)}
+              disabled={!!saving || !form.date || !form.start_time || !form.title || !form.location}
+              className="text-sm border border-brand-400 text-brand-600 px-4 py-2 rounded-lg hover:bg-brand-50 disabled:opacity-40"
+            >
+              {saving === "announce" ? "Sending..." : form.id ? "Save & announce" : "Add & announce"}
             </button>
             <button onClick={() => { setForm(null); setError(null); }} className="text-sm border px-4 py-2 rounded-lg hover:bg-gray-50">
               Cancel
             </button>
           </div>
+          <p className="text-xs text-gray-400">"Save" stores the change silently — learners are notified at 8am via the daily digest. "Save &amp; announce" sends an immediate notification.</p>
         </div>
       ) : (
         <button

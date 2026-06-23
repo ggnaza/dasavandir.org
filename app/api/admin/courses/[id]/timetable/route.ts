@@ -115,7 +115,9 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   const ownerErr = await assertCourseOwner(params.id, user.id);
   if (ownerErr) return ownerErr;
 
-  const parsed = entrySchema.safeParse(await req.json());
+  const body = await req.json();
+  const { announce, ...entryData } = body;
+  const parsed = entrySchema.safeParse(entryData);
   if (!parsed.success) return new Response("Invalid input", { status: 400 });
 
   const admin = createAdminClient();
@@ -129,10 +131,11 @@ export async function POST(req: Request, { params }: { params: { id: string } })
 
   if (error) return new Response(error.message, { status: 500 });
 
-  // Auto-announce
-  const announcementTitle = `📅 Schedule update: ${entry.title}`;
-  const announcementBody = formatEntryBody(entry);
-  await notifyEnrolled(admin, params.id, course?.title ?? "", announcementTitle, announcementBody, user.id);
+  if (announce) {
+    const announcementTitle = `📅 Schedule update: ${entry.title}`;
+    const announcementBody = formatEntryBody(entry);
+    await notifyEnrolled(admin, params.id, course?.title ?? "", announcementTitle, announcementBody, user.id);
+  }
 
   return Response.json(entry, { status: 201 });
 }
@@ -147,7 +150,7 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
   if (ownerErr) return ownerErr;
 
   const body = await req.json();
-  const { id: entryId, ...rest } = body;
+  const { id: entryId, announce, ...rest } = body;
   if (!entryId) return new Response("Missing entry id", { status: 400 });
 
   const parsed = entrySchema.safeParse(rest);
@@ -166,10 +169,11 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
 
   if (error) return new Response(error.message, { status: 500 });
 
-  // Auto-announce the change
-  const announcementTitle = `📅 Schedule updated: ${entry.title}`;
-  const announcementBody = `The schedule has been updated.\n\n${formatEntryBody(entry)}`;
-  await notifyEnrolled(admin, params.id, course?.title ?? "", announcementTitle, announcementBody, user.id);
+  if (announce) {
+    const announcementTitle = `📅 Schedule updated: ${entry.title}`;
+    const announcementBody = `The schedule has been updated.\n\n${formatEntryBody(entry)}`;
+    await notifyEnrolled(admin, params.id, course?.title ?? "", announcementTitle, announcementBody, user.id);
+  }
 
   return Response.json(entry);
 }
