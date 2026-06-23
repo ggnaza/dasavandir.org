@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createNotification } from "@/lib/notifications";
 import { sendAnnouncementEmail } from "@/lib/email";
+import { postAnnouncementToSlack } from "@/lib/slack";
 import { assertCourseOwner } from "@/lib/assert-course-owner";
 import { z } from "zod";
 
@@ -60,6 +61,14 @@ async function notifyEnrolled(
       }).catch((err) => console.error("[timetable/email]", err));
     }
   }
+
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://dasavandir.org";
+  postAnnouncementToSlack({
+    courseTitle,
+    title: announcementTitle,
+    body: announcementBody,
+    url: `${siteUrl}/learn/courses/${courseId}/announcements`,
+  }).catch(() => {});
 
   return announcement?.id;
 }

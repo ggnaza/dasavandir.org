@@ -1,6 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createNotification } from "@/lib/notifications";
 import { sendAnnouncementEmail } from "@/lib/email";
+import { postAnnouncementToSlack } from "@/lib/slack";
 
 // Runs daily at 04:00 UTC = 08:00 Armenia time (UTC+4)
 // Posts today's timetable as an announcement to all enrolled learners.
@@ -80,6 +81,13 @@ export async function GET(req: Request) {
     });
 
     const announcementsUrl = `${siteUrl}/learn/courses/${courseId}/announcements`;
+
+    postAnnouncementToSlack({
+      courseTitle: course.title,
+      title: announcementTitle,
+      body: announcementBody,
+      url: `${siteUrl}/learn/courses/${courseId}/announcements`,
+    }).catch(() => {});
 
     const { data: enrollments } = await admin
       .from("enrollments")

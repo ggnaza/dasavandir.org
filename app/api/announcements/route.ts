@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { NextRequest, NextResponse } from "next/server";
 import { createNotification } from "@/lib/notifications";
 import { sendAnnouncementEmail } from "@/lib/email";
+import { postAnnouncementToSlack } from "@/lib/slack";
 
 export async function POST(req: NextRequest) {
   const supabase = createClient();
@@ -42,6 +43,20 @@ export async function POST(req: NextRequest) {
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  // Post to Slack (fire-and-forget, cohort-only announcements are skipped)
+  if (!target_moderator_id) {
+    const { data: courseForSlack } = await admin.from("courses").select("title").eq("id", course_id).single();
+    const { data: authorProfile } = await admin.from("profiles").select("full_name").eq("id", user.id).single();
+    const siteUrlForSlack = process.env.NEXT_PUBLIC_SITE_URL || "https://dasavandir.org";
+    postAnnouncementToSlack({
+      courseTitle: courseForSlack?.title ?? "Course",
+      title: title.trim(),
+      body: announcementBody.trim(),
+      authorName: authorProfile?.full_name ?? undefined,
+      url: `${siteUrlForSlack}/learn/announcements`,
+    }).catch(() => {});
+  }
 
   // Get course info and enrolled users — cohort_only limits recipients to assigned learners
   const [{ data: course }, { data: allEnrollments }] = await Promise.all([
