@@ -39,6 +39,7 @@ export default function CourseAdminLayout({ children, params }: { children: Reac
         { label: "Analytics", href: `${base}/analytics` },
         { label: "Announcements", href: `${base}/announcements` },
         { label: "Timetable", href: `${base}/timetable` },
+        { label: "Attendance", href: `${base}/attendance` },
         { label: "AI Coach", href: `${base}/ai-coach` },
       ]
     : [
@@ -50,6 +51,7 @@ export default function CourseAdminLayout({ children, params }: { children: Reac
         { label: "Invitations", href: `${base}/invitations` },
         { label: "Announcements", href: `${base}/announcements` },
         { label: "Timetable", href: `${base}/timetable` },
+        { label: "Attendance", href: `${base}/attendance` },
         { label: "Question Bank", href: `${base}/question-bank` },
         { label: "Capstone", href: `${base}/capstone` },
         { label: "Analytics", href: `${base}/analytics` },
