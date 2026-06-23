@@ -32,7 +32,7 @@ jobs:
         continue-on-error: true
         env:
           CI: true
-          E2E_BASE_URL: https://dasavandir.org
+          E2E_BASE_URL: https://www.dasavandir.org
           E2E_LEARNER_EMAIL: ${{ secrets.E2E_LEARNER_EMAIL }}
           E2E_LEARNER_PASSWORD: ${{ secrets.E2E_LEARNER_PASSWORD }}
           E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
@@ -79,6 +79,10 @@ jobs:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           OUTCOME: ${{ steps.tests.outcome }}
         run: |
+          if [ -z "$SLACK_WEBHOOK_URL" ]; then
+            echo "SLACK_QA_WEBHOOK_URL not set — skipping Slack notification."
+            exit 0
+          fi
           if [ "$OUTCOME" = "success" ]; then
             EMOJI=":white_check_mark:"
             STATUS="All tests passed"
