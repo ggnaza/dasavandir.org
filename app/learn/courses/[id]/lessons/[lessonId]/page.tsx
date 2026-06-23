@@ -126,7 +126,7 @@ export default async function LessonPage({
     admin.from("lessons").select("id, title, order, deadline_days, deadline_date").eq("course_id", params.id).order("order"),
     admin.from("quizzes").select("id").eq("lesson_id", params.lessonId).single(),
     admin.from("lesson_files").select("id, file_name, storage_path").eq("lesson_id", params.lessonId).order("created_at"),
-    admin.from("assignments").select("id").eq("lesson_id", params.lessonId).single(),
+    admin.from("assignments").select("id, is_group_assignment").eq("lesson_id", params.lessonId).single(),
     admin.from("enrollments").select("id, enrolled_at").eq("user_id", user!.id).eq("course_id", params.id).single(),
     admin.from("courses").select("allow_shuffled_learning, pre_submission_ai, ai_coach_enabled, title, access_type, course_type").eq("id", params.id).single(),
     admin.from("profiles").select("full_name").eq("id", user!.id).single(),
@@ -183,6 +183,44 @@ export default async function LessonPage({
   const { data: allProgress } = courseLessonIds.length
     ? await admin.from("progress").select("lesson_id").eq("user_id", user!.id).in("lesson_id", courseLessonIds)
     : { data: [] };
+
+  // Check assignment approval gate
+  let assignmentApproved = true; // default: no assignment → gate open
+  if (assignment?.id) {
+    // For group assignments, check own row first (fan-out copy), then group row
+    const { data: ownSub } = await admin
+      .from("submissions")
+      .select("status")
+      .eq("assignment_id", assignment.id)
+      .eq("user_id", user!.id)
+      .order("submitted_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    let submissionStatus = ownSub?.status ?? null;
+
+    if (!submissionStatus && assignment.is_group_assignment) {
+      // Check if another group member submitted on behalf of the group
+      const { data: membership } = await admin
+        .from("course_group_members")
+        .select("group_id")
+        .eq("user_id", user!.id)
+        .maybeSingle();
+      if (membership?.group_id) {
+        const { data: groupSub } = await admin
+          .from("submissions")
+          .select("status")
+          .eq("assignment_id", assignment.id)
+          .eq("group_id", membership.group_id)
+          .order("submitted_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        submissionStatus = groupSub?.status ?? null;
+      }
+    }
+
+    assignmentApproved = submissionStatus === "approved";
+  }
 
   // Check quiz score for 80% gate
   let quizPassed = true; // default pass if no quiz
@@ -387,6 +425,8 @@ export default async function LessonPage({
             courseId={params.id}
             hasQuiz={!!quiz}
             quizPassed={quizPassed}
+            hasAssignment={!!assignment}
+            assignmentApproved={assignmentApproved}
           />
         </div>
 
