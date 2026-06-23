@@ -32,6 +32,28 @@ function getSlidesEmbedUrl(url: string): string | null {
   } catch { return null; }
 }
 
+function getDocumentEmbedUrl(url: string): string {
+  try {
+    const u = new URL(url);
+    // Google Drive file links → native Drive preview (gview can't render Drive files)
+    if (u.hostname.includes("drive.google.com")) {
+      const id = u.pathname.match(/\/file\/d\/([^/]+)/)?.[1] ?? u.searchParams.get("id");
+      if (id) return `https://drive.google.com/file/d/${id}/preview`;
+    }
+    // Google Docs / Sheets / Slides → native preview
+    if (u.hostname.includes("docs.google.com")) {
+      const m = u.pathname.match(/\/(document|spreadsheets|presentation)\/d\/([^/]+)/);
+      if (m) return `https://docs.google.com/${m[1]}/d/${m[2]}/preview`;
+    }
+    // Direct PDF upload (Supabase storage) → browsers render it natively in an iframe
+    if (u.pathname.toLowerCase().endsWith(".pdf")) return url;
+    // Other direct files (docx, etc.) → fall back to Google's viewer
+    return `https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true`;
+  } catch {
+    return `https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true`;
+  }
+}
+
 export default async function LessonPreviewPage({
   params,
 }: {
@@ -98,7 +120,7 @@ export default async function LessonPreviewPage({
         {lesson.document_url && (
           <div className="mb-6 rounded-xl overflow-hidden border bg-gray-50" style={{ height: "500px" }}>
             <iframe
-              src={`https://docs.google.com/viewer?url=${encodeURIComponent(lesson.document_url)}&embedded=true`}
+              src={getDocumentEmbedUrl(lesson.document_url)}
               className="w-full h-full"
               title="Document viewer"
             />
