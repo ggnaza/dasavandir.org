@@ -9,9 +9,11 @@ test("login with wrong password shows error", async ({ page }) => {
 
   // Should stay on login and show an error — not redirect
   await expect(page).toHaveURL(/\/auth\/login/, { timeout: 5000 });
-  // Error message should be visible somewhere on the page
-  const errorVisible = await page.getByText(/invalid|incorrect|wrong|failed|error/i).isVisible();
-  expect(errorVisible).toBeTruthy();
+  // Error message should appear once the async auth call returns. Wait for it
+  // rather than checking immediately (the response is not instant).
+  await expect(
+    page.getByText(/invalid|incorrect|wrong|failed|error|սխալ/i).first()
+  ).toBeVisible({ timeout: 10000 });
 });
 
 test("login with correct credentials reaches /learn", async ({ page }) => {

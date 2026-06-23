@@ -48,7 +48,7 @@ function asanaGet(path) {
 async function main() {
   // Search for incomplete tasks where Build = ai-build
   const params = new URLSearchParams({
-    [`custom_fields.${BUILD_FIELD_GID}.enum_value`]: AI_BUILD_OPTION_GID,
+    [`custom_fields.${BUILD_FIELD_GID}.value`]: AI_BUILD_OPTION_GID,
     completed: "false",
     "opt_fields": "gid,name,notes,custom_fields",
   });
