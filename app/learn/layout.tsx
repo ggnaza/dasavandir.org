@@ -16,7 +16,10 @@ export default async function LearnLayout({ children }: { children: React.ReactN
 
   const admin = createAdminClient();
   const [{ data: profile }, { count: unreadCount }] = await Promise.all([
-    supabase.from("profiles").select("role, full_name, status").eq("id", user.id).single(),
+    // Must use the admin (service-role) client: RLS on `profiles` has no
+    // "read own row" policy, so the user-auth client returns null here and the
+    // nav silently falls back to the learner role.
+    admin.from("profiles").select("role, full_name, status").eq("id", user.id).single(),
     admin.from("notifications").select("*", { count: "exact", head: true }).eq("user_id", user.id).eq("read", false),
   ]);
 

@@ -52,9 +52,9 @@ export default async function AdminDashboard() {
     { data: courseRows },
     { data: editEvents },
   ] = await Promise.all([
-    supabase.from("courses").select("*", { count: "exact", head: true }),
-    supabase.from("profiles").select("*", { count: "exact", head: true }).eq("role", "learner"),
-    supabase.from("lessons").select("*", { count: "exact", head: true }),
+    admin.from("courses").select("*", { count: "exact", head: true }),
+    admin.from("profiles").select("*", { count: "exact", head: true }).eq("role", "learner"),
+    admin.from("lessons").select("*", { count: "exact", head: true }),
     admin
       .from("audit_logs")
       .select("actor_id")
