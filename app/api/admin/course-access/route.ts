@@ -41,11 +41,25 @@ export async function POST(req: Request) {
   if (!parsed.success) return new Response("Invalid input", { status: 400 });
 
   const admin = createAdminClient();
-  const { error } = await admin.from("course_creator_access").insert({
-    creator_id: parsed.data.creator_id,
-    course_id: parsed.data.course_id,
-    granted_by: user.id,
-  });
+
+  // Upgrade to course_creator if they're currently a learner
+  const { data: targetProfile } = await admin
+    .from("profiles")
+    .select("role")
+    .eq("id", parsed.data.creator_id)
+    .single();
+  if (targetProfile?.role === "learner") {
+    await admin.from("profiles").update({ role: "course_creator" }).eq("id", parsed.data.creator_id);
+  }
+
+  const { error } = await admin.from("course_creator_access").upsert(
+    {
+      creator_id: parsed.data.creator_id,
+      course_id: parsed.data.course_id,
+      granted_by: user.id,
+    },
+    { onConflict: "creator_id,course_id" }
+  );
   if (error) {
     console.error("[course-access/post]", error);
     return new Response("Failed to grant access", { status: 500 });
