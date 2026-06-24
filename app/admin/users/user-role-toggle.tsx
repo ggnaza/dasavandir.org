@@ -12,7 +12,7 @@ export function UserRoleToggle({ userId, currentRole, onUpdate }: UserRoleToggle
   const [role, setRole] = useState(currentRole);
   const [loading, setLoading] = useState(false);
 
-  const roles = ["admin", "course_creator", "learner"];
+  const roles = ["admin", "course_creator", "course_manager", "learner"];
 
   const handleRoleChange = async (newRole: string) => {
     setLoading(true);

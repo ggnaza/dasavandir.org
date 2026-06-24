@@ -37,6 +37,36 @@ Use the helper `ensureProfile(admin, user)` in `lib/auth/ensure-profile.ts` for 
 - The lesson page redirects to `/courses/{id}` if there's no enrollment row. This must remain — direct lesson-link sharing without enrollment would expose paid content.
 - Sequential-learning gate (`!allow_shuffled_learning`) blocks access to a lesson if any prior lesson is incomplete. Server-side enforced in `app/learn/courses/[id]/lessons/[lessonId]/page.tsx`.
 
+## Role-to-course linking — DO NOT BREAK
+
+There are three separate tables that link users to courses. Using the wrong one silently breaks visibility for that role. The rule is strict:
+
+| Role | Link table | Unique key |
+|------|-----------|-----------|
+| `course_creator` | `course_creator_access` (`creator_id`, `course_id`) | `creator_id,course_id` |
+| `course_manager` | `course_manager_access` (`manager_id`, `course_id`) | `manager_id,course_id` |
+| `learner` | `enrollments` (`user_id`, `course_id`) | `user_id,course_id` |
+
+**Hard rules:**
+1. Any code path that creates or updates a user and accepts a `courseId` **must branch on role** and insert into the correct table. Never fall a `course_creator` or `course_manager` into `enrollments`. The bug was in `app/api/admin/users/create/route.ts` — it was fixed; don't reintroduce it.
+2. The role toggle in `app/admin/users/user-role-toggle.tsx` must list all four roles: `admin`, `course_creator`, `course_manager`, `learner`. Removing any makes that role unassignable via the UI without any error.
+3. The users page (`app/admin/users/page.tsx`) must show a course-management action for **both** `course_creator` (→ `AssignCoursesModal`) and `course_manager` (→ `AssignManagerCoursesModal`). If you add a role that has course access, add a matching UI action.
+4. When adding a new role that implies course-level access, create its access table and the moderators/course-access API before wiring up the UI — never let the UI ship without the API backing it.
+
+### How courses are fetched per role (`app/admin/courses/page.tsx`)
+- `admin` → all courses from `courses`
+- `course_manager` → courses via `course_manager_access.manager_id = user.id`
+- `course_creator` (and any other role) → courses via `course_creator_access.creator_id = user.id`
+
+If you add another editor role, add its branch here.
+
+### The `GET /api/admin/moderators` route
+Supports two modes:
+- `?course_id=X` → list moderators for a course (requires course ownership)
+- `?manager_id=X` → list courses for a manager (admin only)
+
+Keep both modes working when editing this route.
+
 ## Always do this after code changes
 After code changes, always run `gh pr create` and `gh pr merge` automatically.
 

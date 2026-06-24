@@ -5,6 +5,7 @@ import { UserRoleToggle } from "./user-role-toggle";
 import { AddUserModal } from "./add-user-modal";
 import { DeleteUserDialog } from "./delete-user-dialog";
 import { AssignCoursesModal } from "./assign-courses-modal";
+import { AssignManagerCoursesModal } from "./assign-manager-courses-modal";
 import Link from "next/link";
 
 type User = {
@@ -30,6 +31,9 @@ export default function UsersPage() {
   const [deleteUserName, setDeleteUserName] = useState("");
   const [assignCreatorId, setAssignCreatorId] = useState<string | null>(null);
   const [assignCreatorName, setAssignCreatorName] = useState("");
+  const [assignManagerId, setAssignManagerId] = useState<string | null>(null);
+  const [assignManagerEmail, setAssignManagerEmail] = useState("");
+  const [assignManagerName, setAssignManagerName] = useState("");
   const [resending, setResending] = useState<string | null>(null);
 
   const fetchUsers = useCallback(async (p: number = page, s: string = search) => {
@@ -185,6 +189,14 @@ export default function UsersPage() {
                                   Courses
                                 </button>
                               )}
+                              {user.role === "course_manager" && (
+                                <button
+                                  onClick={() => { setAssignManagerId(user.id); setAssignManagerEmail(user.email); setAssignManagerName(user.full_name || "User"); }}
+                                  className="text-purple-600 hover:underline text-sm"
+                                >
+                                  Courses
+                                </button>
+                              )}
                             </>
                           )}
                           <button
@@ -244,6 +256,13 @@ export default function UsersPage() {
         creatorName={assignCreatorName}
         isOpen={!!assignCreatorId}
         onClose={() => setAssignCreatorId(null)}
+      />
+      <AssignManagerCoursesModal
+        managerId={assignManagerId || ""}
+        managerEmail={assignManagerEmail}
+        managerName={assignManagerName}
+        isOpen={!!assignManagerId}
+        onClose={() => setAssignManagerId(null)}
       />
       <DeleteUserDialog
         userId={deleteUserId || ""}
