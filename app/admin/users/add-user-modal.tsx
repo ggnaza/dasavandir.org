@@ -122,7 +122,7 @@ export function AddUserModal({ isOpen, onClose, onSuccess }: AddUserModalProps) 
             <option value="admin">Admin</option>
           </select>
 
-          {formData.role === "learner" && courses.length > 0 && (
+          {["learner", "course_creator", "course_manager"].includes(formData.role) && courses.length > 0 && (
             <select
               value={formData.courseId}
               onChange={(e) => setFormData({ ...formData, courseId: e.target.value })}

@@ -43,6 +43,11 @@ export async function POST(req: Request) {
             { creator_id: existingProfile.id, course_id: courseId, granted_by: user.id },
             { onConflict: "creator_id,course_id" }
           );
+        } else if (role === "course_manager") {
+          await admin.from("course_manager_access").upsert(
+            { manager_id: existingProfile.id, course_id: courseId, granted_by: user.id },
+            { onConflict: "manager_id,course_id" }
+          );
         } else {
           await admin.from("enrollments").upsert(
             { user_id: existingProfile.id, course_id: courseId },
@@ -100,6 +105,11 @@ export async function POST(req: Request) {
         await admin.from("course_creator_access").upsert(
           { creator_id: linkData.user.id, course_id: courseId, granted_by: user.id },
           { onConflict: "creator_id,course_id" }
+        );
+      } else if (role === "course_manager") {
+        await admin.from("course_manager_access").upsert(
+          { manager_id: linkData.user.id, course_id: courseId, granted_by: user.id },
+          { onConflict: "manager_id,course_id" }
         );
       } else {
         await admin.from("enrollments").upsert(
