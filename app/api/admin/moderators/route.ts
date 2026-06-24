@@ -17,7 +17,23 @@ export async function GET(req: Request) {
 
   const { searchParams } = new URL(req.url);
   const course_id = searchParams.get("course_id");
-  if (!course_id) return new Response("Missing course_id", { status: 400 });
+  const manager_id = searchParams.get("manager_id");
+
+  // When manager_id is provided, return courses assigned to that manager (admin only)
+  if (manager_id) {
+    if (profile?.role !== "admin") return new Response("Forbidden", { status: 403 });
+    const { data: accessRows, error } = await admin
+      .from("course_manager_access")
+      .select("course_id, courses(id, title)")
+      .eq("manager_id", manager_id);
+    if (error) {
+      console.error("[moderators/get-by-manager]", error);
+      return new Response("Failed to fetch courses", { status: 500 });
+    }
+    return Response.json((accessRows ?? []).map((r: any) => r.courses).filter(Boolean));
+  }
+
+  if (!course_id) return new Response("Missing course_id or manager_id", { status: 400 });
 
   const ownerErr = await assertCourseOwner(course_id, user.id);
   if (ownerErr) return ownerErr;
