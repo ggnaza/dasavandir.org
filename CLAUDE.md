@@ -22,6 +22,17 @@ Because the trigger now silently warns on failure instead of raising, app code m
 
 Use the helper `ensureProfile(admin, user)` in `lib/auth/ensure-profile.ts` for new call sites. Do not write the upsert inline — keep it consistent.
 
+### Reading the current user's role — use the admin client
+RLS is enabled on `profiles`. The only self-read access is the
+`"Users read own profile"` policy (`supabase/migrations/profiles_self_read_policy.sql`).
+**Server code that reads the logged-in user's own profile/role must use
+`createAdminClient()` (service role), not the user-auth `createClient()`.**
+If that policy is ever dropped, every user-auth-client read of `profiles`
+returns null and the nav silently downgrades the user to `learner` —
+this is exactly what made course_creators/course_managers and Google-OAuth
+admins "appear as learners" (the `app/learn/layout.tsx` nav-role bug). Do not
+switch these reads back to the user-auth client.
+
 ### OAuth callback error handling
 `app/auth/callback/route.ts` reads `error` and `error_description` query params from the Supabase OAuth redirect. **Do not remove this** — it's the only way users see real OAuth errors (otherwise they get "no_code").
 
