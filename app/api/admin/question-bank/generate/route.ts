@@ -43,8 +43,6 @@ export async function POST(req: Request) {
   const ownerErr = await assertCourseOwner(course_id, user.id);
   if (ownerErr) return ownerErr;
 
-  const admin = createAdminClient();
-
   const { data: lesson } = await admin
     .from("lessons")
     .select("title, content, slides_text, document_text")
