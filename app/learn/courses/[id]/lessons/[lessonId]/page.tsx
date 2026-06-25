@@ -285,6 +285,20 @@ export default async function LessonPage({
     }
   }
 
+  // Build the viewer src. For PDFs served directly (Supabase signed URL or a
+  // direct .pdf link) we use the browser's native PDF viewer and pass open
+  // params so it fits to width (no horizontal scroll) while keeping the
+  // toolbar (zoom in/out, page navigation) visible.
+  let documentSrc: string | null = null;
+  if (resolvedDocumentUrl) {
+    const isDirectPdf =
+      resolvedDocumentUrl.includes("/storage/v1/object/sign/") ||
+      resolvedDocumentUrl.split("?")[0].toLowerCase().endsWith(".pdf");
+    documentSrc = isDirectPdf
+      ? `${resolvedDocumentUrl}#view=FitH&toolbar=1&navpanes=0`
+      : getDocumentEmbedUrl(resolvedDocumentUrl);
+  }
+
   // Generate signed URLs for lesson file attachments (bucket is private)
   const signedFiles = await Promise.all(
     (files ?? []).map(async (f) => {
@@ -346,14 +360,10 @@ export default async function LessonPage({
           </div>
         )}
 
-        {resolvedDocumentUrl && (
-          <div className="mb-6 rounded-xl overflow-hidden border bg-gray-50" style={{ height: "500px" }}>
+        {documentSrc && (
+          <div className="mb-6 rounded-xl overflow-hidden border bg-gray-50 w-full h-[80vh] max-h-[720px]">
             <iframe
-              src={
-                resolvedDocumentUrl.includes("/storage/v1/object/sign/")
-                  ? resolvedDocumentUrl
-                  : getDocumentEmbedUrl(resolvedDocumentUrl)
-              }
+              src={documentSrc}
               className="w-full h-full"
               title="Document viewer"
             />
