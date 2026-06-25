@@ -8,10 +8,11 @@ export const runtime = "nodejs";
 
 const schema = z.object({
   assignment_id: z.string().uuid(),
-  content: z.string().max(10_000).optional(),
-  file_path: z.string().max(500).optional(),
-  file_name: z.string().max(255).optional(),
-  link_url: z.string().url().max(2000).optional(),
+  // Client sends explicit null for empty fields → accept null as well as undefined.
+  content: z.string().max(10_000).nullish(),
+  file_path: z.string().max(500).nullish(),
+  file_name: z.string().max(255).nullish(),
+  link_url: z.string().url().max(2000).nullish(),
   group_id: z.string().uuid().nullable().optional(),
 });
 
