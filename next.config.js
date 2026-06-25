@@ -7,6 +7,13 @@ const nextConfig = {
     remotePatterns: [{ hostname: "*.supabase.co" }],
   },
 
+  // pdfjs-dist (used by react-pdf) has an optional Node "canvas" dependency
+  // that must not be bundled for the browser build.
+  webpack: (config) => {
+    config.resolve.alias.canvas = false;
+    return config;
+  },
+
   async headers() {
     return [
       {
