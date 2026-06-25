@@ -268,6 +268,23 @@ export default async function LessonPage({
   const embedUrl = !isStorageVideo && lesson.video_url ? getEmbedUrl(lesson.video_url) : null;
   const slidesEmbedUrl = lesson.slides_url ? getSlidesEmbedUrl(lesson.slides_url) : null;
 
+  // If document_url is a Supabase storage file (lesson-documents bucket is private),
+  // generate a signed URL so the learner's browser can load it in the iframe.
+  let resolvedDocumentUrl = lesson.document_url ?? null;
+  if (resolvedDocumentUrl && resolvedDocumentUrl.includes("/lesson-documents/")) {
+    const marker = "/lesson-documents/";
+    const idx = resolvedDocumentUrl.indexOf(marker);
+    if (idx !== -1) {
+      const storagePath = decodeURIComponent(
+        resolvedDocumentUrl.slice(idx + marker.length).split("?")[0]
+      );
+      const { data: signedDoc } = await admin.storage
+        .from("lesson-documents")
+        .createSignedUrl(storagePath, 3600);
+      if (signedDoc?.signedUrl) resolvedDocumentUrl = signedDoc.signedUrl;
+    }
+  }
+
   // Generate signed URLs for lesson file attachments (bucket is private)
   const signedFiles = await Promise.all(
     (files ?? []).map(async (f) => {
@@ -329,10 +346,14 @@ export default async function LessonPage({
           </div>
         )}
 
-        {lesson.document_url && (
+        {resolvedDocumentUrl && (
           <div className="mb-6 rounded-xl overflow-hidden border bg-gray-50" style={{ height: "500px" }}>
             <iframe
-              src={getDocumentEmbedUrl(lesson.document_url)}
+              src={
+                resolvedDocumentUrl.includes("/storage/v1/object/sign/")
+                  ? resolvedDocumentUrl
+                  : getDocumentEmbedUrl(resolvedDocumentUrl)
+              }
               className="w-full h-full"
               title="Document viewer"
             />
