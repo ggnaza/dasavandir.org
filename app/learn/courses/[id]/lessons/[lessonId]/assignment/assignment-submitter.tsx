@@ -133,7 +133,7 @@ export function AssignmentSubmitter({
       const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
       const path = `submissions/${user!.id}/${Date.now()}-${safeName}`;
       const { error: uploadError } = await supabase.storage.from("lesson-files").upload(path, file);
-      if (uploadError) { setError("Upload failed. Please try again."); setSubmitting(false); return; }
+      if (uploadError) { setError(`Upload failed: ${uploadError.message}`); setSubmitting(false); return; }
       filePath = path;
       fileName = file.name;
     }
