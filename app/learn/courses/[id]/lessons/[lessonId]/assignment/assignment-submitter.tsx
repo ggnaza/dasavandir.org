@@ -2,7 +2,6 @@
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/client";
 
 type FeedbackItem = { criterion: string; score: number; max_points: number; feedback: string };
 type Submission = {
@@ -128,12 +127,25 @@ export function AssignmentSubmitter({
     if (file) {
       if (file.size > MAX_FILE_BYTES) { setError("File too large — max 500 MB."); setSubmitting(false); return; }
       if (!ALLOWED_TYPES.has(file.type)) { setError("File type not allowed."); setSubmitting(false); return; }
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
-      const path = `submissions/${user!.id}/${Date.now()}-${safeName}`;
-      const { error: uploadError } = await supabase.storage.from("lesson-files").upload(path, file);
-      if (uploadError) { setError(`Upload failed: ${uploadError.message}`); setSubmitting(false); return; }
+      // Get a server-signed upload URL (admin client bypasses storage RLS).
+      const urlRes = await fetch("/api/submissions/upload-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ filename: file.name }),
+      });
+      if (!urlRes.ok) { setError(`Upload failed: ${await urlRes.text()}`); setSubmitting(false); return; }
+      const { signedUrl, path } = await urlRes.json();
+
+      const putRes = await fetch(signedUrl, {
+        method: "PUT",
+        headers: { "Content-Type": file.type || "application/octet-stream" },
+        body: file,
+      });
+      if (!putRes.ok) {
+        let detail = `${putRes.status}`;
+        try { const b = await putRes.json(); detail = b.message ?? b.error ?? detail; } catch {}
+        setError(`Upload failed: ${detail}`); setSubmitting(false); return;
+      }
       filePath = path;
       fileName = file.name;
     }
