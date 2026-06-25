@@ -114,7 +114,7 @@ export function AssignmentSubmitter({
     "application/msword",
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   ]);
-  const MAX_FILE_BYTES = 50 * 1024 * 1024;
+  const MAX_FILE_BYTES = 500 * 1024 * 1024;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -126,7 +126,7 @@ export function AssignmentSubmitter({
     let fileName: string | null = null;
 
     if (file) {
-      if (file.size > MAX_FILE_BYTES) { setError("File too large — max 50 MB."); setSubmitting(false); return; }
+      if (file.size > MAX_FILE_BYTES) { setError("File too large — max 500 MB."); setSubmitting(false); return; }
       if (!ALLOWED_TYPES.has(file.type)) { setError("File type not allowed."); setSubmitting(false); return; }
       const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
@@ -338,7 +338,7 @@ export function AssignmentSubmitter({
           <span className="text-2xl">{file ? "📎" : "📄"}</span>
           <div>
             <p className="text-sm font-medium">{file ? file.name : "Choose file"}</p>
-            <p className="text-xs text-gray-400">PDF, JPG, PNG, MP4, MOV — max 50MB</p>
+            <p className="text-xs text-gray-400">PDF, JPG, PNG, MP4, MOV — max 500MB</p>
           </div>
           <input ref={fileRef} type="file" accept=".pdf,.jpg,.jpeg,.png,.gif,.mp4,.mov,.webm,.doc,.docx"
             className="hidden" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
