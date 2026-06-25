@@ -10,6 +10,7 @@ import { SessionTracker } from "./session-tracker";
 import { VideoTracker } from "./video-tracker";
 import { ChapterView } from "./chapter-view";
 import { SlideAudioPlayer } from "./slide-audio-player";
+import { PdfViewer } from "@/components/pdf-viewer";
 
 function getLinkIcon(url: string): string {
   if (url.includes("docs.google.com/spreadsheets")) return "📊";
@@ -285,18 +286,21 @@ export default async function LessonPage({
     }
   }
 
-  // Build the viewer src. For PDFs served directly (Supabase signed URL or a
-  // direct .pdf link) we use the browser's native PDF viewer and pass open
-  // params so it fits to width (no horizontal scroll) while keeping the
-  // toolbar (zoom in/out, page navigation) visible.
+  // Decide how to render the document. Direct PDFs (Supabase signed URL or a
+  // .pdf link) use the JS PdfViewer, which fits to width with zoom controls
+  // and works consistently on iOS (the native viewer ignores fit params there).
+  // Everything else (Google Docs/Drive previews) stays in an iframe.
+  let pdfUrl: string | null = null;
   let documentSrc: string | null = null;
   if (resolvedDocumentUrl) {
     const isDirectPdf =
       resolvedDocumentUrl.includes("/storage/v1/object/sign/") ||
       resolvedDocumentUrl.split("?")[0].toLowerCase().endsWith(".pdf");
-    documentSrc = isDirectPdf
-      ? `${resolvedDocumentUrl}#view=FitH&toolbar=1&navpanes=0`
-      : getDocumentEmbedUrl(resolvedDocumentUrl);
+    if (isDirectPdf) {
+      pdfUrl = resolvedDocumentUrl;
+    } else {
+      documentSrc = getDocumentEmbedUrl(resolvedDocumentUrl);
+    }
   }
 
   // Generate signed URLs for lesson file attachments (bucket is private)
@@ -359,6 +363,8 @@ export default async function LessonPage({
             <iframe src={slidesEmbedUrl} className="w-full h-full" allowFullScreen allow="autoplay" />
           </div>
         )}
+
+        {pdfUrl && <PdfViewer url={pdfUrl} />}
 
         {documentSrc && (
           <div className="mb-6 rounded-xl overflow-hidden border bg-gray-50 w-full h-[80vh] max-h-[720px]">
