@@ -28,6 +28,7 @@ export function ModuleAccordion({
   cohortAvgPct,
   lessonFiles = {},
   courseResources = [],
+  allowShuffled = false,
 }: {
   lessons: Lesson[];
   courseId: string;
@@ -36,6 +37,7 @@ export function ModuleAccordion({
   cohortAvgPct?: number | null;
   lessonFiles?: Record<string, LessonFile[]>;
   courseResources?: CourseResource[];
+  allowShuffled?: boolean;
 }) {
   const [open, setOpen] = useState<string | null>(null);
   const [resourcesOpen, setResourcesOpen] = useState(false);
@@ -66,6 +68,11 @@ export function ModuleAccordion({
     <div className="divide-y">
       {lessons.map((lesson, i) => {
         const done = completedIds.has(lesson.id);
+        // Sequential gate: locked if not shuffled AND any prior lesson is incomplete.
+        // Mirrors the lesson-page sidebar so learners don't click ahead and get
+        // silently redirected to the first incomplete lesson.
+        const locked =
+          !allowShuffled && i > 0 && !lessons.slice(0, i).every((pl) => completedIds.has(pl.id));
         const isCurrent = lesson.id === nextLessonId;
         const isOpen = open === lesson.id;
         const files = lessonFiles[lesson.id] ?? [];
@@ -90,29 +97,39 @@ export function ModuleAccordion({
                 className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 transition-all ${
                   done
                     ? "bg-green-100 text-green-700"
+                    : locked
+                    ? "bg-gray-50 text-gray-300"
                     : isCurrent
                     ? "bg-brand-600 text-white ring-4 ring-brand-100"
                     : "bg-gray-100 text-gray-400"
                 }`}
               >
-                {done ? "✓" : isCurrent ? "→" : i + 1}
+                {done ? "✓" : locked ? "🔒" : isCurrent ? "→" : i + 1}
               </span>
 
               {/* Title + meta */}
               <div className="flex-1 min-w-0">
-                <Link
-                  href={`/learn/courses/${courseId}/lessons/${lesson.id}`}
-                  className={`text-sm font-medium hover:text-brand-600 ${
-                    isCurrent ? "text-brand-700" : done ? "text-gray-500" : "text-gray-900"
-                  }`}
-                >
-                  {lesson.title}
-                </Link>
+                {locked ? (
+                  <span className="text-sm font-medium text-gray-300 cursor-not-allowed">
+                    {lesson.title}
+                  </span>
+                ) : (
+                  <Link
+                    href={`/learn/courses/${courseId}/lessons/${lesson.id}`}
+                    className={`text-sm font-medium hover:text-brand-600 ${
+                      isCurrent ? "text-brand-700" : done ? "text-gray-500" : "text-gray-900"
+                    }`}
+                  >
+                    {lesson.title}
+                  </Link>
+                )}
                 <div className="flex items-center gap-2 mt-0.5">
-                  {isCurrent && (
+                  {locked ? (
+                    <span className="text-xs text-gray-400">Complete previous module first</span>
+                  ) : isCurrent && (
                     <span className="text-xs text-brand-600 font-medium">Your next module</span>
                   )}
-                  {duration && (
+                  {duration && !locked && (
                     <span className={`text-xs ${isCurrent ? "text-brand-400" : "text-gray-400"}`}>
                       {isCurrent && "·"} {duration}
                     </span>
