@@ -294,6 +294,7 @@ export default async function LearnCoursePage({ params }: { params: { id: string
             cohortAvgPct={cohortAvgPct}
             lessonFiles={lessonFilesMap}
             courseResources={processedResources}
+            allowShuffled={course.allow_shuffled_learning ?? false}
           />
         </div>
       )}
