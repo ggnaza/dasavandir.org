@@ -75,10 +75,13 @@ export function ModuleAccordion({
           !allowShuffled && i > 0 && !lessons.slice(0, i).every((pl) => completedIds.has(pl.id));
         const isCurrent = lesson.id === nextLessonId;
         const isOpen = open === lesson.id;
-        const files = lessonFiles[lesson.id] ?? [];
+        // Locked lessons expose nothing downloadable — materials stay gated until
+        // the previous lesson is complete (matches the lesson-page access gate).
+        const files = locked ? [] : (lessonFiles[lesson.id] ?? []);
         const hasExpand =
-          !!(lesson.what_you_learn || (lesson.skills && lesson.skills.length > 0)) ||
-          files.length > 0;
+          !locked &&
+          (!!(lesson.what_you_learn || (lesson.skills && lesson.skills.length > 0)) ||
+            files.length > 0);
         const duration = formatDuration(lesson.duration_seconds);
 
         // Show cohort marker after this lesson if cohortPos falls in (i, i+1]
