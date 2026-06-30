@@ -10,16 +10,16 @@ type Props = {
   hasQuiz: boolean;
   quizPassed: boolean;         // true if no quiz OR score >= 80
   hasAssignment: boolean;
-  assignmentApproved: boolean; // true if no assignment OR submission is approved
+  assignmentSubmitted: boolean; // true if no assignment OR a submission exists (any status)
 };
 
-export function MarkCompleteButton({ lessonId, userId: _userId, isCompleted, courseId, hasQuiz, quizPassed, hasAssignment, assignmentApproved }: Props) {
+export function MarkCompleteButton({ lessonId, userId: _userId, isCompleted, courseId, hasQuiz, quizPassed, hasAssignment, assignmentSubmitted }: Props) {
   const router = useRouter();
   const [done, setDone] = useState(isCompleted);
   const [loading, setLoading] = useState(false);
 
   const quizBlocked = hasQuiz && !quizPassed && !done;
-  const assignmentBlocked = hasAssignment && !assignmentApproved && !done;
+  const assignmentBlocked = hasAssignment && !assignmentSubmitted && !done;
   const isBlocked = quizBlocked || assignmentBlocked;
 
   async function toggle() {
@@ -56,9 +56,9 @@ export function MarkCompleteButton({ lessonId, userId: _userId, isCompleted, cou
           disabled
           className="text-sm px-4 py-2 rounded-lg font-medium bg-gray-100 text-gray-400 cursor-not-allowed"
         >
-          Assignment pending review
+          Submit assignment to complete
         </button>
-        <p className="text-xs text-orange-600">Submit your assignment and wait for approval</p>
+        <p className="text-xs text-orange-600">Submit your assignment to complete this lesson</p>
       </div>
     );
   }
