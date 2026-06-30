@@ -185,8 +185,9 @@ export default async function LessonPage({
     ? await admin.from("progress").select("lesson_id").eq("user_id", user!.id).in("lesson_id", courseLessonIds)
     : { data: [] };
 
-  // Check assignment approval gate
-  let assignmentApproved = true; // default: no assignment → gate open
+  // Check assignment submission gate — a submission in ANY status opens the
+  // gate (approval is no longer required to complete the lesson).
+  let assignmentSubmitted = true; // default: no assignment → gate open
   if (assignment?.id) {
     // For group assignments, check own row first (fan-out copy), then group row
     const { data: ownSub } = await admin
@@ -220,7 +221,8 @@ export default async function LessonPage({
       }
     }
 
-    assignmentApproved = submissionStatus === "approved";
+    // Submitted is enough — any existing submission (own or group) opens the gate.
+    assignmentSubmitted = submissionStatus !== null;
   }
 
   // Check quiz score for 80% gate
@@ -463,7 +465,7 @@ export default async function LessonPage({
             hasQuiz={!!quiz}
             quizPassed={quizPassed}
             hasAssignment={!!assignment}
-            assignmentApproved={assignmentApproved}
+            assignmentSubmitted={assignmentSubmitted}
           />
         </div>
 
