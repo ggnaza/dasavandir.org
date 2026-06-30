@@ -1,5 +1,8 @@
 "use client";
 
+// Must run before react-pdf/pdfjs so Promise.withResolvers exists on older
+// browsers (Safari < 17.4 etc.); otherwise pdfjs throws and crashes the page.
+import "@/lib/promise-with-resolvers-polyfill";
 import { useState, useRef, useEffect } from "react";
 import { Document, Page, pdfjs } from "react-pdf";
 
