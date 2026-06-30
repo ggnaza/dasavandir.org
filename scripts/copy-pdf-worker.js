@@ -8,6 +8,12 @@ const src = require.resolve("pdfjs-dist/build/pdf.worker.min.mjs");
 const destDir = path.join(__dirname, "..", "public");
 const dest = path.join(destDir, "pdf.worker.min.mjs");
 
+// pdfjs uses Promise.withResolvers inside the worker's own global scope, which
+// the app-side polyfill can't reach. Prepend a polyfill so the worker runs on
+// older browsers (Safari < 17.4 etc.) instead of throwing.
+const polyfill =
+  "if(typeof Promise.withResolvers!=='function'){Promise.withResolvers=function(){let a,b;const c=new Promise((d,e)=>{a=d;b=e;});return{promise:c,resolve:a,reject:b};};}\n";
+
 fs.mkdirSync(destDir, { recursive: true });
-fs.copyFileSync(src, dest);
-console.log(`[copy-pdf-worker] ${src} -> ${dest}`);
+fs.writeFileSync(dest, polyfill + fs.readFileSync(src, "utf8"));
+console.log(`[copy-pdf-worker] ${src} -> ${dest} (+Promise.withResolvers polyfill)`);
