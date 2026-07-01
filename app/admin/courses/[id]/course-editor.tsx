@@ -69,17 +69,19 @@ export function CourseEditor({ course, lessonDeadlineDates = [] }: {
     }
     setUploadingImage(true);
     setImageError("");
-    const supabase = createClient();
-    const ext = file.name.split(".").pop();
-    const path = `${course.id}/cover.${ext}`;
-    const { error } = await supabase.storage.from("course-covers").upload(path, file, { upsert: true });
-    if (error) {
-      setImageError(error.message);
+    // Upload server-side (admin client) — direct browser Storage writes fail.
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("courseId", course.id);
+    const res = await fetch("/api/admin/course-cover", { method: "POST", body: formData });
+    if (!res.ok) {
+      const { error } = await res.json().catch(() => ({ error: "Upload failed" }));
+      setImageError(error ?? "Upload failed");
       setUploadingImage(false);
       return;
     }
-    const { data } = supabase.storage.from("course-covers").getPublicUrl(path);
-    setCoverUrl(data.publicUrl);
+    const { url } = await res.json();
+    setCoverUrl(url);
     setUploadingImage(false);
     if (imageInputRef.current) imageInputRef.current.value = "";
   }
