@@ -1,7 +1,6 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
 import { LessonContentEditor } from "@/components/lesson-content-editor-dynamic";
 import { ChaptersEditor } from "./chapters-editor";
 
@@ -103,22 +102,29 @@ export function LessonEditor({
     if (file.size > 500 * 1024 * 1024) { setDocError("Max file size is 500MB."); return; }
     setUploadingDoc(true);
     setDocError("");
-    const supabase = createClient();
-    const path = `${lesson.id}/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
-    const { error } = await supabase.storage.from("lesson-documents").upload(path, file, { upsert: true });
-    if (error) { setDocError(error.message); setUploadingDoc(false); return; }
-    const { data } = supabase.storage.from("lesson-documents").getPublicUrl(path);
-    setDocumentUrl(data.publicUrl);
+    // Upload server-side (admin client) — direct browser Storage writes fail.
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("lessonId", lesson.id);
+    const res = await fetch("/api/admin/lesson-document", { method: "POST", body: formData });
+    if (!res.ok) {
+      const { error } = await res.json().catch(() => ({ error: "Upload failed" }));
+      setDocError(error ?? "Upload failed");
+      setUploadingDoc(false);
+      return;
+    }
+    const { url: publicUrl } = await res.json();
+    setDocumentUrl(publicUrl);
     await fetch(`/api/admin/lessons/${lesson.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ document_url: data.publicUrl }),
+      body: JSON.stringify({ document_url: publicUrl }),
     });
     // Auto-extract PDF text for AI coach
     fetch("/api/admin/extract-document", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ documentUrl: data.publicUrl, lessonId: lesson.id }),
+      body: JSON.stringify({ documentUrl: publicUrl, lessonId: lesson.id }),
     }).catch(() => {});
     setUploadingDoc(false);
     router.refresh();
