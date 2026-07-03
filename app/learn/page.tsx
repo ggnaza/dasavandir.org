@@ -31,22 +31,6 @@ export default async function LearnDashboard() {
         )
       );
     }
-
-    // @teachforarmenia.org users get auto-enrolled in all internal courses
-    if (userEmail.endsWith("@teachforarmenia.org")) {
-      const { data: internalCourses } = await admin
-        .from("courses")
-        .select("id")
-        .eq("course_type", "internal")
-        .eq("published", true);
-
-      if (internalCourses && internalCourses.length > 0) {
-        await admin.from("enrollments").upsert(
-          internalCourses.map((c) => ({ user_id: user!.id, course_id: c.id })),
-          { onConflict: "user_id,course_id" }
-        );
-      }
-    }
   }
 
   const { data: enrollments } = await admin
