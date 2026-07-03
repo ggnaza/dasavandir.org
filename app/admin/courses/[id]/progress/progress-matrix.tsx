@@ -107,7 +107,7 @@ export function ProgressMatrix({ courseId, lessonMeta, learners, isCohortLimited
         <p className="text-sm text-gray-500">
           Exact module-by-module progress and time spent per learner.
           {isCohortLimited && (
-            <span className="ml-2 text-blue-600 font-medium">Your cohort ({cohortSize} learners).</span>
+            <span className="ml-2 text-blue-600 font-medium">Learners in the groups you moderate ({cohortSize}).</span>
           )}
           <span className="ml-2 text-gray-400">
             {videoLessons} video lesson{videoLessons !== 1 ? "s" : ""} (▶) · {readingLessons} reading{readingLessons !== 1 ? "s" : ""} (📖)

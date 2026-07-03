@@ -335,15 +335,26 @@ FORMAT: ${customCoachInstructions ? "Use natural, readable prose. No forced head
     let stream: ReturnType<Anthropic["messages"]["stream"]>;
     try {
       const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+      const claudeMessages: any[] = messages.map((m: { role: string; content: string }) => ({
+        role: m.role as "user" | "assistant",
+        content: m.content,
+      }));
+      // Multimodal: attach an uploaded image to the latest user turn
+      if (attachment?.mimeType?.startsWith("image/")) {
+        const last = claudeMessages[claudeMessages.length - 1];
+        if (last?.role === "user" && typeof last.content === "string") {
+          last.content = [
+            { type: "text", text: last.content },
+            { type: "image", source: { type: "base64", media_type: attachment.mimeType, data: attachment.data } },
+          ];
+        }
+      }
       stream = anthropic.messages.stream({
         model,
         max_tokens: 1200,
         temperature: 0.3,
         system: systemPrompt,
-        messages: messages.map((m: { role: string; content: string }) => ({
-          role: m.role as "user" | "assistant",
-          content: m.content,
-        })),
+        messages: claudeMessages,
       });
     } catch (err: any) {
       console.error("[chat] Anthropic stream init failed:", err?.message ?? err);
@@ -457,13 +468,27 @@ FORMAT: ${customCoachInstructions ? "Use natural, readable prose. No forced head
   let stream: Awaited<ReturnType<OpenAI["chat"]["completions"]["create"]>>;
   try {
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY, timeout: 15_000 });
+    const openaiMessages: any[] = [
+      { role: "system", content: systemPrompt },
+      ...messages,
+    ];
+    // Multimodal: attach an uploaded image to the latest user turn. Replace the
+    // slot with a NEW object rather than mutating the shared `messages` entry
+    // (which is also used by updateMemory / history and must stay a string).
+    const oaLast = openaiMessages[openaiMessages.length - 1];
+    if (attachment?.mimeType?.startsWith("image/") && oaLast?.role === "user" && typeof oaLast.content === "string") {
+      openaiMessages[openaiMessages.length - 1] = {
+        role: "user",
+        content: [
+          { type: "text", text: oaLast.content },
+          { type: "image_url", image_url: { url: `data:${attachment.mimeType};base64,${attachment.data}` } },
+        ],
+      };
+    }
     stream = await openai.chat.completions.create({
       model,
       stream: true,
-      messages: [
-        { role: "system", content: systemPrompt },
-        ...messages,
-      ],
+      messages: openaiMessages,
       max_tokens: 1200,
       temperature: 0.3,
     });

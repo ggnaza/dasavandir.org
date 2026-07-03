@@ -64,7 +64,7 @@ export async function DELETE(req: Request) {
   // Look up course_id via lesson to verify ownership
   const { data: file } = await admin
     .from("lesson_files")
-    .select("lesson_id, lessons(course_id)")
+    .select("lesson_id, storage_path, lessons(course_id)")
     .eq("id", parsed.data.id)
     .single();
 
@@ -72,6 +72,12 @@ export async function DELETE(req: Request) {
 
   const ownerErr = await assertCourseOwner((file.lessons as any)?.course_id, user.id);
   if (ownerErr) return ownerErr;
+
+  // Remove the storage object with the service-role client (the `lesson-files`
+  // bucket has no browser-facing DELETE policy — mirror the signed-upload flow).
+  if (file.storage_path) {
+    await admin.storage.from("lesson-files").remove([file.storage_path]);
+  }
 
   await admin.from("lesson_files").delete().eq("id", parsed.data.id);
   return new Response("OK");

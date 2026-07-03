@@ -7,6 +7,17 @@ const MAX_BYTES = 10 * 1024 * 1024;          // 10 MB — text extraction (resul
 const MAX_VISION_BYTES = 3 * 1024 * 1024;    // 3 MB — base64 (~4 MB) must fit Vercel's ~4.5 MB body limit
 const MIN_USABLE_TEXT = 20;                  // below this we treat the file as image-only
 
+// What the configured model can analyze visually:
+//   "full"   → images AND scanned PDFs (Gemini)
+//   "images" → images only (OpenAI gpt-4o/4.1, Claude 3+)
+//   "none"   → no vision support
+function visionSupport(model: string): "full" | "images" | "none" {
+  if (model.startsWith("gemini-")) return "full";
+  if (model.startsWith("claude-")) return "images";
+  if (/^(gpt-4o|gpt-4\.1|chatgpt-4o)/.test(model)) return "images";
+  return "none";
+}
+
 export async function POST(req: Request) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -61,11 +72,14 @@ export async function POST(req: Request) {
   // No usable text — fall back to vision (multimodal) for PDFs and images
   if (isPdf || isImage) {
     const model = await getAIModel();
-    if (!model.startsWith("gemini-")) {
-      return new Response(
-        `"${file.name}" has no readable text — it looks like a scanned or image-only file, and the current AI model can't read images. Try a text-based PDF or DOCX, or paste the text directly.`,
-        { status: 400 },
-      );
+    const support = visionSupport(model);
+    // Images work on any vision model; scanned PDFs currently only on Gemini.
+    const canAnalyze = support === "full" || (isImage && support === "images");
+    if (!canAnalyze) {
+      const why = isPdf
+        ? `"${file.name}" looks like a scanned or image-only PDF. The current AI model can only read scanned PDFs on Gemini — try a text-based PDF or DOCX, or paste the text directly.`
+        : `"${file.name}" is an image, but the current AI model can't read images. Ask an administrator to switch the AI model, or paste the text instead.`;
+      return new Response(why, { status: 400 });
     }
     if (file.size > MAX_VISION_BYTES) {
       return new Response(

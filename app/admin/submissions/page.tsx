@@ -48,13 +48,26 @@ export default async function SubmissionsPage() {
       .eq("creator_id", user.id);
     courseIds = (access ?? []).map((r) => r.course_id);
   } else {
-    // course_manager: courses via course_manager_access + cohort learners
-    const [{ data: managerAccess }, { data: cohortAssignments }] = await Promise.all([
+    // course_manager (moderator): access gate is course_manager_access; the
+    // learners they see are the members of the groups they moderate
+    // (course_groups.moderator_id → course_group_members), unioned with any
+    // legacy moderator_cohort_assignments rows.
+    const [{ data: managerAccess }, { data: modGroups }, { data: cohortAssignments }] = await Promise.all([
       admin.from("course_manager_access").select("course_id").eq("manager_id", user.id),
+      admin.from("course_groups").select("id").eq("moderator_id", user.id),
       admin.from("moderator_cohort_assignments").select("learner_id").eq("moderator_id", user.id),
     ]);
     courseIds = (managerAccess ?? []).map((r) => r.course_id);
-    learnerIds = (cohortAssignments ?? []).map((r) => r.learner_id);
+
+    const groupIds = (modGroups ?? []).map((g) => g.id);
+    const { data: groupMembers } = groupIds.length
+      ? await admin.from("course_group_members").select("user_id").in("group_id", groupIds)
+      : { data: [] as { user_id: string }[] };
+
+    const ids = new Set<string>();
+    (groupMembers ?? []).forEach((m: any) => ids.add(m.user_id));
+    (cohortAssignments ?? []).forEach((a: any) => ids.add(a.learner_id));
+    learnerIds = Array.from(ids);
   }
 
   // ── Load submissions ────────────────────────────────────────────────────────
@@ -94,7 +107,7 @@ export default async function SubmissionsPage() {
   }
 
   if (learnerIds !== null) {
-    if (learnerIds.length === 0) return <EmptyPage message="No learners assigned to your cohort yet." />;
+    if (learnerIds.length === 0) return <EmptyPage message="No learners in the groups you moderate yet." />;
     query = query.in("user_id", learnerIds);
   }
 

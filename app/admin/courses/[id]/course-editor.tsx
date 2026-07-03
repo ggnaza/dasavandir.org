@@ -135,8 +135,12 @@ export function CourseEditor({ course, lessonDeadlineDates = [] }: {
 
   async function handleDelete() {
     setDeleting(true);
-    const supabase = createClient();
-    await supabase.from("courses").delete().eq("id", course.id);
+    const res = await fetch(`/api/admin/courses/${course.id}`, { method: "DELETE" });
+    if (!res.ok) {
+      alert(`Could not delete course: ${await res.text()}`);
+      setDeleting(false);
+      return;
+    }
     router.push("/admin/courses");
   }
 

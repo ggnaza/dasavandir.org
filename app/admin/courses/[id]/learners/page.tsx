@@ -20,7 +20,9 @@ export default async function CourseLearnerPage({ params }: { params: { id: stri
 
   // course_manager sees only their assigned cohort; others see all
   const cohortIds = await getModeratorCohort(user.id, params.id, viewerRole);
-  const isCohortLimited = cohortIds !== null && cohortIds.length > 0;
+  // A moderator (cohortIds !== null) is always scoped to their group members —
+  // even an empty set (they see no learners until they have group members).
+  const isCohortLimited = cohortIds !== null;
 
   const [{ data: course }, { data: lessons }, { data: allEnrollments }, { data: invitations }] = await Promise.all([
     admin.from("courses").select("id, title").eq("id", params.id).single(),
@@ -42,11 +44,11 @@ export default async function CourseLearnerPage({ params }: { params: { id: stri
 
   if (!course) notFound();
 
-  // Filter enrollments to cohort if applicable
+  // Filter enrollments to cohort only if the moderator has an explicit cohort.
+  // No cohort = see all enrolled learners in the assigned course (course access
+  // is the gate; the cohort is an optional narrowing).
   const enrollments = isCohortLimited
     ? (allEnrollments ?? []).filter((e) => cohortIds!.includes(e.user_id))
-    : (cohortIds !== null && cohortIds.length === 0 && viewerRole === "course_manager")
-    ? [] // course_manager with no assignments yet — show empty
     : (allEnrollments ?? []);
 
   if (!course) notFound();
@@ -112,12 +114,7 @@ export default async function CourseLearnerPage({ params }: { params: { id: stri
     <div className="max-w-4xl">
       {isCohortLimited && (
         <div className="mb-4 bg-blue-50 border border-blue-100 rounded-xl px-4 py-3 text-sm text-blue-700">
-          Showing your assigned cohort ({cohortIds!.length} learner{cohortIds!.length !== 1 ? "s" : ""}).
-        </div>
-      )}
-      {cohortIds !== null && cohortIds.length === 0 && viewerRole === "course_manager" && (
-        <div className="mb-4 bg-amber-50 border border-amber-100 rounded-xl px-4 py-3 text-sm text-amber-700">
-          No learners have been assigned to your cohort yet. Contact the course administrator.
+          Showing learners in the groups you moderate ({cohortIds!.length} learner{cohortIds!.length !== 1 ? "s" : ""}).
         </div>
       )}
       <div className="mb-6">
@@ -171,7 +168,12 @@ export default async function CourseLearnerPage({ params }: { params: { id: stri
             <span className="col-span-2 text-right">Enrolled</span>
             <span className="col-span-1" />
           </div>
-          <LearnerRows learners={learners} lessons={lessonList} courseId={course.id} />
+          <LearnerRows
+            learners={learners}
+            lessons={lessonList}
+            courseId={course.id}
+            canManage={viewerRole !== "course_manager"}
+          />
 
           {/* Pending invites */}
           {pendingInvites.map((inv) => {
