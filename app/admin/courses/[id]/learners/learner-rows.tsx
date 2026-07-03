@@ -13,6 +13,7 @@ type Learner = {
   pct: number;
   completedIds: string[];
   totalSeconds: number;
+  online: boolean;
 };
 
 type Lesson = {
@@ -105,7 +106,15 @@ export function LearnerRows({
           <div className="col-span-3 flex items-center gap-2 pointer-events-none">
             <StatusDot pct={l.pct} />
             <div className="min-w-0">
-              <p className="text-sm font-medium text-gray-900 truncate">{l.name}</p>
+              <p className="text-sm font-medium text-gray-900 truncate flex items-center gap-1.5">
+                {l.online && (
+                  <span
+                    className="inline-block w-2 h-2 rounded-full bg-green-500 ring-2 ring-green-200 animate-pulse shrink-0"
+                    title="Online now"
+                  />
+                )}
+                <span className="truncate">{l.name}</span>
+              </p>
               <p className="text-xs text-gray-400 truncate">{l.email}</p>
             </div>
           </div>

@@ -66,14 +66,23 @@ export default async function CourseLearnerPage({ params }: { params: { id: stri
       ? admin.from("progress").select("user_id, lesson_id").in("user_id", userIds)
       : Promise.resolve({ data: [] }),
     userIds.length > 0 && lessonIds.length > 0
-      ? admin.from("lesson_sessions").select("user_id, duration_seconds").in("user_id", userIds).in("lesson_id", lessonIds)
+      ? admin.from("lesson_sessions").select("user_id, duration_seconds, created_at").in("user_id", userIds).in("lesson_id", lessonIds)
       : Promise.resolve({ data: [] }),
   ]);
 
-  // Sum session time per learner for this course
+  // Sum session time per learner, and track the most recent activity for presence.
+  // A learner is "online" if a session heartbeat landed in the last few minutes
+  // (the lesson tracker flushes ~every 30s while actively studying).
+  const ONLINE_WINDOW_MS = 3 * 60_000;
+  const nowMs = Date.now();
   const timeMap: Record<string, number> = {};
+  const lastSeenMap: Record<string, number> = {};
   for (const s of allSessions ?? []) {
     timeMap[s.user_id] = (timeMap[s.user_id] ?? 0) + clampSessionSeconds(s.duration_seconds);
+    if (s.created_at) {
+      const t = new Date(s.created_at).getTime();
+      if (!lastSeenMap[s.user_id] || t > lastSeenMap[s.user_id]) lastSeenMap[s.user_id] = t;
+    }
   }
 
   const profileMap = Object.fromEntries((profiles ?? []).map((p) => [p.id, p]));
@@ -101,6 +110,7 @@ export default async function CourseLearnerPage({ params }: { params: { id: stri
       pct,
       completedIds: Array.from(completedIds),
       totalSeconds: timeMap[e.user_id] ?? 0,
+      online: lastSeenMap[e.user_id] ? nowMs - lastSeenMap[e.user_id] < ONLINE_WINDOW_MS : false,
     };
   });
 
