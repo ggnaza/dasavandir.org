@@ -19,7 +19,7 @@ export default async function SubmissionReviewPage({ params }: { params: { id: s
     .select(`
       *,
       profiles(full_name, email),
-      assignments(id, title, instructions, rubric, max_score, lesson_id,
+      assignments(id, title, instructions, rubric, lesson_id,
         lessons(id, title, order, course_id, courses(id, title)))
     `)
     .eq("id", params.id)

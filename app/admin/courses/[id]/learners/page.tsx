@@ -215,7 +215,7 @@ export default async function CourseLearnerPage({ params }: { params: { id: stri
           <span className="flex items-center gap-1.5"><span className="inline-block w-2.5 h-2.5 rounded-full bg-amber-400" /> In progress (30–74%)</span>
           <span className="flex items-center gap-1.5"><span className="inline-block w-2.5 h-2.5 rounded-full bg-red-400" /> Needs attention (&lt;30%)</span>
           <span className="text-gray-300">·</span>
-          <span className="flex items-center gap-1.5"><span className="inline-block w-2 h-2 rounded-full bg-green-500 ring-2 ring-green-200" /> Online now</span>
+          <span className="flex items-center gap-1.5"><span className="text-[11px] font-semibold text-green-600">online</span> = active now</span>
         </div>
       )}
     </div>

@@ -77,7 +77,7 @@ export default async function SubmissionsPage() {
       id, status, ai_total_score, final_score, submitted_at, user_id,
       profiles(full_name, email),
       assignment_id,
-      assignments(title, lesson_id, max_score,
+      assignments(title, lesson_id,
         lessons(id, title, order, course_id, courses(id, title)))
     `)
     .order("submitted_at", { ascending: false });
@@ -111,7 +111,14 @@ export default async function SubmissionsPage() {
     query = query.in("user_id", learnerIds);
   }
 
-  const { data: submissions } = await query;
+  const { data: submissions, error: submissionsError } = await query;
+
+  // Surface query failures instead of silently rendering an empty state (a
+  // missing column previously made this show "No submissions yet" wrongly).
+  if (submissionsError) {
+    console.error("[admin/submissions] query failed", submissionsError);
+    return <EmptyPage message="Couldn't load submissions. Please try again or contact support." />;
+  }
 
   if (!submissions?.length) {
     return <EmptyPage message="No submissions yet." />;
