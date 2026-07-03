@@ -1,6 +1,5 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
 declare global {
@@ -25,7 +24,6 @@ export function VideoTracker({ embedUrl, isYouTube, isStorageVideo, lessonId, us
   const videoRef = useRef<HTMLVideoElement>(null);
   const markedRef = useRef(isCompleted);
   const [marked, setMarked] = useState(isCompleted);
-  const router = useRouter();
 
   // Native HTML5 video — mark complete at 50%
   useEffect(() => {
@@ -40,8 +38,11 @@ export function VideoTracker({ embedUrl, isYouTube, isStorageVideo, lessonId, us
       markedRef.current = true;
       setMarked(true);
       const supabase = createClient();
+      // Persist progress WITHOUT router.refresh(): refreshing re-renders the
+      // server component, which regenerates the signed video URL and forces the
+      // <video> to reload from the start mid-playback. Completion still shows via
+      // `marked` and is reflected in the nav on the next navigation.
       await supabase.from("progress").upsert({ user_id: userId, lesson_id: lessonId }, { onConflict: "user_id,lesson_id" });
-      router.refresh();
     };
 
     video.addEventListener("timeupdate", handleTimeUpdate);
@@ -101,8 +102,10 @@ export function VideoTracker({ embedUrl, isYouTube, isStorageVideo, lessonId, us
     markedRef.current = true;
     setMarked(true);
     const supabase = createClient();
+    // No router.refresh() here — it would reload the YouTube player / regenerate
+    // signed URLs and interrupt playback. Progress is persisted; the nav updates
+    // on next navigation.
     await supabase.from("progress").upsert({ user_id: userId, lesson_id: lessonId }, { onConflict: "user_id,lesson_id" });
-    router.refresh();
   }
 
   if (isStorageVideo) {

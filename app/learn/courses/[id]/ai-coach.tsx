@@ -25,6 +25,34 @@ const SUGGESTIONS = [
   "Here is my teaching artifact: [paste it here]",
 ];
 
+// Downscale/recompress large raster images in the browser so photos fit the
+// upload + vision size limits. Non-image files (PDF/DOCX/TXT) pass through
+// untouched. Falls back to the original file if anything goes wrong.
+async function downscaleImage(file: File): Promise<File> {
+  const isImage = /^image\//.test(file.type) || /\.(png|jpe?g|webp|gif)$/i.test(file.name);
+  if (!isImage) return file;
+  if (file.size <= 1_500_000) return file; // already small enough
+  try {
+    const bitmap = await createImageBitmap(file);
+    const maxDim = 1600;
+    const scale = Math.min(1, maxDim / Math.max(bitmap.width, bitmap.height));
+    const w = Math.max(1, Math.round(bitmap.width * scale));
+    const h = Math.max(1, Math.round(bitmap.height * scale));
+    const canvas = document.createElement("canvas");
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return file;
+    ctx.drawImage(bitmap, 0, 0, w, h);
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.85));
+    if (!blob || blob.size >= file.size) return file;
+    const newName = file.name.replace(/\.(png|jpe?g|webp|gif)$/i, "") + ".jpg";
+    return new File([blob], newName, { type: "image/jpeg" });
+  } catch {
+    return file;
+  }
+}
+
 function formatRelativeDate(iso: string): string {
   const d = new Date(iso);
   const now = new Date();
@@ -159,21 +187,38 @@ export function AiCoach({ lessonId, courseId, userId, firstName, lessonTitle }: 
   }
 
   async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const original = e.target.files?.[0];
+    if (!original) return;
     e.target.value = "";
     setUploading(true);
     try {
+      // Shrink large photos so they fit the upload + vision size limits (phone
+      // photos are often several MB and would otherwise fail to attach).
+      const file = await downscaleImage(original);
+
+      // The serverless upload endpoint can't receive request bodies larger than
+      // ~4.5 MB, so guard here with a clear message instead of a silent failure.
+      if (file.size > 4_000_000) {
+        alert(`"${original.name}" is too large to attach (max ~4 MB). Try a smaller file, or paste the text directly.`);
+        return;
+      }
+
       const fd = new FormData();
       fd.append("file", file);
       const res = await fetch("/api/chat/upload", { method: "POST", body: fd });
-      if (!res.ok) { alert(await res.text()); return; }
+      if (!res.ok) {
+        alert((await res.text()) || "Could not attach that file. Please try again.");
+        return;
+      }
       const data = await res.json();
       if (data.kind === "vision") {
         setAttachedFile({ name: data.name, fileBase64: data.fileBase64, mimeType: data.mimeType });
       } else {
         setAttachedFile({ name: data.name, text: data.text });
       }
+    } catch (err) {
+      console.error("[ai-coach] file attach failed", err);
+      alert("Could not attach that file. Please check your connection and try again, or paste the text directly.");
     } finally {
       setUploading(false);
     }
@@ -412,13 +457,21 @@ export function AiCoach({ lessonId, courseId, userId, firstName, lessonTitle }: 
                   >
                     {transcribing ? "…" : "🎤"}
                   </button>
-                  <input
-                    type="text"
+                  <textarea
+                    rows={1}
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      // Enter sends; Shift+Enter inserts a new line. Ignore Enter
+                      // while an IME is composing (e.g. Armenian input).
+                      if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+                        e.preventDefault();
+                        send(input);
+                      }
+                    }}
                     placeholder={uploading ? "Extracting file…" : recording ? "Recording…" : transcribing ? "Transcribing…" : attachedFile ? "Add a note about this file (optional)…" : "Share your work or reflection…"}
                     disabled={loading || recording || transcribing || uploading}
-                    className="flex-1 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 disabled:opacity-50 min-w-0"
+                    className="flex-1 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 disabled:opacity-50 min-w-0 resize-none max-h-32"
                   />
                   <button
                     type="submit"

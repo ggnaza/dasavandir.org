@@ -18,7 +18,8 @@ export default async function ProgressPage({ params }: { params: { id: string } 
 
   const { data: viewerProfile } = await admin.from("profiles").select("role").eq("id", user.id).single();
   const cohortIds = await getModeratorCohort(user.id, params.id, viewerProfile?.role ?? "");
-  const isCohortLimited = cohortIds !== null && cohortIds.length > 0;
+  // A moderator (cohortIds !== null) is always scoped to their group members.
+  const isCohortLimited = cohortIds !== null;
 
   // Fetch course, lessons, and enrollments in parallel
   const [{ data: course }, { data: lessons }, { data: allEnrollments }] = await Promise.all([
@@ -29,11 +30,11 @@ export default async function ProgressPage({ params }: { params: { id: string } 
 
   if (!course) return notFound();
 
-  // Filter to cohort if applicable
+  // Filter to cohort if the moderator has an explicit cohort; otherwise they see
+  // all enrolled learners in their assigned course (course access is the gate,
+  // the cohort is an optional narrowing).
   const enrollments = isCohortLimited
     ? (allEnrollments ?? []).filter((e) => cohortIds!.includes(e.user_id))
-    : cohortIds !== null && cohortIds.length === 0 && viewerProfile?.role === "course_manager"
-    ? [] // manager with no assignments
     : (allEnrollments ?? []);
 
   const userIds = enrollments.map((e) => e.user_id);

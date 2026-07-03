@@ -1,5 +1,7 @@
 "use client";
 import Link from "next/link";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 
 type Learner = {
   userId: string;
@@ -38,16 +40,69 @@ function StatusDot({ pct }: { pct: number }) {
   return <span className="inline-block w-2.5 h-2.5 rounded-full bg-red-400 shrink-0" title="Needs attention" />;
 }
 
-export function LearnerRows({ learners, lessons, courseId }: { learners: Learner[]; lessons: Lesson[]; courseId: string }) {
+function UnenrollButton({ courseId, learner }: { courseId: string; learner: Learner }) {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+
+  async function handleUnenroll() {
+    if (
+      !confirm(
+        `Remove ${learner.name} from this course? They will lose access but keep their account and progress, and can be re-enrolled later.`
+      )
+    )
+      return;
+    setBusy(true);
+    const res = await fetch(`/api/admin/courses/${courseId}/enrollments`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId: learner.userId }),
+    });
+    if (!res.ok) {
+      alert(`Could not unenroll: ${await res.text()}`);
+      setBusy(false);
+      return;
+    }
+    router.refresh();
+  }
+
+  return (
+    <button
+      onClick={handleUnenroll}
+      disabled={busy}
+      className="text-xs font-medium text-red-500 hover:text-red-700 disabled:opacity-50"
+      title="Remove from course"
+    >
+      {busy ? "Removing…" : "Unenroll"}
+    </button>
+  );
+}
+
+export function LearnerRows({
+  learners,
+  lessons,
+  courseId,
+  canManage = false,
+}: {
+  learners: Learner[];
+  lessons: Lesson[];
+  courseId: string;
+  canManage?: boolean;
+}) {
   return (
     <div className="divide-y">
       {learners.map((l) => (
-        <Link
+        <div
           key={l.userId}
-          href={`/admin/courses/${courseId}/learners/${l.userId}`}
-          className="grid grid-cols-12 gap-3 items-center px-5 py-4 hover:bg-gray-50 transition text-left"
+          className="relative grid grid-cols-12 gap-3 items-center px-5 py-4 hover:bg-gray-50 transition text-left"
         >
-          <div className="col-span-3 flex items-center gap-2">
+          {/* Full-row link overlay for navigation; interactive controls sit above it. */}
+          <Link
+            href={`/admin/courses/${courseId}/learners/${l.userId}`}
+            aria-label={`View ${l.name}`}
+            className="absolute inset-0 z-0"
+          />
+
+          <div className="col-span-3 flex items-center gap-2 pointer-events-none">
             <StatusDot pct={l.pct} />
             <div className="min-w-0">
               <p className="text-sm font-medium text-gray-900 truncate">{l.name}</p>
@@ -55,7 +110,7 @@ export function LearnerRows({ learners, lessons, courseId }: { learners: Learner
             </div>
           </div>
 
-          <div className="col-span-4">
+          <div className="col-span-4 pointer-events-none">
             <div className="flex items-center gap-2">
               <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
                 <div
@@ -69,16 +124,22 @@ export function LearnerRows({ learners, lessons, courseId }: { learners: Learner
             </div>
           </div>
 
-          <span className="col-span-2 text-xs font-medium text-gray-600 text-right">
+          <span className="col-span-2 text-xs font-medium text-gray-600 text-right pointer-events-none">
             {formatTime(l.totalSeconds)}
           </span>
 
-          <span className="col-span-2 text-xs text-gray-400 text-right">
+          <span className="col-span-2 text-xs text-gray-400 text-right pointer-events-none">
             {l.enrolledAt ? formatDate(l.enrolledAt) : "—"}
           </span>
 
-          <span className="col-span-1 text-gray-400 text-sm text-right">→</span>
-        </Link>
+          <div className="col-span-1 flex justify-end relative z-10">
+            {canManage ? (
+              <UnenrollButton courseId={courseId} learner={l} />
+            ) : (
+              <span className="text-gray-400 text-sm pointer-events-none">→</span>
+            )}
+          </div>
+        </div>
       ))}
     </div>
   );

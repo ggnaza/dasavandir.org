@@ -7,14 +7,29 @@ export default async function ProgressPage() {
   const admin = createAdminClient();
   const { data: { user } } = await supabase.auth.getUser();
 
-  const { data: courses } = await admin
-    .from("courses")
-    .select("id, title")
-    .eq("published", true);
+  // Only show courses the learner is actually enrolled in — never the full
+  // published catalog (which would leak work-in-progress / internal courses).
+  const { data: enrollments } = await admin
+    .from("enrollments")
+    .select("course_id")
+    .eq("user_id", user!.id);
 
-  const { data: allLessons } = await admin
-    .from("lessons")
-    .select("id, course_id, title");
+  const enrolledIds = (enrollments ?? []).map((e) => e.course_id);
+
+  const { data: courses } = enrolledIds.length
+    ? await admin
+        .from("courses")
+        .select("id, title")
+        .eq("published", true)
+        .in("id", enrolledIds)
+    : { data: [] };
+
+  const { data: allLessons } = enrolledIds.length
+    ? await admin
+        .from("lessons")
+        .select("id, course_id, title")
+        .in("course_id", enrolledIds)
+    : { data: [] };
 
   const { data: progress } = await admin
     .from("progress")

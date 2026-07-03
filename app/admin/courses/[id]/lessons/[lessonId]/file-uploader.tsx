@@ -31,12 +31,25 @@ export function FileUploader({ lessonId, existingFiles }: Props) {
     setError("");
     const supabase = createClient();
 
-    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
-    const path = `${lessonId}/${Date.now()}-${safeName}`;
+    // Request a signed upload URL from the server (service-role) so the upload
+    // isn't blocked by the lesson-files bucket's missing browser INSERT policy.
+    const urlRes = await fetch("/api/files/upload-url", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ lesson_id: lessonId, file_name: file.name }),
+    });
+
+    if (!urlRes.ok) {
+      setError(await urlRes.text());
+      setUploading(false);
+      return;
+    }
+
+    const { path, token } = await urlRes.json();
 
     const { error: uploadError } = await supabase.storage
       .from("lesson-files")
-      .upload(path, file);
+      .uploadToSignedUrl(path, token, file);
 
     if (uploadError) {
       setError(uploadError.message);
@@ -71,14 +84,18 @@ export function FileUploader({ lessonId, existingFiles }: Props) {
 
   async function handleDelete(file: LessonFile) {
     if (!confirm(`Delete "${file.file_name}"?`)) return;
-    const supabase = createClient();
 
-    await supabase.storage.from("lesson-files").remove([file.storage_path]);
-    await fetch("/api/files/record", {
+    // The API route removes both the DB row and the storage object (service-role).
+    const res = await fetch("/api/files/record", {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id: file.id }),
     });
+
+    if (!res.ok) {
+      setError(`Could not delete file: ${await res.text()}`);
+      return;
+    }
 
     setFiles((prev) => prev.filter((f) => f.id !== file.id));
     router.refresh();

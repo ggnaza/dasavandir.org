@@ -113,7 +113,9 @@ export default function ModeratorsPage({ params }: { params: { id: string } }) {
       <div>
         <h2 className="text-lg font-semibold">Course Moderators</h2>
         <p className="text-sm text-gray-500 mt-1">
-          Moderators can view student progress and submissions. Assign a cohort of learners to each moderator to scope their view — they will only see their assigned learners in Students, Gradebook, Analytics, and Announcements.
+          Moderators can view progress and submissions only for the learners they're responsible for — the
+          members of groups they moderate, plus anyone you assign below. A moderator with no groups and no
+          assigned learners sees no one until you scope them.
         </p>
       </div>
 
@@ -153,7 +155,7 @@ export default function ModeratorsPage({ params }: { params: { id: string } }) {
                   {m.email && m.full_name && <p className="text-xs text-gray-500">{m.email}</p>}
                   <p className="text-xs text-gray-400 mt-0.5">
                     {count === 0
-                      ? "No cohort assigned — sees all learners"
+                      ? "No learners assigned here (may still moderate groups)"
                       : `${count} learner${count !== 1 ? "s" : ""} assigned`}
                   </p>
                 </div>
@@ -214,7 +216,7 @@ export default function ModeratorsPage({ params }: { params: { id: string } }) {
 
                   <div className="flex items-center justify-between">
                     <p className="text-xs text-gray-400">
-                      {pending.size} selected · {pending.size === 0 ? "Moderator will see all learners" : "Moderator will only see assigned learners"}
+                      {pending.size} selected · {pending.size === 0 ? "Moderator sees only learners from groups they moderate" : "Moderator sees these learners, plus any from groups they moderate"}
                     </p>
                     <button
                       onClick={() => saveAssignments(m.manager_id)}

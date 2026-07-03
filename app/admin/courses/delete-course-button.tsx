@@ -1,7 +1,6 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
 
 export function DeleteCourseButton({ courseId }: { courseId: string }) {
   const router = useRouter();
@@ -10,8 +9,12 @@ export function DeleteCourseButton({ courseId }: { courseId: string }) {
   async function handleDelete() {
     if (!confirm("Delete this course? This cannot be undone.")) return;
     setDeleting(true);
-    const supabase = createClient();
-    await supabase.from("courses").delete().eq("id", courseId);
+    const res = await fetch(`/api/admin/courses/${courseId}`, { method: "DELETE" });
+    if (!res.ok) {
+      alert(`Could not delete course: ${await res.text()}`);
+      setDeleting(false);
+      return;
+    }
     router.refresh();
   }
 
