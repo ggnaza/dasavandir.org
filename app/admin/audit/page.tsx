@@ -22,7 +22,7 @@ function describe(log: Log, actor: string): string {
     case "unenroll_learner": return `${actor} unenrolled a learner`;
     case "invite_users": return `${actor} invited ${m.count ?? "?"} learner${m.count === 1 ? "" : "s"}`;
     case "delete_invitation": return `${actor} deleted a pending invitation`;
-    case "delete_course": return `${actor} deleted this course`;
+    case "delete_course": return `${actor} deleted the course${m.course_title ? ` "${m.course_title}"` : ""}`;
     case "review_submission": return `${actor} reviewed a submission${m.action ? ` (${m.action})` : ""}`;
     case "review_capstone": return `${actor} reviewed a capstone${m.action ? ` (${m.action})` : ""}`;
     case "create_user": return `${actor} created ${m.email ?? "a user"}${m.role ? ` (${m.role})` : ""}`;
@@ -123,7 +123,12 @@ export default async function AuditPage() {
   const actorName = (id: string | null) => (id ? (actorMap[id] ?? "Unknown") : "System");
 
   const courseSections = Array.from(byCourse.entries())
-    .map(([cid, logs]) => ({ cid, title: courseTitleMap[cid] ?? "(deleted course)", logs }))
+    .map(([cid, logs]) => {
+      // If the course was deleted, recover its name from a delete_course event's meta.
+      const deletedTitle = logs.find((l) => l.action === "delete_course" && l.meta?.course_title)?.meta?.course_title;
+      const title = courseTitleMap[cid] ?? (deletedTitle ? `${deletedTitle} (deleted)` : "(deleted course)");
+      return { cid, title, logs };
+    })
     .sort((a, b) => a.title.localeCompare(b.title));
 
   const EventList = ({ logs }: { logs: Log[] }) => (
