@@ -139,6 +139,22 @@ export default async function SubmissionsPage() {
     }
   }
 
+  // Per-submission reviewer overrides (set via "Reassign"). Fetched separately &
+  // tolerantly — the reviewer_id column may not exist yet (migration not run).
+  const overrideById = new Map<string, string>(); // submissionId → reviewerId
+  const { data: overrides } = await admin
+    .from("submissions")
+    .select("id, reviewer_id")
+    .in("id", submissions.map((s) => s.id));
+  for (const o of overrides ?? []) {
+    if ((o as any).reviewer_id) overrideById.set(o.id, (o as any).reviewer_id);
+  }
+  const overrideReviewerIds = Array.from(new Set(overrideById.values()));
+  const { data: overrideProfiles } = overrideReviewerIds.length > 0
+    ? await admin.from("profiles").select("id, full_name, email").in("id", overrideReviewerIds)
+    : { data: [] as { id: string; full_name: string | null; email: string | null }[] };
+  const overrideName = Object.fromEntries((overrideProfiles ?? []).map((p: any) => [p.id, p.full_name || p.email || "Reviewer"]));
+
   // Flatten to table rows (pending first, then most recent).
   const rows: SubRow[] = submissions
     .map((sub) => {
@@ -147,15 +163,21 @@ export default async function SubmissionsPage() {
       const course = lesson?.courses as any;
       if (!course || !lesson) return null;
       const p = sub.profiles as any;
+      const overrideId = overrideById.get(sub.id);
+      const reviewer = overrideId
+        ? (overrideName[overrideId] ?? "Reviewer")
+        : (reviewerMap.get(`${sub.user_id}:${course.id}`) ?? "Unassigned");
       return {
         id: sub.id,
         learnerName: p?.full_name || p?.email || "Unknown",
+        courseId: course.id,
         courseTitle: course.title,
         lessonId: lesson.id,
         lessonLabel: `Module ${lesson.order}: ${lesson.title}`,
         lessonOrder: lesson.order ?? 0,
         assignmentTitle: assignment?.title ?? "",
-        reviewer: reviewerMap.get(`${sub.user_id}:${course.id}`) ?? "Unassigned",
+        reviewer,
+        reassigned: !!overrideId,
         score: (sub.final_score ?? sub.ai_total_score) ?? null,
         status: sub.status,
         submittedAt: sub.submitted_at ?? null,
@@ -172,7 +194,7 @@ export default async function SubmissionsPage() {
   return (
     <div className="max-w-6xl">
       <h1 className="text-2xl font-bold mb-6">Submissions</h1>
-      <SubmissionsTable rows={rows} />
+      <SubmissionsTable rows={rows} canReassign={["admin", "course_creator"].includes(role)} />
     </div>
   );
 }
