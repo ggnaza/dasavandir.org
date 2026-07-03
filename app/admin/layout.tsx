@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { Nav } from "@/components/nav";
+import { PresencePing } from "@/components/presence-ping";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const supabase = createClient();
@@ -26,6 +27,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
   return (
     <div className="min-h-screen">
+      <PresencePing />
       <Nav role={navRole} userName={profile?.full_name} />
       <main className="max-w-6xl mx-auto px-4 py-8">{children}</main>
     </div>

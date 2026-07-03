@@ -65,5 +65,18 @@ export async function GET(req: Request) {
     console.error("[users/list]", error);
     return new Response(JSON.stringify({ error: "Failed to fetch users" }), { status: 500 });
   }
-  return new Response(JSON.stringify({ users, total: count ?? 0, page, pageSize: PAGE_SIZE }), { status: 200 });
+
+  // Attach presence (last_seen_at) best-effort. The column may not exist yet in
+  // some environments — if so, this query errors and we just omit presence.
+  let withPresence = users ?? [];
+  const ids = (users ?? []).map((u: any) => u.id);
+  if (ids.length > 0) {
+    const { data: seen } = await admin.from("profiles").select("id, last_seen_at").in("id", ids);
+    if (seen) {
+      const seenMap = Object.fromEntries(seen.map((s: any) => [s.id, s.last_seen_at]));
+      withPresence = (users ?? []).map((u: any) => ({ ...u, last_seen_at: seenMap[u.id] ?? null }));
+    }
+  }
+
+  return new Response(JSON.stringify({ users: withPresence, total: count ?? 0, page, pageSize: PAGE_SIZE }), { status: 200 });
 }
