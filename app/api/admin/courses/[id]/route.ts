@@ -41,6 +41,10 @@ export async function DELETE(_req: Request, { params }: { params: { id: string }
     return `${table}: ${error.message}`;
   }
 
+  // Capture the course title now (for the audit log — the row is about to be gone).
+  const { data: courseRow } = await admin.from("courses").select("title").eq("id", courseId).maybeSingle();
+  const courseTitle = courseRow?.title ?? null;
+
   // Ids of children that themselves have children whose FK may not cascade.
   const [{ data: capstones }, { data: discussions }, { data: lessons }] = await Promise.all([
     admin.from("capstones").select("id").eq("course_id", courseId),
@@ -91,6 +95,6 @@ export async function DELETE(_req: Request, { params }: { params: { id: string }
     return new Response(`Failed to delete course: ${error.message}`, { status: 500 });
   }
 
-  await logAudit("delete_course", user.id, _req, { course_id: courseId });
+  await logAudit("delete_course", user.id, _req, { course_id: courseId, course_title: courseTitle });
   return Response.json({ ok: true });
 }
