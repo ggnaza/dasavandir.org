@@ -207,6 +207,17 @@ export default async function CourseLearnerPage({ params }: { params: { id: stri
           })}
         </div>
       )}
+
+      {learners.length > 0 && (
+        <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-gray-500">
+          <span className="font-medium text-gray-400">Progress:</span>
+          <span className="flex items-center gap-1.5"><span className="inline-block w-2.5 h-2.5 rounded-full bg-green-500" /> On track (≥75%)</span>
+          <span className="flex items-center gap-1.5"><span className="inline-block w-2.5 h-2.5 rounded-full bg-amber-400" /> In progress (30–74%)</span>
+          <span className="flex items-center gap-1.5"><span className="inline-block w-2.5 h-2.5 rounded-full bg-red-400" /> Needs attention (&lt;30%)</span>
+          <span className="text-gray-300">·</span>
+          <span className="flex items-center gap-1.5"><span className="inline-block w-2 h-2 rounded-full bg-green-500 ring-2 ring-green-200" /> Online now</span>
+        </div>
+      )}
     </div>
   );
 }

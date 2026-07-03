@@ -36,9 +36,10 @@ function formatTime(seconds: number): string {
 }
 
 function StatusDot({ pct }: { pct: number }) {
-  if (pct >= 75) return <span className="inline-block w-2.5 h-2.5 rounded-full bg-green-500 shrink-0" title="On track" />;
-  if (pct >= 30) return <span className="inline-block w-2.5 h-2.5 rounded-full bg-amber-400 shrink-0" title="In progress" />;
-  return <span className="inline-block w-2.5 h-2.5 rounded-full bg-red-400 shrink-0" title="Needs attention" />;
+  const cls = "inline-block w-2.5 h-2.5 rounded-full shrink-0 pointer-events-auto cursor-help";
+  if (pct >= 75) return <span className={`${cls} bg-green-500`} title={`On track — ${pct}% of lessons complete`} />;
+  if (pct >= 30) return <span className={`${cls} bg-amber-400`} title={`In progress — ${pct}% of lessons complete`} />;
+  return <span className={`${cls} bg-red-400`} title={`Needs attention — only ${pct}% of lessons complete`} />;
 }
 
 function UnenrollButton({ courseId, learner }: { courseId: string; learner: Learner }) {
@@ -109,8 +110,8 @@ export function LearnerRows({
               <p className="text-sm font-medium text-gray-900 truncate flex items-center gap-1.5">
                 {l.online && (
                   <span
-                    className="inline-block w-2 h-2 rounded-full bg-green-500 ring-2 ring-green-200 animate-pulse shrink-0"
-                    title="Online now"
+                    className="inline-block w-2 h-2 rounded-full bg-green-500 ring-2 ring-green-200 animate-pulse shrink-0 pointer-events-auto cursor-help"
+                    title="Online now — active in the last few minutes"
                   />
                 )}
                 <span className="truncate">{l.name}</span>
