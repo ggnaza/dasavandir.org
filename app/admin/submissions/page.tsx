@@ -145,6 +145,35 @@ export default async function SubmissionsPage() {
     cm.lessons.get(lesson.id)!.subs.push(sub);
   }
 
+  // ── Assigned reviewer per (learner, course) = the moderator of the group the
+  //    learner belongs to in that course ────────────────────────────────────
+  const subCourseIds = Array.from(courseMap.keys());
+  const reviewerMap = new Map<string, string>(); // `${userId}:${courseId}` → moderator label
+  if (subCourseIds.length > 0) {
+    const { data: groups } = await admin
+      .from("course_groups")
+      .select("id, course_id, moderator_id")
+      .in("course_id", subCourseIds);
+    const groupList = groups ?? [];
+    const groupIds = groupList.map((g) => g.id);
+    const modIds = Array.from(new Set(groupList.map((g) => g.moderator_id).filter(Boolean))) as string[];
+    const [{ data: members }, { data: mods }] = await Promise.all([
+      groupIds.length
+        ? admin.from("course_group_members").select("group_id, user_id").in("group_id", groupIds)
+        : Promise.resolve({ data: [] as { group_id: string; user_id: string }[] }),
+      modIds.length
+        ? admin.from("profiles").select("id, full_name, email").in("id", modIds)
+        : Promise.resolve({ data: [] as { id: string; full_name: string | null; email: string | null }[] }),
+    ]);
+    const modName = Object.fromEntries((mods ?? []).map((p: any) => [p.id, p.full_name || p.email || "Moderator"]));
+    const groupById = Object.fromEntries(groupList.map((g) => [g.id, g]));
+    for (const m of members ?? []) {
+      const g = groupById[m.group_id];
+      if (!g) continue;
+      reviewerMap.set(`${m.user_id}:${g.course_id}`, g.moderator_id ? (modName[g.moderator_id] ?? "Moderator") : "No moderator");
+    }
+  }
+
   const pendingTotal = submissions.filter((s) => NEEDS_REVIEW.has(s.status)).length;
 
   return (
@@ -211,6 +240,7 @@ export default async function SubmissionsPage() {
                           const name = p?.full_name || p?.email || "Unknown";
                           const score = sub.final_score ?? sub.ai_total_score;
                           const isPending = NEEDS_REVIEW.has(sub.status);
+                          const reviewer = reviewerMap.get(`${sub.user_id}:${courseId}`);
 
                           return (
                             <div
@@ -225,6 +255,18 @@ export default async function SubmissionsPage() {
                               {/* Assignment title */}
                               <div className="flex-1 min-w-0">
                                 <p className="text-gray-600 truncate text-xs">{assignment?.title}</p>
+                              </div>
+
+                              {/* Assigned reviewer (group moderator) */}
+                              <div className="w-32 shrink-0 min-w-0 text-xs" title="Assigned reviewer (moderator of the learner's group)">
+                                {reviewer ? (
+                                  <span className="text-gray-600 truncate flex items-center gap-1">
+                                    <span className="text-gray-300">👤</span>
+                                    <span className="truncate">{reviewer}</span>
+                                  </span>
+                                ) : (
+                                  <span className="text-gray-300">Unassigned</span>
+                                )}
                               </div>
 
                               {/* Score */}
