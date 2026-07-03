@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { Nav } from "@/components/nav";
+import { PresencePing } from "@/components/presence-ping";
 import { ResendActivationButton } from "./resend-activation-button";
 import { cookies } from "next/headers";
 import { getLang } from "@/lib/i18n";
@@ -32,6 +33,7 @@ export default async function LearnLayout({ children }: { children: React.ReactN
 
   return (
     <div className="min-h-screen">
+      <PresencePing />
       <Nav role={navRole as "learner" | "admin" | "creator"} userName={profile?.full_name} unreadNotifications={unreadCount ?? 0} lang={lang} />
       {isPending && (
         <div className="bg-amber-50 border-b border-amber-200 px-4 py-3 text-center text-sm text-amber-800">

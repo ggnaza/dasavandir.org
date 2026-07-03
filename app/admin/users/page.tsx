@@ -15,9 +15,11 @@ type User = {
   role: string;
   status: string | null;
   created_at: string;
+  last_seen_at?: string | null;
 };
 
 const PAGE_SIZE = 50;
+const ONLINE_WINDOW_MS = 2.5 * 60_000; // "online now" if a heartbeat landed within 2.5 min
 
 export default function UsersPage() {
   const [users, setUsers] = useState<User[]>([]);
@@ -36,8 +38,8 @@ export default function UsersPage() {
   const [assignManagerName, setAssignManagerName] = useState("");
   const [resending, setResending] = useState<string | null>(null);
 
-  const fetchUsers = useCallback(async (p: number = page, s: string = search) => {
-    setLoading(true);
+  const fetchUsers = useCallback(async (p: number = page, s: string = search, silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const params = new URLSearchParams({ page: String(p), search: s });
       const res = await fetch(`/api/admin/users?${params}`);
@@ -47,11 +49,19 @@ export default function UsersPage() {
     } catch (err) {
       console.error("Failed to fetch users", err);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [page, search]);
 
   useEffect(() => { fetchUsers(page, search); }, [page, search]);
+
+  // Auto-refresh presence while the tab is open (silent — no loading flash).
+  useEffect(() => {
+    const id = setInterval(() => {
+      if (document.visibilityState === "visible") fetchUsers(page, search, true);
+    }, 30_000);
+    return () => clearInterval(id);
+  }, [fetchUsers, page, search]);
 
   function handleSearch(e: React.FormEvent) {
     e.preventDefault();
@@ -140,10 +150,21 @@ export default function UsersPage() {
               <tbody className="divide-y">
                 {users.map((user) => {
                   const isPending = user.status === "pending";
+                  const online = user.last_seen_at
+                    ? Date.now() - new Date(user.last_seen_at).getTime() < ONLINE_WINDOW_MS
+                    : false;
                   return (
                     <tr key={user.id} className={`hover:bg-gray-50 ${isPending ? "bg-amber-50/40" : ""}`}>
                       <td className="px-6 py-4 text-sm">
-                        <div className="font-medium text-gray-900">{user.full_name || "—"}</div>
+                        <div className="font-medium text-gray-900 flex items-center gap-1.5">
+                          {online && (
+                            <span
+                              className="inline-block w-2 h-2 rounded-full bg-green-500 ring-2 ring-green-200 animate-pulse shrink-0"
+                              title="Online now"
+                            />
+                          )}
+                          <span>{user.full_name || "—"}</span>
+                        </div>
                         {user.email && <div className="text-gray-400 text-xs mt-0.5">{user.email}</div>}
                       </td>
                       <td className="px-6 py-4 text-sm">
