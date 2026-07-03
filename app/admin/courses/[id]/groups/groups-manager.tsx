@@ -4,21 +4,43 @@ import { useRouter } from "next/navigation";
 
 type Member = { id: string; name: string; email: string };
 type Group = { id: string; name: string; moderator_id: string | null; members: Member[] };
+type Reviewer = { id: string; name: string; role: string };
+
+const ROLE_LABEL: Record<string, string> = {
+  admin: "Admin", course_creator: "Creator", course_manager: "Moderator", learner: "Learner",
+};
 
 export function GroupsManager({
   courseId,
   groups: initialGroups,
   unassignedLearners,
   allLearners,
+  reviewers = [],
+  canAssignModerator = false,
 }: {
   courseId: string;
   groups: Group[];
   unassignedLearners: Member[];
   allLearners: Member[];
+  reviewers?: Reviewer[];
+  canAssignModerator?: boolean;
 }) {
   const router = useRouter();
   const [groups, setGroups] = useState<Group[]>(initialGroups);
   const [unassigned, setUnassigned] = useState<Member[]>(unassignedLearners);
+  const [savingMod, setSavingMod] = useState<string | null>(null);
+
+  async function assignModerator(groupId: string, moderatorId: string) {
+    setSavingMod(groupId);
+    await fetch(`/api/admin/groups/${groupId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ moderator_id: moderatorId || null }),
+    });
+    setGroups((prev) => prev.map((g) => (g.id === groupId ? { ...g, moderator_id: moderatorId || null } : g)));
+    setSavingMod(null);
+    router.refresh();
+  }
 
   // New group creation
   const [newGroupName, setNewGroupName] = useState("");
@@ -197,6 +219,31 @@ export function GroupsManager({
                         title="Delete group"
                       >✕ Delete</button>
                     </div>
+                  )}
+                </div>
+
+                {/* Moderator (assigned reviewer for this group) */}
+                <div className="px-5 py-2.5 border-b flex items-center gap-2 flex-wrap">
+                  <span className="text-xs font-medium text-gray-500">Moderator (reviews this group):</span>
+                  {canAssignModerator ? (
+                    <>
+                      <select
+                        value={group.moderator_id ?? ""}
+                        disabled={savingMod === group.id}
+                        onChange={(e) => assignModerator(group.id, e.target.value)}
+                        className="text-sm border rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-brand-500 disabled:opacity-50"
+                      >
+                        <option value="">— Unassigned —</option>
+                        {reviewers.map((r) => (
+                          <option key={r.id} value={r.id}>{r.name} ({ROLE_LABEL[r.role] ?? r.role})</option>
+                        ))}
+                      </select>
+                      {savingMod === group.id && <span className="text-xs text-gray-400">Saving…</span>}
+                    </>
+                  ) : (
+                    <span className="text-sm text-gray-700">
+                      {reviewers.find((r) => r.id === group.moderator_id)?.name ?? (group.moderator_id ? "Assigned" : "Unassigned")}
+                    </span>
                   )}
                 </div>
 
