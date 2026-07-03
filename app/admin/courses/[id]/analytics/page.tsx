@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 import { assertCourseOwner } from "@/lib/assert-course-owner";
 import { getModeratorCohort } from "@/lib/get-moderator-cohort";
+import { clampSessionSeconds } from "@/lib/session-time";
 import { AnalyticsTabs } from "./analytics-tabs";
 import { QuizAnalysisSection } from "./quiz-analysis";
 import type { QuizStat, AtRiskLearner } from "./quiz-analysis";
@@ -270,7 +271,7 @@ export default async function AnalyticsPage({ params }: { params: { id: string }
     if (!lastActivityMap[s.user_id] || s.created_at > (lastActivityMap[s.user_id] ?? "")) {
       lastActivityMap[s.user_id] = s.created_at;
     }
-    totalTimeMap[s.user_id] = (totalTimeMap[s.user_id] ?? 0) + (s.duration_seconds ?? 0);
+    totalTimeMap[s.user_id] = (totalTimeMap[s.user_id] ?? 0) + clampSessionSeconds(s.duration_seconds);
   }
 
   const learnerAccessRows = userIds.map((uid) => ({

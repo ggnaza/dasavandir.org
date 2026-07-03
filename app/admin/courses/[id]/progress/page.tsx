@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 import { assertCourseOwner } from "@/lib/assert-course-owner";
 import { getModeratorCohort } from "@/lib/get-moderator-cohort";
+import { clampSessionSeconds } from "@/lib/session-time";
 import { ProgressMatrix, type LessonMeta, type LearnerRow } from "./progress-matrix";
 
 export const dynamic = "force-dynamic";
@@ -104,7 +105,7 @@ export default async function ProgressPage({ params }: { params: { id: string } 
   const timeMap: Record<string, Record<string, number>> = {};
   for (const s of sessions ?? []) {
     if (!timeMap[s.user_id]) timeMap[s.user_id] = {};
-    timeMap[s.user_id][s.lesson_id] = (timeMap[s.user_id][s.lesson_id] ?? 0) + (s.duration_seconds ?? 0);
+    timeMap[s.user_id][s.lesson_id] = (timeMap[s.user_id][s.lesson_id] ?? 0) + clampSessionSeconds(s.duration_seconds);
   }
 
   const profileMap = Object.fromEntries((profiles ?? []).map((p) => [p.id, p]));

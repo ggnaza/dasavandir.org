@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { clampSessionSeconds } from "@/lib/session-time";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { SendMessageDialog } from "@/app/admin/components/send-message-dialog";
@@ -60,8 +61,9 @@ export default async function LearnerDetailPage({ params }: { params: { id: stri
   const sessionByLesson: Record<string, number> = {};
   let totalSeconds = 0;
   for (const s of sessions ?? []) {
-    sessionByLesson[s.lesson_id] = (sessionByLesson[s.lesson_id] ?? 0) + s.duration_seconds;
-    totalSeconds += s.duration_seconds;
+    const secs = clampSessionSeconds(s.duration_seconds);
+    sessionByLesson[s.lesson_id] = (sessionByLesson[s.lesson_id] ?? 0) + secs;
+    totalSeconds += secs;
   }
 
   const completedMap = new Map((progress ?? []).map((p) => [p.lesson_id, p.completed_at]));

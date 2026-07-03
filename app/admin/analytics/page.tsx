@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { clampSessionSeconds } from "@/lib/session-time";
 import Link from "next/link";
 
 export const dynamic = "force-dynamic";
@@ -38,7 +39,7 @@ export default async function AnalyticsPage() {
     ? Math.round(quizResponses.reduce((s, r) => s + (r.score ?? 0), 0) / quizResponses.length)
     : null;
   const activeLearners = new Set(progress?.map((p) => p.user_id)).size;
-  const totalTimeSeconds = (sessions ?? []).reduce((s, r) => s + (r.duration_seconds ?? 0), 0);
+  const totalTimeSeconds = (sessions ?? []).reduce((s, r) => s + clampSessionSeconds(r.duration_seconds), 0);
   const totalEnrollments = enrollments?.length ?? 0;
   const pendingReviews = (submissions ?? []).filter((s) => s.status === "ai_reviewed").length;
 
@@ -59,13 +60,13 @@ export default async function AnalyticsPage() {
     ).length;
 
     const courseSessions = (sessions ?? []).filter((s) => lessonIds.has(s.lesson_id));
-    const totalCourseTime = courseSessions.reduce((s, r) => s + (r.duration_seconds ?? 0), 0);
+    const totalCourseTime = courseSessions.reduce((s, r) => s + clampSessionSeconds(r.duration_seconds), 0);
 
     const lessonStats = courseLessons.map((lesson) => {
       const done = courseProgress.filter((p) => p.lesson_id === lesson.id).length;
       const lessonTime = (sessions ?? [])
         .filter((s) => s.lesson_id === lesson.id)
-        .reduce((sum, s) => sum + (s.duration_seconds ?? 0), 0);
+        .reduce((sum, s) => sum + clampSessionSeconds(s.duration_seconds), 0);
       return { ...lesson, completions: done, totalTime: lessonTime };
     }).sort((a, b) => b.completions - a.completions);
 
@@ -89,7 +90,7 @@ export default async function AnalyticsPage() {
       : null;
     const timeSpent = (sessions ?? [])
       .filter((s) => s.user_id === learner.id)
-      .reduce((sum, s) => sum + (s.duration_seconds ?? 0), 0);
+      .reduce((sum, s) => sum + clampSessionSeconds(s.duration_seconds), 0);
     return { ...learner, lessonsCompleted: done, quizzesTaken: quizzes.length, avgScore: avg, timeSpent };
   });
 
