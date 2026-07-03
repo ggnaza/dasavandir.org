@@ -9,9 +9,14 @@ import { logAudit } from "@/lib/audit-log";
 // browser Supabase delete: several core child tables (lessons, enrollments,
 // capstones, discussions, …) were created manually and do not all have
 // ON DELETE CASCADE, so a plain `courses` delete fails with a foreign-key
-// violation. The browser client swallowed that error, leaving the UI stuck on
-// "Deleting…". We explicitly clear children (deepest first) so deletion works
-// regardless of the live cascade configuration.
+// violation, and the browser client swallowed the error (UI stuck on "Deleting…").
+//
+// Schema varies between environments (migrations are applied by hand), so some
+// listed tables/columns may not exist in a given database. Every child delete is
+// therefore tolerant of "column/table does not exist" and simply skips it —
+// deleting `lessons` cascades its own children (progress, quizzes, quiz_responses,
+// assignments, submissions, …), which is the same behaviour the single-lesson
+// delete endpoint relies on.
 export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -23,32 +28,42 @@ export async function DELETE(_req: Request, { params }: { params: { id: string }
   const admin = createAdminClient();
   const courseId = params.id;
 
-  // Collect ids of children that themselves have children (so we can clear
-  // grandchildren whose FK may not cascade).
-  const [{ data: capstones }, { data: discussions }] = await Promise.all([
+  // Run a delete, tolerating "does not exist" errors (undefined column 42703 /
+  // undefined table 42P01) so schema differences never block the deletion.
+  async function del(table: string, column: string, value: string | string[]): Promise<string | null> {
+    const base = admin.from(table).delete();
+    const { error } = Array.isArray(value) ? await base.in(column, value) : await base.eq(column, value);
+    if (!error) return null;
+    if (error.code === "42703" || error.code === "42P01" || /does not exist/i.test(error.message)) {
+      console.warn(`[courses/delete] skipped ${table}.${column}: ${error.message}`);
+      return null;
+    }
+    return `${table}: ${error.message}`;
+  }
+
+  // Ids of children that themselves have children whose FK may not cascade.
+  const [{ data: capstones }, { data: discussions }, { data: lessons }] = await Promise.all([
     admin.from("capstones").select("id").eq("course_id", courseId),
     admin.from("discussions").select("id").eq("course_id", courseId),
+    admin.from("lessons").select("id").eq("course_id", courseId),
   ]);
   const capstoneIds = (capstones ?? []).map((c) => c.id);
   const discussionIds = (discussions ?? []).map((d) => d.id);
+  const lessonIds = (lessons ?? []).map((l) => l.id);
 
-  // Grandchildren first.
-  if (capstoneIds.length > 0) {
-    await admin.from("capstone_submissions").delete().in("capstone_id", capstoneIds);
-  }
-  if (discussionIds.length > 0) {
-    await admin.from("discussion_replies").delete().in("discussion_id", discussionIds);
-  }
+  // Ordered child deletes: grandchildren → lesson-keyed rows → course-keyed rows → lessons.
+  const ops: Array<() => Promise<string | null>> = [];
+  if (capstoneIds.length) ops.push(() => del("capstone_submissions", "capstone_id", capstoneIds));
+  if (discussionIds.length) ops.push(() => del("discussion_replies", "discussion_id", discussionIds));
+  // `progress` is keyed by lesson_id (no course_id column); clear it explicitly.
+  if (lessonIds.length) ops.push(() => del("progress", "lesson_id", lessonIds));
 
-  // Direct course children. Deleting `lessons` cascades its own children
-  // (progress, quizzes, quiz_responses, assignments, submissions, lesson_files,
-  // lesson_sessions, …) — the individual lesson-delete endpoint relies on the
-  // same cascade. The rest are cleared explicitly in case their FK does not.
-  const childTables = [
+  // Course-keyed children. `lessons` is last so its cascade clears the remaining
+  // lesson children (progress, quizzes, quiz_responses, assignments, submissions…).
+  const courseChildTables = [
     "capstones",
     "discussions",
     "enrollments",
-    "progress",
     "question_bank",
     "announcements",
     "certificates",
@@ -59,13 +74,14 @@ export async function DELETE(_req: Request, { params }: { params: { id: string }
     "course_creator_access",
     "course_manager_access",
     "lessons",
-  ] as const;
+  ];
+  for (const table of courseChildTables) ops.push(() => del(table, "course_id", courseId));
 
-  for (const table of childTables) {
-    const { error } = await admin.from(table).delete().eq("course_id", courseId);
-    if (error) {
-      console.error(`[courses/delete] failed clearing ${table}`, error);
-      return new Response(`Failed to delete course (${table}): ${error.message}`, { status: 500 });
+  for (const op of ops) {
+    const err = await op();
+    if (err) {
+      console.error(`[courses/delete] ${err}`);
+      return new Response(`Failed to delete course (${err})`, { status: 500 });
     }
   }
 
