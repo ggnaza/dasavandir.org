@@ -684,3 +684,57 @@ function invitationHtml({
 </body>
 </html>`;
 }
+
+// Simple branded email shell used by the reviewer emails.
+function reviewShell(headline: string, bodyHtml: string, ctaLabel: string, ctaUrl: string) {
+  return `<!DOCTYPE html><html><body style="margin:0;background:#f3f4f6;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f3f4f6;padding:24px 0"><tr><td align="center">
+    <table width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#ffffff;border-radius:14px;overflow:hidden;border:1px solid #e5e7eb">
+      <tr><td style="background:#EC5328;padding:20px 28px;color:#fff;font-size:18px;font-weight:700">Dasavandir</td></tr>
+      <tr><td style="padding:28px">
+        <h1 style="margin:0 0 12px;font-size:18px;color:#111827">${esc(headline)}</h1>
+        <div style="font-size:14px;line-height:1.6;color:#374151">${bodyHtml}</div>
+        <div style="margin:24px 0 4px">
+          <a href="${ctaUrl}" style="display:inline-block;background:#EC5328;color:#fff;text-decoration:none;font-weight:600;font-size:14px;padding:11px 22px;border-radius:10px">${esc(ctaLabel)}</a>
+        </div>
+      </td></tr>
+    </table>
+  </td></tr></table>
+</body></html>`;
+}
+
+// Sent to a group moderator when a learner in their group submits an assignment.
+export async function sendReviewNeededEmail({
+  to, reviewerName, learnerName, assignmentTitle, courseTitle, reviewUrl,
+}: {
+  to: string; reviewerName: string; learnerName: string;
+  assignmentTitle: string; courseTitle: string; reviewUrl: string;
+}) {
+  const body = `Hi ${esc(reviewerName || "there")},<br><br>
+    <strong style="color:#111827">${esc(learnerName)}</strong> just submitted
+    <strong style="color:#111827">${esc(assignmentTitle)}</strong> in
+    <strong style="color:#111827">${esc(courseTitle)}</strong>. It's waiting for your review.`;
+  return getResend().emails.send({
+    from: FROM,
+    to,
+    subject: `New submission to review — "${assignmentTitle}"`,
+    html: reviewShell("A submission is waiting for your review", body, "Review submission →", reviewUrl),
+  });
+}
+
+// Daily digest reminder to a moderator with un-reviewed submissions.
+export async function sendReviewReminderEmail({
+  to, reviewerName, pendingCount, reviewUrl,
+}: {
+  to: string; reviewerName: string; pendingCount: number; reviewUrl: string;
+}) {
+  const body = `Hi ${esc(reviewerName || "there")},<br><br>
+    You have <strong style="color:#111827">${pendingCount} submission${pendingCount === 1 ? "" : "s"}</strong>
+    waiting for your review. Learners are waiting on your feedback.`;
+  return getResend().emails.send({
+    from: FROM,
+    to,
+    subject: `${pendingCount} submission${pendingCount === 1 ? "" : "s"} waiting for your review`,
+    html: reviewShell("Reminder: submissions awaiting your review", body, "Review now →", reviewUrl),
+  });
+}

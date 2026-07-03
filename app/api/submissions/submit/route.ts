@@ -3,6 +3,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { z } from "zod";
 import { getAIModel, callLLM } from "@/lib/llm";
+import { buildReviewerMap } from "@/lib/reviewer-map";
+import { sendReviewNeededEmail } from "@/lib/email";
 
 export const runtime = "nodejs";
 
@@ -198,6 +200,34 @@ If only a file or link was submitted without text, note that manual review may b
   } catch (err) {
     console.error("[submission/ai-eval]", err);
     await admin.from("submissions").update({ status: "submitted" }).eq("id", submission.id);
+  }
+
+  // Notify the assigned reviewer (the moderator of the learner's group) — best-effort.
+  if (courseId) {
+    try {
+      const reviewerMap = await buildReviewerMap(admin, [courseId]);
+      const moderatorId = reviewerMap.get(`${user.id}:${courseId}`);
+      if (moderatorId) {
+        const [{ data: mod }, { data: learner }, { data: course }] = await Promise.all([
+          admin.from("profiles").select("email, full_name").eq("id", moderatorId).maybeSingle(),
+          admin.from("profiles").select("full_name, email").eq("id", user.id).maybeSingle(),
+          admin.from("courses").select("title").eq("id", courseId).maybeSingle(),
+        ]);
+        if (mod?.email) {
+          const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://dasavandir.org";
+          sendReviewNeededEmail({
+            to: mod.email,
+            reviewerName: mod.full_name?.split(" ")[0] ?? "",
+            learnerName: learner?.full_name || learner?.email || "A learner",
+            assignmentTitle: assignment.title,
+            courseTitle: course?.title ?? "",
+            reviewUrl: `${siteUrl}/admin/submissions/${submission.id}`,
+          }).catch((e) => console.error("[submission/notify-reviewer]", e));
+        }
+      }
+    } catch (e) {
+      console.error("[submission/notify-reviewer]", e);
+    }
   }
 
   return Response.json({ submissionId: submission.id });
