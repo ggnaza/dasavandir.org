@@ -17,7 +17,8 @@ export type AuditAction =
   | "bulk_unenroll"
   | "bulk_delete_users"
   | "delete_course"
-  | "unenroll_learner";
+  | "unenroll_learner"
+  | "reassign_review";
 
 export async function logAudit(
   action: AuditAction,

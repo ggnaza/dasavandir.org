@@ -11,7 +11,7 @@ const ICONS: Record<string, string> = {
   login: "🔑", login_failed: "⚠️", create_user: "👤", update_role: "🔧", delete_user: "🗑️",
   bulk_delete_users: "🗑️", export_learners: "📤", bulk_enroll: "➕", bulk_unenroll: "➖",
   unenroll_learner: "➖", invite_users: "✉️", delete_invitation: "✉️", delete_course: "🗑️",
-  review_submission: "📝", review_capstone: "🎓",
+  review_submission: "📝", review_capstone: "🎓", reassign_review: "🔀",
 };
 
 function describe(log: Log, actor: string): string {
@@ -25,6 +25,7 @@ function describe(log: Log, actor: string): string {
     case "delete_course": return `${actor} deleted the course${m.course_title ? ` "${m.course_title}"` : ""}`;
     case "review_submission": return `${actor} reviewed a submission${m.action ? ` (${m.action})` : ""}`;
     case "review_capstone": return `${actor} reviewed a capstone${m.action ? ` (${m.action})` : ""}`;
+    case "reassign_review": return `${actor} reassigned a submission's reviewer`;
     case "create_user": return `${actor} created ${m.email ?? "a user"}${m.role ? ` (${m.role})` : ""}`;
     case "update_role": return `${actor} changed a user's role${m.new_role ? ` to ${m.new_role}` : ""}`;
     case "delete_user": return `${actor} deleted a user`;

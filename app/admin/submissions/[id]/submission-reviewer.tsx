@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { LessonHtmlRenderer } from "@/components/lesson-html-renderer";
 
 type RubricItem = { criterion: string; description: string; max_points: number };
 type AiFeedbackItem = { criterion: string; score: number; max_points: number; feedback: string };
@@ -116,7 +117,7 @@ export function SubmissionReviewer({
         {instructions && (
           <div className="bg-gray-50 border rounded-xl px-5 py-4">
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Assignment brief</p>
-            <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">{instructions}</p>
+            <LessonHtmlRenderer content={instructions} />
           </div>
         )}
 
