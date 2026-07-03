@@ -35,6 +35,7 @@ export function Nav({ role, userName, unreadNotifications = 0, lang = "en" }: Na
           { href: "/admin/learners", label: "Learners" },
           { href: "/admin/analytics", label: "Analytics" },
           { href: "/admin/users", label: "Users" },
+          { href: "/admin/audit", label: "Activity" },
           { href: "/admin/settings", label: "Settings" },
         ]
       : role === "creator"
@@ -43,6 +44,7 @@ export function Nav({ role, userName, unreadNotifications = 0, lang = "en" }: Na
           { href: "/admin/ai-builder", label: "✦ AI Builder" },
           { href: "/admin/submissions", label: "Submissions" },
           { href: "/admin/learners", label: "Learners" },
+          { href: "/admin/audit", label: "Activity" },
           { href: "/learn", label: "Learn" },
         ]
       : role === "moderator"
