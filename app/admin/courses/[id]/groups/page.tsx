@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { assertCourseOwner } from "@/lib/assert-course-owner";
 import { GroupsManager } from "./groups-manager";
+import { getCourseReviewers } from "@/lib/course-reviewers";
 
 export const dynamic = "force-dynamic";
 
@@ -17,6 +18,8 @@ export default async function GroupsPage({ params }: { params: { id: string } })
   const admin = createAdminClient();
   const { data: profile } = await admin.from("profiles").select("role").eq("id", user.id).single();
   const isManager = profile?.role === "course_manager";
+  const canAssignModerator = ["admin", "course_creator"].includes(profile?.role ?? "");
+  const reviewers = await getCourseReviewers(admin, params.id);
 
   // Load groups (managers only see their own)
   let groupQuery = admin
@@ -82,6 +85,8 @@ export default async function GroupsPage({ params }: { params: { id: string } })
         groups={normalisedGroups}
         unassignedLearners={unassignedLearners}
         allLearners={allLearners}
+        reviewers={reviewers}
+        canAssignModerator={canAssignModerator}
       />
     </div>
   );
