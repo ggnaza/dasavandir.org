@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logAudit } from "@/lib/audit-log";
+import { clampSessionSeconds } from "@/lib/session-time";
 
 function escapeCsv(val: string | number | null | undefined): string {
   if (val === null || val === undefined) return "";
@@ -53,7 +54,7 @@ export async function GET(req: Request) {
       : null;
     const timeSeconds = (sessions ?? [])
       .filter((s) => s.user_id === learner.id)
-      .reduce((sum, s) => sum + (s.duration_seconds ?? 0), 0);
+      .reduce((sum, s) => sum + clampSessionSeconds(s.duration_seconds), 0);
     const timeMin = Math.round(timeSeconds / 60);
 
     lines.push(row([

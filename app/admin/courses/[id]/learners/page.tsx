@@ -6,6 +6,7 @@ import { LearnerRows } from "./learner-rows";
 import { InviteStudentsButton } from "./invite-students-modal";
 import { EnrollLearnersButton } from "./enroll-learners-modal";
 import { getModeratorCohort } from "@/lib/get-moderator-cohort";
+import { clampSessionSeconds } from "@/lib/session-time";
 
 export const dynamic = "force-dynamic";
 
@@ -72,7 +73,7 @@ export default async function CourseLearnerPage({ params }: { params: { id: stri
   // Sum session time per learner for this course
   const timeMap: Record<string, number> = {};
   for (const s of allSessions ?? []) {
-    timeMap[s.user_id] = (timeMap[s.user_id] ?? 0) + s.duration_seconds;
+    timeMap[s.user_id] = (timeMap[s.user_id] ?? 0) + clampSessionSeconds(s.duration_seconds);
   }
 
   const profileMap = Object.fromEntries((profiles ?? []).map((p) => [p.id, p]));

@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { MAX_SESSION_ROW_SECONDS } from "@/lib/session-time";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const STAFF_ROLES = ["admin", "course_creator", "course_manager"];
@@ -17,7 +18,12 @@ export async function POST(req: Request) {
   }
 
   const { lessonId, duration } = body;
-  if (!lessonId || !UUID_RE.test(lessonId) || typeof duration !== "number" || duration < 5 || duration > 86400) {
+  // The client reports short active-only chunks; reject anything above the
+  // per-row ceiling (a single insert that large is idle/erroneous inflation).
+  if (
+    !lessonId || !UUID_RE.test(lessonId) ||
+    typeof duration !== "number" || duration < 5 || duration > MAX_SESSION_ROW_SECONDS
+  ) {
     return new Response("Invalid payload", { status: 400 });
   }
 
