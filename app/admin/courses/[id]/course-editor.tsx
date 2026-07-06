@@ -59,6 +59,7 @@ export function CourseEditor({ course, lessonDeadlineDates = [] }: {
   const [deadlineError, setDeadlineError] = useState("");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState("");
 
   async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -89,6 +90,7 @@ export function CourseEditor({ course, lessonDeadlineDates = [] }: {
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     setDeadlineError("");
+    setSaveError("");
 
     // Validate: course exact deadline cannot be earlier than any lesson exact deadline
     if (deadlineMode === "date" && deadlineDate) {
@@ -105,7 +107,7 @@ export function CourseEditor({ course, lessonDeadlineDates = [] }: {
 
     setSaving(true);
     const supabase = createClient();
-    await supabase
+    const { error } = await supabase
       .from("courses")
       .update({
         title,
@@ -128,6 +130,13 @@ export function CourseEditor({ course, lessonDeadlineDates = [] }: {
       })
       .eq("id", course.id);
     setSaving(false);
+    if (error) {
+      // Surface the failure instead of flashing a false "Saved ✓" — a silently
+      // discarded RLS/update error is how a "save" appears to succeed but the
+      // change is gone on refresh.
+      setSaveError(`Could not save changes: ${error.message}`);
+      return;
+    }
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
     router.refresh();
@@ -498,13 +507,16 @@ export function CourseEditor({ course, lessonDeadlineDates = [] }: {
             </div>
           </div>
         )}
-        <button
-          type="submit"
-          disabled={saving || uploadingImage}
-          className="bg-brand-600 text-white px-5 py-2 rounded-lg hover:bg-brand-700 disabled:opacity-50 text-sm font-medium"
-        >
-          {saving ? "Saving…" : saved ? "Saved ✓" : "Save changes"}
-        </button>
+        <div className="flex flex-col items-end gap-1">
+          <button
+            type="submit"
+            disabled={saving || uploadingImage}
+            className="bg-brand-600 text-white px-5 py-2 rounded-lg hover:bg-brand-700 disabled:opacity-50 text-sm font-medium"
+          >
+            {saving ? "Saving…" : saved ? "Saved ✓" : "Save changes"}
+          </button>
+          {saveError && <p className="text-xs text-red-600 max-w-xs text-right">{saveError}</p>}
+        </div>
       </div>
     </form>
   );

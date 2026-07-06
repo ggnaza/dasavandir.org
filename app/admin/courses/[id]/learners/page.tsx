@@ -5,6 +5,7 @@ import Link from "next/link";
 import { LearnerRows } from "./learner-rows";
 import { InviteStudentsButton } from "./invite-students-modal";
 import { EnrollLearnersButton } from "./enroll-learners-modal";
+import { CancelInviteButton } from "./cancel-invite-button";
 import { getModeratorCohort } from "@/lib/get-moderator-cohort";
 import { clampSessionSeconds } from "@/lib/session-time";
 
@@ -201,7 +202,9 @@ export default async function CourseLearnerPage({ params }: { params: { id: stri
                     Invited
                   </span>
                 </div>
-                <div className="col-span-1" />
+                <div className="col-span-1 flex justify-end">
+                  <CancelInviteButton invitationId={inv.id} name={name} />
+                </div>
               </div>
             );
           })}
