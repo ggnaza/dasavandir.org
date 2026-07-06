@@ -3,7 +3,7 @@ provenance: kit-template
 created: 2026-07-03
 last-modified: 2026-07-03
 tags: [current, lessons, moc, tier-1]
-related: [proposals, ../../lessons/index]
+related: [proposals, ../../lessons/index.md]
 ---
 
 # Lessons MOC — Tier-1 map-of-content

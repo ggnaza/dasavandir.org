@@ -1,35 +1,36 @@
 ---
-provenance: kit-template
+provenance: llm-reviewed
 created: 2026-07-03
-last-modified: 2026-07-03
+last-modified: 2026-07-06
 tags: [current, work-plan, decisions]
 related: [status, open-questions]
 ---
 
 # Work plan — Gor LMS
 
-<!-- The plan + the locked decisions + the immediate next action. UPDATE-IN-PLACE as work progresses.
-     The board/backlog/completed split is optional; keep whatever shape stays true with least effort. -->
-
 ## The plan (phases / milestones)
-<The current phases or milestones, each with a one-line state (done / in progress / not started). Keep
-it coarse — this is the map, not the turn-by-turn.>
+- **Fieldbook setup + knowledge backfill** — done (this session, 2026-07-06).
+- **Ongoing LMS maintenance** — bug-fixes and features on the current single-tenant LMS; the active
+  mode. No milestone; work arrives per request.
+- **Role-system overhaul** — not started (backlog, WU-0002).
+- **Video-duration auto-fetch** — blocked (WU-0003).
+- **Multi-tenant successor** — not started; clean-break separate build (ADR-0004).
 
 ## Locked decisions (this cycle)
-<The decisions that are settled and should NOT be re-litigated without an ADR. One line each; link the
-`ADR-NNNN` that owns each where one exists.>
+- Auth trigger swallows errors + never reads role from metadata — ADR-0001.
+- Read own role with the service-role admin client — ADR-0002.
+- Course visibility is app-enforced on default-deny RLS — ADR-0003.
+- Multi-tenant successor is a clean-break separate build — ADR-0004.
 
 ## Immediate next
-> **🎯 CURRENT — <WU-NNNN>: <one-line objective>.** <The next concrete step, actionable cold; the
-> acceptance bar; the do-NOT (e.g. do not push without an explicit go). Link the plan/build doc that
-> carries the detail.>
+> **🎯 CURRENT — WU-0001 done.** Fieldbook is installed and the past-session knowledge is backfilled
+> (ADRs, memories, lessons, reference — lint-clean). Next session: run `/orient`, then pick a backlog
+> WU or a new request. Do NOT re-litigate the locked decisions above without a superseding ADR.
 
 ## Work-unit spine
-<One row per active/queued work-unit. A `WU` is done only when it is WIRED (reachable from a production
-entrypoint) or has a recorded `DEFER` — not merely test-green.>
 
 | WU | Objective | Depends | Status |
 |---|---|---|---|
-<!-- EXAMPLE row (replace with real work):
-| WU-0001 | <one-line objective> | — | proposed |
--->
+| WU-0001 | Install Fieldbook (Standard) + backfill past-session knowledge | — | done (WIRED: docs on disk, lint-clean) |
+| WU-0002 | Role-system overhaul — replace single `admin` with a `super_admin` / `course_creator` hierarchy (roles, `course_permissions`, route checks, UI split) | — | backlog |
+| WU-0003 | Resume Google Drive video-duration auto-fetch | OQ-001 | blocked |

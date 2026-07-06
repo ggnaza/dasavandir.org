@@ -1,7 +1,7 @@
 ---
 provenance: kit-template
 created: 2026-07-03
-last-modified: 2026-07-03
+last-modified: 2026-07-06
 tags: [meta, index, routing, lessons]
 related: [CONVENTIONS]
 ---
@@ -44,11 +44,9 @@ cost-of-recurrence can justify promotion on first sighting — it need not wait 
 
 ## Lessons
 
-<!-- EXAMPLE (delete this block on the first real lesson):
-- `example-when-x-do-y.md` — **Open when:** <the concrete situation that should trigger recall>.
-  **Carry-away:** <the "when X, do Y, because Z" in one sentence, traceable to the evidence>.
-  *(seedling · medium · process.)*
--->
+- `verify-prod-schema-before-debugging-live-breakage.md` — **Open when:** "works locally, breaks on live" / a `42703`/`42P01`. **Carry-away:** verify prod actually has the table/column FIRST — manual migrations lag the codebase. *(LP-001 · budding · high · staleness.)*
+- `prefer-service-role-routes-over-browser-writes.md` — **Open when:** a browser DB/storage write fails, or adding a mutation. **Carry-away:** route mutations through service-role API routes + ownership checks, not RLS-dependent browser writes. *(LP-002 · budding · high · false-belief.)*
+- `derive-moderator-learners-from-group-membership.md` — **Open when:** a staff surface lists a moderator's learners. **Carry-away:** derive from group membership, not `moderator_cohort_assignments` (empty → sees nobody). *(LP-003 · budding · medium · false-belief.)*
 
 ## Maintenance
 

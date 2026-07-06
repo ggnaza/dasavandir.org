@@ -1,7 +1,7 @@
 ---
 provenance: kit-template
 created: 2026-07-03
-last-modified: 2026-07-03
+last-modified: 2026-07-06
 tags: [meta, index, routing, reference]
 related: [CONVENTIONS]
 ---
@@ -20,7 +20,7 @@ Stable **WHAT-IS** facts: architecture notes, inventories, syntheses, validated-
 ## Entry purpose + naming
 
 - **Purpose:** capture a stable, reusable fact so it is not re-derived from scratch each session.
-- **Filename:** `reference/<kebab-topic>.md` (e.g. `architecture-overview.md`, `validated-versions.md`).
+- **Filename:** `reference/<kebab-topic>.md` (e.g. `architecture-overview.md`, `validated-versions`).
 - **Write-discipline:** UPDATE-IN-PLACE (rare). A standard-of-record carries `provenance: human`.
 
 ## Entry SCHEMA (body)
@@ -30,10 +30,12 @@ re-verified) · Last-verified (facts drift — date the check) · See also.
 
 ## Reference docs
 
-<!-- EXAMPLE (delete this block on the first real reference doc):
-- `architecture-overview.md` — **Open when:** you need the big-picture shape before changing a
-  subsystem. **Carry-away:** <the one-sentence fact this doc anchors>. (Verified <date>.)
--->
+- `architecture-overview.md` — **Open when:** you need the big-picture stack/roles before changing a subsystem. **Carry-away:** Next.js 14 + Supabase + Vercel; four roles, each linked to courses via its OWN table. (Verified 2026-07-06.)
+- `course-visibility-model.md` — **Open when:** adding/auditing a learner-facing course surface. **Carry-away:** app-enforced visibility on default-deny RLS; per-surface enrollment-filter status. (Verified 2026-07-06.)
+- `moderator-access-model.md` — **Open when:** a moderator's learner/submission visibility. **Carry-away:** course_manager_access = gate; the learner subset is group-membership-based. (Verified 2026-07-06.)
+- `security-posture.md` — **Open when:** tempted to re-audit, or before a security change. **Carry-away:** audit complete/fixed; only `audit_logs` table + monitored-inbox remain. (Verified 2026-07-06.)
+- `time-on-task-tracking.md` — **Open when:** touching "time spent" analytics. **Carry-away:** active-only tracking + a 1h read-clamp; never clamp `lessons.duration_seconds`. (Verified 2026-07-06.)
+- `analytics-information-architecture.md` — **Open when:** navigating/adding an analytics tab. **Carry-away:** Analytics is a sub-tab group (Gradebook default / Quizzes / Reflections); AI-Coach has a Usage sub-tab. (Verified 2026-07-06.)
 
 ## Maintenance
 

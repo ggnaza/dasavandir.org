@@ -1,7 +1,7 @@
 ---
 provenance: kit-template
 created: 2026-07-03
-last-modified: 2026-07-03
+last-modified: 2026-07-06
 tags: [meta, index, routing, memories]
 related: [CONVENTIONS]
 ---
@@ -30,10 +30,12 @@ anti-actions) · See also (related docs, upstream issues, commit refs).
 
 ## Memories
 
-<!-- EXAMPLE (delete this block on the first real memory):
-- `example-surprising-behavior-because-cause.md` — **Open when:** <the situation where this gotcha
-  bites>. **Carry-away:** <the claim in one sentence + the specific anti-action>. (Surfaced <where>.)
--->
+- `router-refresh-restarts-self-hosted-video.md` — **Open when:** editing lesson video / completion tracking. **Carry-away:** never `router.refresh()` during playback — it regenerates the signed URL and restarts the video.
+- `missing-embed-column-errors-whole-postgrest-query.md` — **Open when:** a Supabase query returns null/"empty" unexpectedly. **Carry-away:** a missing column in a `.select(embed)` errors the WHOLE query (`42703`); check `error`, not `!data.length`. `progress` has no `course_id`.
+- `browser-storage-uploads-need-bucket-insert-policy.md` — **Open when:** an upload fails opaquely. **Carry-away:** suspect a missing bucket INSERT policy; prefer the signed-URL server flow over a storage-RLS migration.
+- `next-build-typechecks-all-provider-branches.md` — **Open when:** before pushing / a Vercel build fails. **Carry-away:** strict `next build` type-checks ALL provider branches; a dormant one fails the deploy. Run it locally first.
+- `vision-attachments-need-per-model-branch.md` — **Open when:** touching AI-coach attachments. **Carry-away:** each provider takes images differently (OpenAI `image_url`, Claude base64, Gemini inlineData); scanned PDFs are Gemini-only.
+- `learner-auto-enroll-exposes-internal-wip-courses.md` — **Open when:** publishing an internal course. **Carry-away:** publishing an internal course auto-exposes it to every `@teachforarmenia.org` user immediately.
 
 ## Maintenance
 

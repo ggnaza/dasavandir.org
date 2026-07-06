@@ -3,7 +3,7 @@ provenance: kit-template
 created: 2026-07-03
 last-modified: 2026-07-03
 tags: [current, lessons, proposals, staging]
-related: [MOC, ../../lessons/index]
+related: [MOC, ../../lessons/index.md]
 ---
 
 # Lessons proposals — staging for human-gated promotion

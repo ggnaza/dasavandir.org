@@ -1,7 +1,7 @@
 ---
 provenance: kit-template
 created: 2026-07-03
-last-modified: 2026-07-03
+last-modified: 2026-07-06
 tags: [meta, index, routing, decisions]
 related: [CONVENTIONS]
 ---
@@ -35,11 +35,10 @@ here carry the claim-as-carry-away **plus status**. Route by status first (don't
 
 ## Decisions (route by status, then topic)
 
-<!-- EXAMPLE (delete this block on the first real ADR):
-- ⭐ `0001-example-decision.md` — **Open when:** "why did we choose <X> over <Y>?" **Carry-away:**
-  <the one-sentence decision + the load-bearing reason>; alternatives <A/B/C> rejected in-ADR.
-  *(status: proposed.)*
--->
+- ⭐ `0001-handle-new-user-trigger-must-swallow-errors.md` — **Open when:** touching auth signup / the `profiles` trigger. **Carry-away:** the trigger must `EXCEPTION WHEN OTHERS` and never read role from metadata; app defensively upserts profiles. *(accepted.)*
+- ⭐ `0002-read-own-role-with-admin-client.md` — **Open when:** reading the logged-in user's role/profile. **Carry-away:** use `createAdminClient()`, not the user-auth client, or RLS drift downgrades everyone to learner. *(accepted.)*
+- `0003-app-enforced-course-visibility.md` — **Open when:** adding a learner-facing course surface. **Carry-away:** visibility is app-enforced on default-deny RLS; every surface must apply the enrollment filter itself. *(accepted.)*
+- `0004-separate-multi-tenant-platform-clean-break.md` — **Open when:** planning the multi-tenant successor. **Carry-away:** new platform is a clean-break separate build; TFA owns the current LMS, not a tenant. *(accepted, 2026-05-08.)*
 
 ## Maintenance
 
