@@ -1,0 +1,381 @@
+{
+  "kit_version": "0.1.0-dev",
+  "profile": "standard",
+  "stack": "node-ts",
+  "created": "2026-07-06T07:17:57Z",
+  "completed": "2026-07-06T07:17:57Z",
+  "status": "complete",
+  "tokens": {
+    "PROJECT_NAME": "Gor LMS",
+    "PROJECT_ONE_LINER": "Next.js 14 + Supabase learning-management system with role-based course access (admin / course_creator / course_manager / learner), AI chat, and video lessons.",
+    "PRIMARY_LANGUAGE": "node-ts",
+    "BUILD_CMD": "npm run build",
+    "TEST_CMD": "npm run test:e2e",
+    "LINT_CMD": "",
+    "FMT_CMD": "",
+    "CODE_INTEL_TOOL": "the TypeScript language server (tsserver)",
+    "DEFAULT_BRANCH": "main",
+    "WORKSPACE_LAYOUT": "single-package",
+    "PACKAGE_REGISTRY": "npm (npmjs.com)",
+    "PANIC_EQUIVALENT": "an unhandled promise rejection (a floating promise)"
+  },
+  "modules": [
+    "statusline (global)"
+  ],
+  "files": [
+    {
+      "path": ".agent-docs/CONVENTIONS.md",
+      "action": "create",
+      "source": "base/minimal/agent-docs/CONVENTIONS.md",
+      "sha256": "7db945c33e2451c180c7341bef63b9e3998de44d09e5f41ccef26e877c4180e1",
+      "backup": null
+    },
+    {
+      "path": ".agent-docs/glossary.md",
+      "action": "create",
+      "source": "base/minimal/agent-docs/glossary.md",
+      "sha256": "359cbc7eeb47e42dc36192a29e36ac3c6aae341b9fe56dbdf367bbe79e44631b",
+      "backup": null
+    },
+    {
+      "path": ".agent-docs/log.md",
+      "action": "create",
+      "source": "base/minimal/agent-docs/log.md",
+      "sha256": "3356d630c536e5650d07a1906fdb2d7f6f09358c6d8b8ece7c39e28d41a4507d",
+      "backup": null
+    },
+    {
+      "path": ".agent-docs/decisions/index.md",
+      "action": "create",
+      "source": "base/minimal/agent-docs/decisions/index.md",
+      "sha256": "bd1b129a2dbc85cf9d97a0e5bd8b109c551ef3cd1986005e75ec14ae8850909e",
+      "backup": null
+    },
+    {
+      "path": ".agent-docs/lessons/index.md",
+      "action": "create",
+      "source": "base/minimal/agent-docs/lessons/index.md",
+      "sha256": "43ecb36e869f96ea4fda60de01bd5ef4cca5faf5e178993c1ae87823e887c4a8",
+      "backup": null
+    },
+    {
+      "path": ".agent-docs/now/index.md",
+      "action": "create",
+      "source": "base/minimal/agent-docs/now/index.md",
+      "sha256": "f2e81a49d1f8d111259232236b3be8f27f2ce8b142418c9682ea059b75c584de",
+      "backup": null
+    },
+    {
+      "path": ".agent-docs/templates/adr-template.md",
+      "action": "create",
+      "source": "base/minimal/agent-docs/templates/adr-template.md",
+      "sha256": "24a50435dd6d248f8c2a5e4f6d0a55f0776567c38177ae08949c8b35c7d10594",
+      "backup": null
+    },
+    {
+      "path": ".agent-docs/templates/checkpoint-template.md",
+      "action": "create",
+      "source": "base/minimal/agent-docs/templates/checkpoint-template.md",
+      "sha256": "9d83a36038ef96cd7f3bb6cb19db81ead5e863a7df703d32e17a4b7c864e28de",
+      "backup": null
+    },
+    {
+      "path": ".agent-docs/templates/handoff-template.md",
+      "action": "create",
+      "source": "base/minimal/agent-docs/templates/handoff-template.md",
+      "sha256": "0b9dcb4aaf2b25c3fa15a4eb05399d13a008cc88d64584c4d80d6dfd0e35a855",
+      "backup": null
+    },
+    {
+      "path": ".agent-docs/templates/index-template.md",
+      "action": "create",
+      "source": "base/minimal/agent-docs/templates/index-template.md",
+      "sha256": "c6d335f553c563c049e55645321b832117441bbecc3d31596ebb0aef13fd0191",
+      "backup": null
+    },
+    {
+      "path": ".agent-docs/templates/index.md",
+      "action": "create",
+      "source": "base/minimal/agent-docs/templates/index.md",
+      "sha256": "f00ea9317846425b39a01b7cf3b247a751d91ff8778dfce8db8fc66635c5795b",
+      "backup": null
+    },
+    {
+      "path": ".agent-docs/templates/lesson-template.md",
+      "action": "create",
+      "source": "base/minimal/agent-docs/templates/lesson-template.md",
+      "sha256": "3edf7c9dd6cf0811f83abef397525b772409cbe74cb1afa9a7a97457b8477fda",
+      "backup": null
+    },
+    {
+      "path": ".agent-docs/templates/memory-template.md",
+      "action": "create",
+      "source": "base/minimal/agent-docs/templates/memory-template.md",
+      "sha256": "15663203fc21e209d96dc5e088d924ae9614541ccd070bdb523f2f7314c1719f",
+      "backup": null
+    },
+    {
+      "path": ".agent-docs/charter.md",
+      "action": "create",
+      "source": "base/minimal/agent-docs/charter.template.md",
+      "sha256": "33d7c2848e356127ef5d34727b62ffb0fe56ff38d8eb5f83e3f25ea621a4e31c",
+      "backup": null
+    },
+    {
+      "path": ".agent-docs/now/status.md",
+      "action": "create",
+      "source": "base/minimal/agent-docs/now/status.template.md",
+      "sha256": "ca9f7e3de3165f75e5f3b4545659db2ac38749815a3d87e4cdcaceb35c5dee21",
+      "backup": null
+    },
+    {
+      "path": ".agent-docs/now/work-plan.md",
+      "action": "create",
+      "source": "base/minimal/agent-docs/now/work-plan.template.md",
+      "sha256": "8825b9126f76833a7640119f4e7aee6cd21fcf8955b88f3c1b66dcec2d2ffa7d",
+      "backup": null
+    },
+    {
+      "path": ".agent-docs/now/open-questions.md",
+      "action": "create",
+      "source": "base/minimal/agent-docs/now/open-questions.template.md",
+      "sha256": "bc6577455ece918118725e9d874b4cd4b9c70c61bb7438bce1e4bcaed91d5a12",
+      "backup": null
+    },
+    {
+      "path": ".agent-docs/now/handoff.md",
+      "action": "create",
+      "source": "base/minimal/agent-docs/now/handoff.template.md",
+      "sha256": "6b0fc574d63371905fd4965ddc79af6f5cd280c87d7e1e74155a53d569b0c253",
+      "backup": null
+    },
+    {
+      "path": ".agent-docs/now/lessons/MOC.md",
+      "action": "create",
+      "source": "base/minimal/agent-docs/now/lessons/MOC.template.md",
+      "sha256": "1d33303d70048b1feaa67aefaf35629f1d77e653415f959ab313dcaf8951e11c",
+      "backup": null
+    },
+    {
+      "path": ".agent-docs/now/lessons/proposals.md",
+      "action": "create",
+      "source": "base/minimal/agent-docs/now/lessons/proposals.template.md",
+      "sha256": "01826cfc7f13f421027ef5da98f392846807a32ae2bfc4fe65c2d7cbabcfd00e",
+      "backup": null
+    },
+    {
+      "path": ".agent-docs/index.md",
+      "action": "create",
+      "source": "base/minimal/agent-docs/index.md",
+      "sha256": "de9d6eb10388bce8fc35ea68def9cf474c8cc6a6a85a6a81ac226350877367df",
+      "backup": null
+    },
+    {
+      "path": ".agent-docs/checkpoints/index.md",
+      "action": "create",
+      "source": "base/standard/agent-docs/checkpoints/index.md",
+      "sha256": "693e6968d2fd91144e015e28f9ee08a437e6c576555758d7ab985bf752b75e00",
+      "backup": null
+    },
+    {
+      "path": ".agent-docs/memories/index.md",
+      "action": "create",
+      "source": "base/standard/agent-docs/memories/index.md",
+      "sha256": "5da68dae30bcc6bacd9c89d8060aca1ce4319fecfc471356420150a774f16b88",
+      "backup": null
+    },
+    {
+      "path": ".agent-docs/reference/index.md",
+      "action": "create",
+      "source": "base/standard/agent-docs/reference/index.md",
+      "sha256": "cccff8d767a9ac511074df83394a37525314c2e211b75b72018d1e6341bb4cb3",
+      "backup": null
+    },
+    {
+      "path": ".claude/rules/agent-docs.md",
+      "action": "create",
+      "source": "base/minimal/claude/rules/agent-docs.md",
+      "sha256": "a183b46fe5829b788e7259a2949915d9956316de8d326254f179a4362f0bc924",
+      "backup": null
+    },
+    {
+      "path": ".claude/rules/sensitive-data.md",
+      "action": "create",
+      "source": "base/minimal/claude/rules/sensitive-data.md",
+      "sha256": "32e36394de4ede3600bd5abec525189a6fe6fc415b32f4647a1a2a58fcbf7aa7",
+      "backup": null
+    },
+    {
+      "path": ".claude/rules/standing-rules-core.md",
+      "action": "create",
+      "source": "base/standard/claude/rules/standing-rules-core.md",
+      "sha256": "ec19523d090a6a1a407d87e1f1a7c3dbe72b1ad135ec4c9e9ab73d4867c01741",
+      "backup": null
+    },
+    {
+      "path": ".claude/rules/standing-rules-rationale.md",
+      "action": "create",
+      "source": "base/standard/claude/rules/standing-rules-rationale.md",
+      "sha256": "b47c74d6453b12d61ca024a15cb08079d035665e99b9fbd60d04bdaef188ec8d",
+      "backup": null
+    },
+    {
+      "path": ".claude/rules/node-ts-rules.md",
+      "action": "create",
+      "source": "stacks/node-ts/rules.md",
+      "sha256": "d3b868128f574cb77665e15b9e219826c7f3c3e13ccb02a00102fe2375b7247f",
+      "backup": null
+    },
+    {
+      "path": ".claude/rules/node-ts-code-intel.md",
+      "action": "create",
+      "source": "stacks/node-ts/code-intel.md",
+      "sha256": "47858a9506a119ef8516140e3fd0af1a868ba088d9349ad7eacd1904daa1fea7",
+      "backup": null
+    },
+    {
+      "path": ".claude/skills/orient/SKILL.md",
+      "action": "create",
+      "source": "base/minimal/claude/skills/orient/SKILL.md",
+      "sha256": "fcd0019826a60c09ddbad3832df9181f149d6d28c7f58057c9ec20fa39c44382",
+      "backup": null
+    },
+    {
+      "path": ".claude/skills/flush/SKILL.md",
+      "action": "create",
+      "source": "base/minimal/claude/skills/flush/SKILL.md",
+      "sha256": "eaf937ec39a42dccfa96b9ae0f864a919fc01287107c5071de42313548c9a6c5",
+      "backup": null
+    },
+    {
+      "path": ".claude/skills/handoff/SKILL.md",
+      "action": "create",
+      "source": "base/minimal/claude/skills/handoff/SKILL.md",
+      "sha256": "360409e73a63c65d1f971ea9324428d3374f25f86579f11562a3e32b4bb715b2",
+      "backup": null
+    },
+    {
+      "path": ".claude/skills/sitrep/SKILL.md",
+      "action": "create",
+      "source": "base/standard/claude/skills/sitrep/SKILL.md",
+      "sha256": "5eeb7dd055587b99711196451177188895b72005c752ae4cbd7679efe6265ad4",
+      "backup": null
+    },
+    {
+      "path": ".claude/skills/debrief/SKILL.md",
+      "action": "create",
+      "source": "base/standard/claude/skills/debrief/SKILL.md",
+      "sha256": "8573c7394ba46ba1dc1562699de732bf6aa5e1cd0fc02969f6a7edcc7e995fa1",
+      "backup": null
+    },
+    {
+      "path": ".claude/skills/distill-lessons/SKILL.md",
+      "action": "create",
+      "source": "base/standard/claude/skills/distill-lessons/SKILL.md",
+      "sha256": "57e95f181604fe5aa1be34649cabcccdef03e633f354126de0275ca4a028153f",
+      "backup": null
+    },
+    {
+      "path": ".claude/hooks/sessionstart-state-router.sh",
+      "action": "create",
+      "source": "base/minimal/claude/hooks/sessionstart-state-router.sh",
+      "sha256": "74092b49cb195e6ffbf808a10d05d146f3ac51dabd5bd10933f11a41013a15ae",
+      "backup": null
+    },
+    {
+      "path": ".claude/hooks/precompact-handoff-trigger.sh",
+      "action": "create",
+      "source": "base/minimal/claude/hooks/precompact-handoff-trigger.sh",
+      "sha256": "e306ba65791187929a71e57dbcd809bafb9f14965855c4989c8307ae51dae50b",
+      "backup": null
+    },
+    {
+      "path": ".claude/hooks/lint-docs.py",
+      "action": "create",
+      "source": "base/standard/claude/hooks/lint-docs.py",
+      "sha256": "f7376457f3aaf356db66c2fe22df7480da89f58bf40aabafd66c90f039452f6d",
+      "backup": null
+    },
+    {
+      "path": ".claude/hooks/lint-docs.README.md",
+      "action": "create",
+      "source": "base/standard/claude/hooks/lint-docs.README.md",
+      "sha256": "5b98a890d0b8f6749bb90176760ff11c8992291821121cc82353f2accdf1d714",
+      "backup": null
+    },
+    {
+      "path": ".claude/hooks/lint-agent-docs-indexes.sh",
+      "action": "create",
+      "source": "base/standard/claude/hooks/lint-agent-docs-indexes.sh",
+      "sha256": "d55d88b212d41b7c9e6df2fa803ff6f1fbce0905bf7f7112aaae362eeb8f2cf2",
+      "backup": null
+    },
+    {
+      "path": ".claude/hooks/install-hooks.sh",
+      "action": "create",
+      "source": "base/standard/claude/hooks/install-hooks.sh",
+      "sha256": "fd56aaa9e83d42d2fba2b911092b0a873b151152e37401fb4d71baa7b2049a6f",
+      "backup": null
+    },
+    {
+      "path": ".claude/hooks/README.md",
+      "action": "create",
+      "source": "base/standard/claude/hooks/README.md",
+      "sha256": "036b1d8001e730fbe9ae80d5df62958c921d9657cc718758111ba0b096a34d6e",
+      "backup": null
+    },
+    {
+      "path": ".claude/hooks/subagentstart-prefix.sh",
+      "action": "create",
+      "source": "base/standard/claude/hooks/subagentstart-prefix.sh",
+      "sha256": "2ae8936d82bc839b8fd02eaccb6d3017cfe059920f7f08102fbcdd7b09759680",
+      "backup": null
+    },
+    {
+      "path": ".claude/hooks/pretooluse-safety-gates.sh",
+      "action": "create",
+      "source": "assembled: base + node-ts fragment + Gor LMS rules",
+      "sha256": "5ec1e411ec2b204cdd0911fcdafd08f6d9fa72caa4d011d367fef44c6d041155",
+      "backup": null
+    },
+    {
+      "path": ".claude/settings.json",
+      "action": "create",
+      "source": "base/minimal/claude/settings.json.template",
+      "sha256": "b9bd7818f8c6fbf78130e1c3c725aa92c491f421d26f7e076a8c9527fc00205b",
+      "backup": null
+    },
+    {
+      "path": ".githooks/pre-commit",
+      "action": "create",
+      "source": "base/standard/githooks/pre-commit",
+      "sha256": "73bf6e91b7da052c22f17342a4412491763adcd81065f618a6d6467c61193c0f",
+      "backup": null
+    },
+    {
+      "path": "CLAUDE.md",
+      "action": "merge",
+      "source": "base/minimal/CLAUDE.md.template",
+      "sha256": "5758c5a0cb54e0020dde2199a2dbe647748b9199e412b3b4aec8abcf95db792d",
+      "backup": "CLAUDE.md.fieldbook-backup-20260706T071757Z"
+    },
+    {
+      "path": "/Users/gor/.claude/statusline.py",
+      "action": "create",
+      "source": "modules/statusline/statusline.py",
+      "sha256": "0f17a4259f57c14ced153c3fd68b4d97587da86050215614637da3561db27872",
+      "backup": null
+    },
+    {
+      "path": "/Users/gor/.claude/settings.json",
+      "action": "merge",
+      "source": "modules/statusline (statusLine block)",
+      "sha256": "6ce3e6c361c6517c881bf03da5c13c4d0a25f7caecf27284d900e20a5f00b4be",
+      "backup": "/Users/gor/.claude/settings.json.fieldbook-backup-20260706T071757Z"
+    }
+  ],
+  "git": {
+    "hooksPath_set": true,
+    "hooksPath_prev": null
+  }
+}
