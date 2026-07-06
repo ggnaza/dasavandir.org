@@ -9,3 +9,9 @@ node_modules/
 dist/
 build/
 .claude/
+
+# Playwright test output
+test-results/
+
+# Fieldbook install backups
+CLAUDE.md.fieldbook-backup-*
