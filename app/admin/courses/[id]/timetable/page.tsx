@@ -7,6 +7,20 @@ import { getTimetableAccess } from "@/lib/timetable/access";
 
 export const dynamic = "force-dynamic";
 
+/**
+ * Today's calendar date in Armenia (UTC+4), computed server-side.
+ *
+ * Passed to the client so the opening week tab is decided once. Computing it in the
+ * browser instead would let a viewer's own timezone pick a different tab than the
+ * server rendered, which React reports as a hydration mismatch.
+ *
+ * Same shape as the daily cron and the learner timetable: add 4h, then take the UTC
+ * date. Armenia has not observed DST since 2012, so UTC+4 holds year-round.
+ */
+function armeniaToday(): string {
+  return new Date(Date.now() + 4 * 60 * 60 * 1000).toISOString().slice(0, 10);
+}
+
 export default async function TimetablePage({ params }: { params: { id: string } }) {
   const supabase = createClient();
   const admin = createAdminClient();
@@ -106,6 +120,7 @@ export default async function TimetablePage({ params }: { params: { id: string }
         dailyAnnouncements={(course as { timetable_daily_announcements?: boolean }).timetable_daily_announcements ?? false}
         initialEntries={entries ?? []}
         groupCount={groups?.length ?? 0}
+        today={armeniaToday()}
       />
     </div>
   );
