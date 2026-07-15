@@ -139,14 +139,17 @@ const EMPTY_FORM: FormState = {
 export function TimetableManager({
   courseId,
   enabled,
+  dailyAnnouncements = false,
   initialEntries,
 }: {
   courseId: string;
   enabled: boolean;
+  dailyAnnouncements?: boolean;
   initialEntries: Entry[];
 }) {
   const router = useRouter();
   const [timetableEnabled, setTimetableEnabled] = useState(enabled);
+  const [announcing, setAnnouncing] = useState(dailyAnnouncements);
   const [entries, setEntries] = useState<Entry[]>(initialEntries);
   const [form, setForm] = useState<FormState | null>(null);
   const [saving, setSaving] = useState<"save" | "announce" | null>(null);
@@ -211,6 +214,42 @@ export function TimetableManager({
     } finally {
       setSavingRowId(null);
     }
+  }
+
+  /**
+   * Daily agenda email. Separate from the timetable being visible, because
+   * populating a schedule and emailing every learner about it every morning are
+   * different acts — importing a term's agenda into a live course would otherwise
+   * send hundreds of emails as a side effect of loading data.
+   */
+  async function toggleAnnouncing() {
+    if (toggling) return;
+    const previous = announcing;
+    const next = !previous;
+    setAnnouncing(next);
+    setToggling(true);
+    setToggleError(null);
+
+    const supabase = createClient();
+    const { data, error: updateError } = await supabase
+      .from("courses")
+      .update({ timetable_daily_announcements: next })
+      .eq("id", courseId)
+      .select("id");
+
+    setToggling(false);
+
+    if (updateError || !data?.length) {
+      setAnnouncing(previous);
+      setToggleError(
+        updateError
+          ? `Could not ${next ? "turn on" : "turn off"} the daily agenda email: ${updateError.message}`
+          : `Could not ${next ? "turn on" : "turn off"} the daily agenda email — you do not have permission to change this course.`
+      );
+      return;
+    }
+
+    router.refresh();
   }
 
   async function toggleEnabled() {
@@ -309,6 +348,29 @@ export function TimetableManager({
           <span className="text-sm font-medium">{timetableEnabled ? "Timetable enabled" : "Timetable disabled"}</span>
           <span className="text-xs text-gray-400">(learners can see the timetable tab when enabled)</span>
         </div>
+
+        <div className="flex items-center gap-3 mt-3 pt-3 border-t">
+          <button
+            onClick={toggleAnnouncing}
+            disabled={toggling || !timetableEnabled}
+            title={!timetableEnabled ? "Enable the timetable first" : undefined}
+            className={`relative w-10 h-5 rounded-full transition-colors disabled:opacity-40 ${announcing ? "bg-amber-500" : "bg-gray-200"}`}
+          >
+            <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${announcing ? "translate-x-5" : "translate-x-0.5"}`} />
+          </button>
+          <span className="text-sm font-medium">
+            {announcing ? "Daily agenda email is ON" : "Daily agenda email is off"}
+          </span>
+          <span className="text-xs text-gray-400">
+            (emails every enrolled learner at 08:00 Armenia, each day that has sessions)
+          </span>
+        </div>
+        {announcing && (
+          <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mt-2">
+            Every day with sessions will email all enrolled learners. Editing entries inline does
+            not notify anyone — only this toggle and the per-entry “Announce” button do.
+          </p>
+        )}
         {toggleError && <p className="text-xs text-red-600 mt-2">{toggleError}</p>}
       </div>
 

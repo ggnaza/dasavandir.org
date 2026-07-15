@@ -16,9 +16,11 @@ export default async function TimetablePage({ params }: { params: { id: string }
     redirect("/learn");
   }
 
+  // select("*") so this tolerates timetable_daily_announcements not existing until
+  // group_timetables.sql is applied — naming the column would 42703 the whole page.
   const { data: course } = await admin
     .from("courses")
-    .select("id, title, timetable_enabled")
+    .select("*")
     .eq("id", params.id)
     .single();
   if (!course) notFound();
@@ -34,12 +36,15 @@ export default async function TimetablePage({ params }: { params: { id: string }
     <div className="max-w-3xl">
       <h2 className="text-xl font-semibold mb-1">Timetable</h2>
       <p className="text-sm text-gray-500 mb-6">
-        Add schedule slots for this course. Any changes automatically notify enrolled learners.
-        At 8:00 AM Armenia time, today&apos;s agenda is sent as an announcement.
+        Add schedule slots for this course. Click any field to edit it in place — inline edits
+        are saved silently and do not notify anyone. Emailing learners is a separate,
+        deliberate act: the &ldquo;Announce&rdquo; button on a single entry, or the daily agenda
+        toggle below.
       </p>
       <TimetableManager
         courseId={params.id}
         enabled={course.timetable_enabled}
+        dailyAnnouncements={(course as { timetable_daily_announcements?: boolean }).timetable_daily_announcements ?? false}
         initialEntries={entries ?? []}
       />
     </div>
