@@ -85,10 +85,15 @@ AS $$
   WHERE e.course_id = p_course_id;
 $$;
 
--- Postgres grants EXECUTE on a new function to PUBLIC by default, so the revoke is
--- required — without it this is callable by anon and authenticated regardless of
--- what is granted below. Only server code (service role) may call it.
-REVOKE ALL ON FUNCTION course_learner_stats(uuid) FROM PUBLIC;
+-- Only server code (service role) may call this.
+--
+-- anon and authenticated must be named EXPLICITLY. Revoking from PUBLIC alone is
+-- NOT enough: Supabase ships `ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT
+-- EXECUTE ON FUNCTIONS TO anon, authenticated`, so a new public function carries an
+-- explicit per-role grant that a PUBLIC revoke does not touch. Verified in
+-- production: with only the PUBLIC revoke, an anon-key call still reached the
+-- function (see repair_rpc_grants.sql).
+REVOKE ALL ON FUNCTION course_learner_stats(uuid) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION course_learner_stats(uuid) TO service_role;
 
 -- Supporting indexes for the aggregate above (idempotent).
