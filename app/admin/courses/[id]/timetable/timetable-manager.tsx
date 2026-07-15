@@ -2,6 +2,8 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { cascadeAfterEndChange } from "@/lib/timetable/cascade";
+import { weeksOf, defaultWeek, weekLabel, mondayOf, addDays } from "@/lib/timetable/weeks";
 
 /**
  * Click-to-edit text. Commits on Enter or blur, reverts on Escape.
@@ -146,6 +148,7 @@ export function TimetableManager({
   dailyAnnouncements = false,
   initialEntries,
   groupCount = 0,
+  today,
 }: {
   courseId: string;
   enabled: boolean;
@@ -153,6 +156,8 @@ export function TimetableManager({
   initialEntries: Entry[];
   /** Groups on this course. 0 hides the tick — nothing could use it. */
   groupCount?: number;
+  /** Today in Armenia (YYYY-MM-DD), computed server-side to avoid a hydration mismatch. */
+  today: string;
 }) {
   const router = useRouter();
   const [timetableEnabled, setTimetableEnabled] = useState(enabled);
@@ -166,6 +171,14 @@ export function TimetableManager({
   const [toggling, setToggling] = useState(false);
   const [savingRowId, setSavingRowId] = useState<string | null>(null);
   const [rowErrors, setRowErrors] = useState<Record<string, string>>({});
+
+  // Weeks are derived from the entries themselves, so importing a term's agenda
+  // just grows the tab strip. `today` comes from the server: computing it here from
+  // Date.now() would make the opening tab differ between the server render and the
+  // client, which React reports as a hydration mismatch.
+  const weeks = weeksOf(entries.map((e) => e.date));
+  const [week, setWeek] = useState<string | null>(() => defaultWeek(weeks, today));
+  const activeWeek = week && weeks.includes(week) ? week : defaultWeek(weeks, today);
 
   /**
    * Persist a single-field inline edit. Optimistic, reverting on failure —
@@ -232,6 +245,69 @@ export function TimetableManager({
    * different acts — importing a term's agenda into a live course would otherwise
    * send hundreds of emails as a side effect of loading data.
    */
+  /**
+   * Move a session's end time, rippling any back-to-back sessions after it.
+   *
+   * A real day is a chain: 2026-07-16 is seven sessions nose-to-tail, so nudging the
+   * first by five minutes would otherwise mean six more edits by hand. The chain
+   * stops at the first gap — that slack is deliberate and absorbs the change.
+   *
+   * All-or-nothing: if any write in the ripple fails, every row snaps back. A
+   * half-applied ripple would leave the day overlapping itself, which is worse than
+   * not moving at all.
+   */
+  async function patchEndTime(entry: Entry, newEnd: string) {
+    const shifts = cascadeAfterEndChange(entries, entry.id, newEnd);
+    if (shifts.length === 0) {
+      await patchEntry(entry, { end_time: newEnd });
+      return;
+    }
+
+    const before = entries;
+    const shiftById = new Map(shifts.map((s) => [s.id, s]));
+    const next = entries.map((e) => {
+      if (e.id === entry.id) return { ...e, end_time: newEnd };
+      const s = shiftById.get(e.id);
+      return s ? { ...e, start_time: s.start_time, end_time: s.end_time } : e;
+    });
+
+    setEntries(next);
+    setSavingRowId(entry.id);
+    setRowErrors({});
+
+    try {
+      for (const e of next.filter((x) => x.id === entry.id || shiftById.has(x.id))) {
+        const res = await fetch(`/api/admin/courses/${courseId}/timetable`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            id: e.id,
+            date: e.date,
+            start_time: e.start_time,
+            end_time: e.end_time || null,
+            title: e.title,
+            location: e.location,
+            location_type: e.location_type,
+            description: e.description || null,
+            ...(e.moderator_adjustable === undefined ? {} : { moderator_adjustable: e.moderator_adjustable }),
+            announce: false,
+          }),
+        });
+        if (!res.ok) {
+          const msg = (await res.text()) || "Could not save.";
+          setEntries(before);
+          setRowErrors({ [entry.id]: `${msg} — nothing was moved.` });
+          return;
+        }
+      }
+    } catch {
+      setEntries(before);
+      setRowErrors({ [entry.id]: "Network error — nothing was moved." });
+    } finally {
+      setSavingRowId(null);
+    }
+  }
+
   async function toggleAnnouncing() {
     if (toggling) return;
     const previous = announcing;
@@ -336,12 +412,19 @@ export function TimetableManager({
     setDeletingId(null);
   }
 
-  // Group entries by date
+  // Group the ACTIVE WEEK's entries by date. A term's agenda is ~300 rows across 29
+  // days; rendering the lot as one scroll is unusable, and every edit is made in the
+  // context of a week anyway — which is how the source spreadsheet is organised too.
   const byDate: Record<string, Entry[]> = {};
   for (const e of entries) {
+    if (activeWeek && mondayOf(e.date) !== activeWeek) continue;
     if (!byDate[e.date]) byDate[e.date] = [];
     byDate[e.date].push(e);
   }
+
+  const weekIdx = activeWeek ? weeks.indexOf(activeWeek) : -1;
+  const thisWeek = mondayOf(today);
+  const entriesThisWeek = Object.values(byDate).reduce((n, d) => n + d.length, 0);
 
   return (
     <div className="space-y-6">
@@ -384,7 +467,66 @@ export function TimetableManager({
         {toggleError && <p className="text-xs text-red-600 mt-2">{toggleError}</p>}
       </div>
 
-      {/* Entry list */}
+      {/* Week tabs. Derived from the entries, so an import just grows the strip. */}
+      {weeks.length > 0 && (
+        <div className="bg-white border rounded-xl px-3 py-2.5">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => weekIdx > 0 && setWeek(weeks[weekIdx - 1]!)}
+              disabled={weekIdx <= 0}
+              aria-label="Previous week"
+              className="px-2 py-1 text-sm text-gray-500 hover:text-gray-900 disabled:opacity-30 disabled:hover:text-gray-500"
+            >
+              ←
+            </button>
+
+            <div className="flex-1 flex gap-1 overflow-x-auto">
+              {weeks.map((w) => {
+                const active = w === activeWeek;
+                const current = w === thisWeek;
+                return (
+                  <button
+                    key={w}
+                    onClick={() => setWeek(w)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${
+                      active
+                        ? "bg-brand-600 text-white"
+                        : current
+                          ? "bg-brand-50 text-brand-700 hover:bg-brand-100"
+                          : "text-gray-500 hover:bg-gray-100"
+                    }`}
+                  >
+                    {weekLabel(w)}
+                    {current && <span className={`ml-1.5 ${active ? "text-brand-100" : "text-brand-500"}`}>•</span>}
+                  </button>
+                );
+              })}
+            </div>
+
+            <button
+              onClick={() => weekIdx >= 0 && weekIdx < weeks.length - 1 && setWeek(weeks[weekIdx + 1]!)}
+              disabled={weekIdx < 0 || weekIdx >= weeks.length - 1}
+              aria-label="Next week"
+              className="px-2 py-1 text-sm text-gray-500 hover:text-gray-900 disabled:opacity-30 disabled:hover:text-gray-500"
+            >
+              →
+            </button>
+          </div>
+          <p className="text-[11px] text-gray-400 mt-1.5 px-1">
+            {entriesThisWeek} session{entriesThisWeek === 1 ? "" : "s"} this week · {entries.length} across the course
+            {activeWeek !== thisWeek && weeks.includes(thisWeek) && (
+              <>
+                {" · "}
+                <button onClick={() => setWeek(thisWeek)} className="text-brand-600 hover:underline">
+                  jump to this week
+                </button>
+              </>
+            )}
+          </p>
+        </div>
+      )}
+
+      {/* Entry list — the active week only */}
       {Object.keys(byDate).length > 0 && (
         <div className="space-y-4">
           {Object.entries(byDate).map(([date, dayEntries]) => {
@@ -403,7 +545,7 @@ export function TimetableManager({
                       <div className="flex items-center gap-1 text-xs text-gray-500 shrink-0 w-28 pt-0.5">
                         <InlineTime value={e.start_time} onCommit={(v) => patchEntry(e, { start_time: v })} />
                         <span className="text-gray-300">–</span>
-                        <InlineTime value={e.end_time} onCommit={(v) => patchEntry(e, { end_time: v })} />
+                        <InlineTime value={e.end_time} onCommit={(v) => patchEndTime(e, v)} />
                       </div>
 
                       <div className="flex-1 min-w-0">
