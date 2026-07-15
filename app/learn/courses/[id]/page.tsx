@@ -4,6 +4,8 @@ import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { ModuleAccordion } from "./module-accordion";
 import { AiCoach } from "./ai-coach";
+import { AnalyticsPanel } from "./analytics-panel";
+import { getCourseStats } from "@/lib/analytics/course-stats";
 
 export default async function LearnCoursePage({ params }: { params: { id: string } }) {
   const supabase = createClient();
@@ -97,6 +99,13 @@ export default async function LearnCoursePage({ params }: { params: { id: string
     const avg = totals.reduce((s, c) => s + c, 0) / cohortEnrolled.length;
     return Math.round((avg / total) * 100);
   })();
+
+  // Learner analytics. Aggregated in Postgres via RPC — returns null if that
+  // migration has not been applied yet, in which case the panel simply hides.
+  const courseStats = await getCourseStats(admin, params.id, user!.id);
+  // Column may not exist until learner_analytics.sql is applied; `select("*")`
+  // above tolerates that, so read it defensively and default to showing.
+  const showCohort = (course as any)?.show_cohort_comparison ?? true;
 
   // Next up: first incomplete lesson
   const nextLesson = (lessons ?? []).find((l) => !completedIds.has(l.id)) ?? null;
@@ -222,7 +231,11 @@ export default async function LearnCoursePage({ params }: { params: { id: string
               style={{ width: `${(completed / total) * 100}%` }}
             />
           </div>
-          {cohortAvgPct !== null && (
+          {/* Fallback only. The analytics panel below carries this comparison in a
+              richer form, but it needs the course_learner_stats RPC — so until
+              learner_analytics.sql is applied, keep the original line rather than
+              silently dropping the cohort average from every learner's page. */}
+          {!courseStats && showCohort && cohortAvgPct !== null && (
             <p className="text-xs text-gray-400">
               Cohort average: {cohortAvgPct}%
               {completed > 0 && Math.round((completed / total) * 100) >= cohortAvgPct
@@ -231,6 +244,12 @@ export default async function LearnCoursePage({ params }: { params: { id: string
             </p>
           )}
         </div>
+      )}
+
+      {/* Learner analytics. Supersedes the fallback line above once the RPC exists;
+          honours the course's show_cohort_comparison setting. */}
+      {courseStats && (
+        <AnalyticsPanel stats={courseStats} totalLessons={total} showCohort={showCohort} />
       )}
 
       {/* Action buttons */}
@@ -297,7 +316,7 @@ export default async function LearnCoursePage({ params }: { params: { id: string
             courseId={course.id}
             completedIds={completedIds}
             nextLessonId={nextLesson?.id ?? null}
-            cohortAvgPct={cohortAvgPct}
+            cohortAvgPct={showCohort ? cohortAvgPct : null}
             lessonFiles={lessonFilesMap}
             courseResources={processedResources}
             allowShuffled={course.allow_shuffled_learning ?? false}
