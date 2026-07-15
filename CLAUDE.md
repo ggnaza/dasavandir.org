@@ -42,6 +42,25 @@ switch these reads back to the user-auth client.
 - Every new migration must be idempotent: `CREATE TABLE IF NOT EXISTS`, `ALTER TABLE ... ADD COLUMN IF NOT EXISTS`, `DROP CONSTRAINT IF EXISTS` before `ADD CONSTRAINT`, etc.
 - Multiple trigger definitions across migrations have caused production outages. Before adding `CREATE OR REPLACE FUNCTION handle_new_user()`, check that you're preserving the `EXCEPTION WHEN OTHERS` handler.
 
+### Handing SQL to the operator — give the exact paste, nothing else
+
+The operator applies migrations by pasting into the Supabase SQL editor. **Whenever anything needs
+doing in Supabase, output one complete, paste-ready SQL block and nothing that merely resembles SQL.**
+
+- **Never** print a "here's what it does" summary in a ```sql fence. A list like
+  `UPDATE assignments ...   (backfill from rubrics)` reads as copyable and gets pasted; it fails with
+  `42601: syntax error at or near ".."`. This has happened. Describe statements in prose, or in a fence
+  tagged as text — never as SQL.
+- **No `-- expect 11 rows` trailers** on verification queries, and no two statements on one line: the
+  editor shows only the last result, which reads as the first query having failed.
+- **Generate the block from the committed file** (`git show origin/main:supabase/migrations/x.sql`),
+  never retyped from memory — retyping is how a stale or half-remembered statement reaches production.
+  Strip comment-only lines for the paste block; keep them in the migration file.
+- Say plainly which file it is, that it's idempotent, and what to run afterwards to verify.
+- Claude cannot execute DDL here (no `psql`, no connection string — only the REST key), so migrations
+  are always the operator's action. Verify the result afterwards by querying via the service-role key
+  rather than assuming it applied.
+
 ## Enrollment / lesson access
 
 - `enrollments.user_id` is FK to `profiles(id)`. If the profile is missing, the enrollment insert silently FK-violates. The enroll API now defensively upserts the profile first.
