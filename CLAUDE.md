@@ -87,3 +87,31 @@ The workflow is:
 1. Claude makes changes → PR merges to `staging`
 2. User tests on `staging.dasavandir.org`
 3. User says "looks good, push to main" → Claude opens a PR from `staging` to `main` and merges it
+
+
+<!-- kit:start (fieldbook 0.1.0-dev) -->
+# Gor LMS — Fieldbook context system
+
+Next.js 14 + Supabase LMS with role-based course access (admin / course_creator / course_manager / learner), AI chat, and video lessons.
+
+## Orient FIRST
+At session start run **`/orient`** — it reads `.agent-docs/now/handoff.md` (the bridge from the last session) and verifies it against git reality. The operating context lives in `.agent-docs/`, not in memory:
+- `.agent-docs/now/{status,work-plan,open-questions}.md` — current state, what's next, open questions.
+- `.agent-docs/CONVENTIONS.md` — the schema contract (how docs are written, the ID spine, lint rules).
+- `.claude/rules/standing-rules-core.md` — the canonical operational rules (safety, gates, findings-to-disk).
+
+## Progressive disclosure — route, don't browse
+Reach `.agent-docs/` through per-directory `index.md` routing. Start at `.agent-docs/index.md`; open a doc via its dir's index. Never bulk-read the tree.
+
+## Quality gates
+A change is not done because it compiles:
+- Build: `npm run build`  ·  Test: `npm run test:e2e` (Playwright)
+- Lint / Format: none configured (the pre-commit gate self-skips)
+
+A behavior change owes a test that would fail without it. "Green tests" != "wired": prove a change is reachable from a real entrypoint (IMPL→WIRED) with the TypeScript language server. Default branch: `main` (PRs target `staging` per this repo's workflow — see the pre-existing rules above).
+
+## Session lifecycle
+`/orient` at start · `/flush` mid-session when `now/*` drifts · `/handoff` at session end or before compaction · a `/sitrep` checkpoint before anything risky. Findings, decisions, and dead-ends go to disk as a byproduct of the work.
+
+_Note: the auth / migrations / role-linking invariants above this block are the source of truth — Fieldbook routes around them, never restates them._
+<!-- kit:end -->
