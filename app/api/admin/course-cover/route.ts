@@ -32,5 +32,21 @@ export async function POST(request: NextRequest) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   const { data } = admin.storage.from("course-covers").getPublicUrl(path);
-  return NextResponse.json({ url: data.publicUrl });
+  // Cache-bust: the storage path is stable (`{courseId}/cover.ext`, upsert), so
+  // a replaced cover would otherwise keep serving the old bytes from cache.
+  const publicUrl = `${data.publicUrl}?v=${Date.now()}`;
+
+  // Persist the cover URL immediately. The editor form only stages the URL in
+  // local state and writes it on "Save changes" (via the browser client, whose
+  // error is discarded) — so an upload with no subsequent Save silently
+  // vanished on refresh. Writing here through the service-role client makes the
+  // upload durable on its own, independent of the Save button.
+  const { error: updateError } = await admin
+    .from("courses")
+    .update({ cover_image_url: publicUrl })
+    .eq("id", courseId);
+
+  if (updateError) return NextResponse.json({ error: updateError.message }, { status: 500 });
+
+  return NextResponse.json({ url: publicUrl });
 }
