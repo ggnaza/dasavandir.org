@@ -1,14 +1,22 @@
 -- GROUP-SCOPED TIMETABLES (ADR-0005, Model B)
 --
--- ⚠ DO NOT APPLY YET — this schema has NO UI reading it.
+-- Apply by hand in the Supabase SQL editor. Idempotent; safe to re-run.
 --
--- The creator's tick control, the moderator's override screen, and the learner's
--- resolved view are not built. Applying this now would add columns, a table and a
--- function that nothing calls: dead schema in production, and exactly the
--- IMPL-not-WIRED trap the standing rules name as the most expensive recurring
--- failure. Apply it in the same change as the UI that reads it.
+-- Every object below has a reader in the app — this ships WITH its UI:
+--   moderator_adjustable      -> the creator's "◈ Groups may adjust" tick
+--                                (timetable-manager.tsx, timetable/route.ts)
+--   timetable_entry_overrides -> the moderator's screen
+--                                (group-timetable-manager.tsx, override/route.ts)
+--   resolved_timetable()      -> the learner's agenda
+--                                (learn/courses/[id]/timetable/page.tsx)
 --
--- Depends on timetable_import.sql (source_key), which IS wired and safe to apply.
+-- SAFE TO APPLY MID-COURSE. Verified against TLA 2026 (304 entries, 5 groups, 66 of
+-- 72 learners grouped): with zero overrides, resolved_timetable() returns all 304
+-- rows to a grouped learner AND to an ungrouped one — identical to today. Nothing
+-- changes for anyone until a moderator adjusts a ticked session. The tick itself
+-- defaults to false, so no session is adjustable until a creator opens it.
+--
+-- Depends on timetable_import.sql (source_key).
 --
 -- Design, decided in ADR-0005:
 --   One shared base agenda owned by the course creator. A group moderator may adjust
