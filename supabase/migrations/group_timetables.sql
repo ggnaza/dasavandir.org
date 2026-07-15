@@ -176,5 +176,8 @@ AS $$
   ORDER BY e.date, COALESCE(o.start_time, e.start_time);
 $$;
 
-REVOKE ALL ON FUNCTION resolved_timetable(uuid, uuid) FROM PUBLIC;
+-- anon and authenticated must be named EXPLICITLY — see the note in
+-- learner_analytics.sql and repair_rpc_grants.sql. A PUBLIC-only revoke leaves
+-- Supabase's default per-role EXECUTE grant in place.
+REVOKE ALL ON FUNCTION resolved_timetable(uuid, uuid) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION resolved_timetable(uuid, uuid) TO service_role;
