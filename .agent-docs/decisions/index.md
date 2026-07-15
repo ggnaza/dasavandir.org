@@ -39,6 +39,7 @@ here carry the claim-as-carry-away **plus status**. Route by status first (don't
 - ⭐ `0002-read-own-role-with-admin-client.md` — **Open when:** reading the logged-in user's role/profile. **Carry-away:** use `createAdminClient()`, not the user-auth client, or RLS drift downgrades everyone to learner. *(accepted.)*
 - `0003-app-enforced-course-visibility.md` — **Open when:** adding a learner-facing course surface. **Carry-away:** visibility is app-enforced on default-deny RLS; every surface must apply the enrollment filter itself. *(accepted.)*
 - `0004-separate-multi-tenant-platform-clean-break.md` — **Open when:** planning the multi-tenant successor. **Carry-away:** new platform is a clean-break separate build; TFA owns the current LMS, not a tenant. *(accepted, 2026-05-08.)*
+- `0005-group-scoped-timetable-overrides.md` — **Open when:** building per-group timetables, or picking assignments analytics back up. **Carry-away:** base entries + per-group override rows, gated by a creator-set `moderator_adjustable` tick (default-deny); base ownership narrows to admin/course_creator, managers read-only unless they moderate a group; overrides win silently on divergence. Also parks the assignments findings (`final_score` is an AI rubber-stamp; rubric maxima are mixed 9/10/16; submission COUNT is the usable metric). *(accepted, 2026-07-15 — designed, NOT built.)*
 
 ## Maintenance
 
