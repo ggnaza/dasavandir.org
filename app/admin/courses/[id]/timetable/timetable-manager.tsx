@@ -42,12 +42,38 @@ export function TimetableManager({
   const [saving, setSaving] = useState<"save" | "announce" | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [toggleError, setToggleError] = useState<string | null>(null);
+  const [toggling, setToggling] = useState(false);
 
   async function toggleEnabled() {
-    const next = !timetableEnabled;
+    if (toggling) return;
+    const previous = timetableEnabled;
+    const next = !previous;
     setTimetableEnabled(next);
+    setToggling(true);
+    setToggleError(null);
+
     const supabase = createClient();
-    await supabase.from("courses").update({ timetable_enabled: next }).eq("id", courseId);
+    // Select the updated row back: an RLS-blocked update returns no error, it
+    // just affects zero rows. Without this, a failed toggle looks like success.
+    const { data, error: updateError } = await supabase
+      .from("courses")
+      .update({ timetable_enabled: next })
+      .eq("id", courseId)
+      .select("id");
+
+    setToggling(false);
+
+    if (updateError || !data?.length) {
+      setTimetableEnabled(previous);
+      setToggleError(
+        updateError
+          ? `Could not ${next ? "enable" : "disable"} the timetable: ${updateError.message}`
+          : `Could not ${next ? "enable" : "disable"} the timetable — you do not have permission to change this course.`
+      );
+      return;
+    }
+
     router.refresh();
   }
 
@@ -103,15 +129,19 @@ export function TimetableManager({
   return (
     <div className="space-y-6">
       {/* Enable toggle */}
-      <div className="flex items-center gap-3 bg-white border rounded-xl px-4 py-3">
-        <button
-          onClick={toggleEnabled}
-          className={`relative w-10 h-5 rounded-full transition-colors ${timetableEnabled ? "bg-brand-600" : "bg-gray-200"}`}
-        >
-          <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${timetableEnabled ? "translate-x-5" : "translate-x-0.5"}`} />
-        </button>
-        <span className="text-sm font-medium">{timetableEnabled ? "Timetable enabled" : "Timetable disabled"}</span>
-        <span className="text-xs text-gray-400">(learners can see the timetable tab when enabled)</span>
+      <div className="bg-white border rounded-xl px-4 py-3">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={toggleEnabled}
+            disabled={toggling}
+            className={`relative w-10 h-5 rounded-full transition-colors disabled:opacity-50 ${timetableEnabled ? "bg-brand-600" : "bg-gray-200"}`}
+          >
+            <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${timetableEnabled ? "translate-x-5" : "translate-x-0.5"}`} />
+          </button>
+          <span className="text-sm font-medium">{timetableEnabled ? "Timetable enabled" : "Timetable disabled"}</span>
+          <span className="text-xs text-gray-400">(learners can see the timetable tab when enabled)</span>
+        </div>
+        {toggleError && <p className="text-xs text-red-600 mt-2">{toggleError}</p>}
       </div>
 
       {/* Entry list */}

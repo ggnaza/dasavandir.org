@@ -16,7 +16,13 @@ export default async function LearnCoursePage({ params }: { params: { id: string
     admin.from("progress").select("lesson_id").eq("user_id", user!.id),
     admin.from("capstones").select("id").eq("course_id", params.id).single(),
     admin.from("enrollments").select("user_id").eq("course_id", params.id),
-    admin.from("progress").select("user_id, lesson_id").eq("course_id", params.id),
+    // progress has no course_id — it is per-lesson. Scope to this course by
+    // inner-joining lessons, otherwise the query errors and the cohort average
+    // silently reads as 0%.
+    admin
+      .from("progress")
+      .select("user_id, lesson_id, lessons!inner(course_id)")
+      .eq("lessons.course_id", params.id),
     admin.from("profiles").select("full_name").eq("id", user!.id).single(),
   ]);
 
