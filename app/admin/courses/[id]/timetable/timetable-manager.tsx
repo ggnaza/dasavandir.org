@@ -1,7 +1,117 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+
+/**
+ * Click-to-edit text. Commits on Enter or blur, reverts on Escape.
+ * Renders as plain text until clicked so the agenda stays readable at a glance.
+ */
+function InlineText({
+  value,
+  onCommit,
+  className = "",
+  placeholder = "—",
+  title,
+}: {
+  value: string;
+  onCommit: (next: string) => void;
+  className?: string;
+  placeholder?: string;
+  title?: string;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value);
+  const cancelled = useRef(false);
+
+  useEffect(() => { setDraft(value); }, [value]);
+
+  if (!editing) {
+    return (
+      <span
+        role="button"
+        tabIndex={0}
+        title={title ?? "Click to edit"}
+        onClick={() => { cancelled.current = false; setEditing(true); }}
+        onKeyDown={(e) => { if (e.key === "Enter") { cancelled.current = false; setEditing(true); } }}
+        className={`cursor-text rounded px-1 -mx-1 hover:bg-brand-50 focus:outline-none focus:ring-1 focus:ring-brand-300 ${className}`}
+      >
+        {value?.trim() ? value : <span className="text-gray-300">{placeholder}</span>}
+      </span>
+    );
+  }
+
+  return (
+    <input
+      autoFocus
+      value={draft}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={() => {
+        setEditing(false);
+        if (cancelled.current) { setDraft(value); return; }
+        if (draft !== value) onCommit(draft);
+      }}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") { e.preventDefault(); e.currentTarget.blur(); }
+        if (e.key === "Escape") { cancelled.current = true; e.currentTarget.blur(); }
+      }}
+      className={`border border-brand-300 rounded px-1 -mx-1 py-0 focus:outline-none focus:ring-1 focus:ring-brand-400 w-full ${className}`}
+    />
+  );
+}
+
+/** Click-to-edit time field. Commits on change/blur; Escape reverts. */
+function InlineTime({
+  value,
+  onCommit,
+  placeholder = "--:--",
+}: {
+  value: string | null;
+  onCommit: (next: string) => void;
+  placeholder?: string;
+}) {
+  const [editing, setEditing] = useState(false);
+  const shown = value ? value.slice(0, 5) : "";
+  const [draft, setDraft] = useState(shown);
+  const cancelled = useRef(false);
+
+  useEffect(() => { setDraft(value ? value.slice(0, 5) : ""); }, [value]);
+
+  if (!editing) {
+    return (
+      <span
+        role="button"
+        tabIndex={0}
+        title="Click to edit time"
+        onClick={() => { cancelled.current = false; setEditing(true); }}
+        onKeyDown={(e) => { if (e.key === "Enter") { cancelled.current = false; setEditing(true); } }}
+        className="cursor-text rounded px-1 -mx-1 hover:bg-brand-50 font-mono tabular-nums focus:outline-none focus:ring-1 focus:ring-brand-300"
+      >
+        {shown || <span className="text-gray-300">{placeholder}</span>}
+      </span>
+    );
+  }
+
+  return (
+    <input
+      type="time"
+      autoFocus
+      value={draft}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={() => {
+        setEditing(false);
+        if (cancelled.current) { setDraft(shown); return; }
+        if (draft && draft !== shown) onCommit(draft);
+        else setDraft(shown);
+      }}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") { e.preventDefault(); e.currentTarget.blur(); }
+        if (e.key === "Escape") { cancelled.current = true; e.currentTarget.blur(); }
+      }}
+      className="border border-brand-300 rounded px-1 py-0 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-brand-400"
+    />
+  );
+}
 
 type Entry = {
   id: string;
@@ -44,6 +154,64 @@ export function TimetableManager({
   const [error, setError] = useState<string | null>(null);
   const [toggleError, setToggleError] = useState<string | null>(null);
   const [toggling, setToggling] = useState(false);
+  const [savingRowId, setSavingRowId] = useState<string | null>(null);
+  const [rowErrors, setRowErrors] = useState<Record<string, string>>({});
+
+  /**
+   * Persist a single-field inline edit. Optimistic, reverting on failure —
+   * an inline edit that silently no-ops is the defect this UI must not have.
+   * Never announces: an inline tweak must not email every enrolled learner.
+   */
+  async function patchEntry(entry: Entry, patch: Partial<Entry>) {
+    const next = { ...entry, ...patch };
+
+    if (!next.title.trim()) {
+      setRowErrors((p) => ({ ...p, [entry.id]: "Title cannot be empty." }));
+      return;
+    }
+    if (!next.start_time) {
+      setRowErrors((p) => ({ ...p, [entry.id]: "Start time is required." }));
+      return;
+    }
+    if (next.end_time && next.end_time.slice(0, 5) < next.start_time.slice(0, 5)) {
+      setRowErrors((p) => ({ ...p, [entry.id]: "End time is before the start time." }));
+      return;
+    }
+
+    setEntries((prev) => prev.map((e) => (e.id === entry.id ? next : e)));
+    setSavingRowId(entry.id);
+    setRowErrors((p) => { const { [entry.id]: _drop, ...rest } = p; return rest; });
+
+    const revert = (msg: string) => {
+      setEntries((prev) => prev.map((e) => (e.id === entry.id ? entry : e)));
+      setRowErrors((p) => ({ ...p, [entry.id]: msg }));
+    };
+
+    try {
+      const res = await fetch(`/api/admin/courses/${courseId}/timetable`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: entry.id,
+          date: next.date,
+          start_time: next.start_time,
+          end_time: next.end_time || null,
+          title: next.title,
+          location: next.location,
+          location_type: next.location_type,
+          description: next.description || null,
+          announce: false,
+        }),
+      });
+      if (!res.ok) { revert((await res.text()) || "Could not save that change."); return; }
+      const saved: Entry = await res.json();
+      setEntries((prev) => prev.map((e) => (e.id === saved.id ? saved : e)));
+    } catch {
+      revert("Network error — that change was not saved.");
+    } finally {
+      setSavingRowId(null);
+    }
+  }
 
   async function toggleEnabled() {
     if (toggling) return;
@@ -158,26 +326,57 @@ export function TimetableManager({
                 </div>
                 <div className="divide-y">
                   {dayEntries.map((e) => (
-                    <div key={e.id} className="px-4 py-3 flex items-start gap-3">
+                    <div key={e.id} className="px-4 py-3 flex items-start gap-3 group">
+                      {/* Times — click to edit in place */}
+                      <div className="flex items-center gap-1 text-xs text-gray-500 shrink-0 w-28 pt-0.5">
+                        <InlineTime value={e.start_time} onCommit={(v) => patchEntry(e, { start_time: v })} />
+                        <span className="text-gray-300">–</span>
+                        <InlineTime value={e.end_time} onCommit={(v) => patchEntry(e, { end_time: v })} />
+                      </div>
+
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-sm font-medium">{e.title}</span>
-                          <span className="text-xs text-gray-400">
-                            {e.start_time.slice(0, 5)}{e.end_time ? ` – ${e.end_time.slice(0, 5)}` : ""}
-                          </span>
-                          <span className={`text-xs px-1.5 py-0.5 rounded-full ${e.location_type === "online" ? "bg-blue-50 text-blue-700" : "bg-green-50 text-green-700"}`}>
+                          <InlineText
+                            value={e.title}
+                            onCommit={(v) => patchEntry(e, { title: v })}
+                            className="text-sm font-medium"
+                            placeholder="Untitled session"
+                          />
+                          <button
+                            onClick={() =>
+                              patchEntry(e, { location_type: e.location_type === "online" ? "in_person" : "online" })
+                            }
+                            title="Click to switch"
+                            className={`text-xs px-1.5 py-0.5 rounded-full transition-colors ${e.location_type === "online" ? "bg-blue-50 text-blue-700 hover:bg-blue-100" : "bg-green-50 text-green-700 hover:bg-green-100"}`}
+                          >
                             {e.location_type === "online" ? "Online" : "In person"}
-                          </span>
+                          </button>
+                          {savingRowId === e.id && <span className="text-xs text-gray-400">saving…</span>}
                         </div>
-                        <p className="text-xs text-gray-500 mt-0.5 truncate">{e.location}</p>
-                        {e.description && <p className="text-xs text-gray-400 mt-0.5 line-clamp-2">{e.description}</p>}
+                        <InlineText
+                          value={e.location}
+                          onCommit={(v) => patchEntry(e, { location: v })}
+                          className="text-xs text-gray-500 block mt-0.5"
+                          placeholder="Add a location"
+                        />
+                        <InlineText
+                          value={e.description ?? ""}
+                          onCommit={(v) => patchEntry(e, { description: v })}
+                          className="text-xs text-gray-400 block mt-0.5"
+                          placeholder="Add a description"
+                        />
+                        {rowErrors[e.id] && (
+                          <p className="text-xs text-red-600 mt-1">{rowErrors[e.id]}</p>
+                        )}
                       </div>
-                      <div className="flex gap-1 shrink-0">
+
+                      <div className="flex gap-1 shrink-0 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
                         <button
                           onClick={() => setForm({ ...e, end_time: e.end_time ?? "", description: e.description ?? "" })}
+                          title="Open the full form (lets you announce the change)"
                           className="text-xs text-brand-600 hover:underline px-2 py-1"
                         >
-                          Edit
+                          More
                         </button>
                         <button
                           onClick={() => deleteEntry(e.id)}
