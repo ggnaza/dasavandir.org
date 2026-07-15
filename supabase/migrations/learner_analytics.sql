@@ -47,7 +47,14 @@ RETURNS TABLE (
 )
 LANGUAGE sql
 STABLE
-SECURITY DEFINER
+-- SECURITY INVOKER (the default), deliberately NOT SECURITY DEFINER.
+--
+-- The only caller is server code holding the service-role key, which already
+-- bypasses RLS — so DEFINER buys nothing and costs a great deal: a DEFINER
+-- function returning per-learner rows, reachable by `authenticated`, would hand
+-- any logged-in user every learner's activity for ANY course id they cared to
+-- guess. INVOKER means that even if this is ever granted more widely by mistake,
+-- the caller's own RLS still applies.
 SET search_path = public
 AS $$
   WITH course_lessons AS (
@@ -78,10 +85,11 @@ AS $$
   WHERE e.course_id = p_course_id;
 $$;
 
--- Called from server code with the service-role client. Granted to authenticated too
--- so an RLS-scoped caller could use it later; SECURITY DEFINER plus a course_id
--- argument keeps the surface to one course's aggregates.
-GRANT EXECUTE ON FUNCTION course_learner_stats(uuid) TO authenticated, service_role;
+-- Postgres grants EXECUTE on a new function to PUBLIC by default, so the revoke is
+-- required — without it this is callable by anon and authenticated regardless of
+-- what is granted below. Only server code (service role) may call it.
+REVOKE ALL ON FUNCTION course_learner_stats(uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION course_learner_stats(uuid) TO service_role;
 
 -- Supporting indexes for the aggregate above (idempotent).
 CREATE INDEX IF NOT EXISTS lesson_sessions_user_lesson_idx ON lesson_sessions(user_id, lesson_id);
