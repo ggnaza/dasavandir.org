@@ -122,9 +122,13 @@ type Entry = {
   location: string;
   location_type: "online" | "in_person";
   description: string | null;
+  /** ADR-0005: creator-set tick. Optional until group_timetables.sql is applied. */
+  moderator_adjustable?: boolean;
 };
 
-type FormState = Omit<Entry, "id"> & { id?: string };
+// The tick is not part of the entry form — it is a per-row control, and the PUT
+// route validates the form's own fields with a strict schema.
+type FormState = Omit<Entry, "id" | "moderator_adjustable"> & { id?: string };
 
 const EMPTY_FORM: FormState = {
   date: "",
@@ -141,11 +145,14 @@ export function TimetableManager({
   enabled,
   dailyAnnouncements = false,
   initialEntries,
+  groupCount = 0,
 }: {
   courseId: string;
   enabled: boolean;
   dailyAnnouncements?: boolean;
   initialEntries: Entry[];
+  /** Groups on this course. 0 hides the tick — nothing could use it. */
+  groupCount?: number;
 }) {
   const router = useRouter();
   const [timetableEnabled, setTimetableEnabled] = useState(enabled);
@@ -203,6 +210,9 @@ export function TimetableManager({
           location: next.location,
           location_type: next.location_type,
           description: next.description || null,
+          ...(next.moderator_adjustable === undefined
+            ? {}
+            : { moderator_adjustable: next.moderator_adjustable }),
           announce: false,
         }),
       });
@@ -413,6 +423,21 @@ export function TimetableManager({
                           >
                             {e.location_type === "online" ? "Online" : "In person"}
                           </button>
+                          {/* ADR-0005: default-deny. A group moderator can only adjust
+                              a session the creator has explicitly opened. */}
+                          {groupCount > 0 && (
+                            <button
+                              onClick={() => patchEntry(e, { moderator_adjustable: !e.moderator_adjustable })}
+                              title={
+                                e.moderator_adjustable
+                                  ? "Group moderators can adjust this session for their group. Click to lock it."
+                                  : "Locked to the shared agenda. Click to let group moderators adjust it."
+                              }
+                              className={`text-xs px-1.5 py-0.5 rounded-full transition-colors ${e.moderator_adjustable ? "bg-purple-50 text-purple-700 hover:bg-purple-100" : "bg-gray-100 text-gray-400 hover:bg-gray-200"}`}
+                            >
+                              {e.moderator_adjustable ? "◈ Groups may adjust" : "◇ Locked"}
+                            </button>
+                          )}
                           {savingRowId === e.id && <span className="text-xs text-gray-400">saving…</span>}
                         </div>
                         <InlineText

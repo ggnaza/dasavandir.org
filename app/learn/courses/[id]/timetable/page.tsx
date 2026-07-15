@@ -27,12 +27,47 @@ export default async function LearnTimetablePage({ params }: { params: { id: str
     .maybeSingle();
   if (!enrollment) redirect(`/courses/${params.id}`);
 
-  const { data: entries } = await admin
-    .from("timetable_entries")
-    .select("*")
-    .eq("course_id", params.id)
-    .order("date")
-    .order("start_time");
+  // Resolve this learner's agenda: the shared base with their group's overrides
+  // applied, their group's own additions included, and anything their group hid
+  // dropped (ADR-0005). Falls back to the raw base if group_timetables.sql has not
+  // been applied — the RPC 404s and every learner simply sees the shared agenda,
+  // which is exactly the pre-Model-B behaviour.
+  const { data: resolved, error: resolveErr } = await admin.rpc("resolved_timetable", {
+    p_course_id: params.id,
+    p_user_id: user.id,
+  });
+
+  let entries: {
+    id: string;
+    date: string;
+    start_time: string;
+    end_time: string | null;
+    title: string;
+    location: string;
+    location_type: string;
+    description: string | null;
+  }[];
+
+  if (resolveErr || !Array.isArray(resolved)) {
+    const { data: base } = await admin
+      .from("timetable_entries")
+      .select("*")
+      .eq("course_id", params.id)
+      .order("date")
+      .order("start_time");
+    entries = base ?? [];
+  } else {
+    entries = (resolved as { entry_id: string; [k: string]: unknown }[]).map((r) => ({
+      id: r.entry_id,
+      date: r.date as string,
+      start_time: r.start_time as string,
+      end_time: (r.end_time as string | null) ?? null,
+      title: r.title as string,
+      location: r.location as string,
+      location_type: r.location_type as string,
+      description: (r.description as string | null) ?? null,
+    }));
+  }
 
   // Today in Armenia time (UTC+4)
   const armeniaMs = Date.now() + 4 * 60 * 60 * 1000;
