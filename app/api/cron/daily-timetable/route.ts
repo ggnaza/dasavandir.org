@@ -36,13 +36,17 @@ export async function GET(req: Request) {
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://dasavandir.org";
 
   for (const [courseId, courseEntries] of Object.entries(byCourse)) {
-    // Only for courses with timetable enabled
+    // Announcing is opt-in and SEPARATE from the timetable being visible.
+    // `select("*")` so this keeps working before group_timetables.sql is applied;
+    // the flag then reads undefined and the `!== true` check below holds the emails
+    // rather than blasting every learner the moment a schedule is populated.
     const { data: course } = await admin
       .from("courses")
-      .select("title, timetable_enabled")
+      .select("*")
       .eq("id", courseId)
       .single();
     if (!course?.timetable_enabled) continue;
+    if ((course as { timetable_daily_announcements?: boolean }).timetable_daily_announcements !== true) continue;
 
     const dateStr = new Date(today + "T00:00:00").toLocaleDateString("en-US", {
       weekday: "long", year: "numeric", month: "long", day: "numeric",
