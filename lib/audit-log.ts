@@ -17,6 +17,7 @@ export type AuditAction =
   | "bulk_unenroll"
   | "bulk_delete_users"
   | "delete_course"
+  | "update_course"
   | "unenroll_learner"
   | "reassign_review";
 
