@@ -1,7 +1,6 @@
 "use client";
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
 
 type Course = {
   id: string;
@@ -19,6 +18,7 @@ type Course = {
   outcomes: string[] | null;
   pre_submission_ai: boolean | null;
   ai_coach_enabled: boolean | null;
+  show_cohort_comparison?: boolean | null;
   deadline_days: number | null;
   deadline_date: string | null;
   allow_shuffled_learning: boolean | null;
@@ -50,6 +50,9 @@ export function CourseEditor({ course, lessonDeadlineDates = [] }: {
   const [imageError, setImageError] = useState("");
   const [preSubmissionAi, setPreSubmissionAi] = useState(course.pre_submission_ai ?? false);
   const [aiCoachEnabled, setAiCoachEnabled] = useState(course.ai_coach_enabled ?? true);
+  // Column arrives only with supabase/migrations/learner_analytics.sql; default to
+  // showing so behaviour is unchanged until a designer opts out.
+  const [showCohort, setShowCohort] = useState(course.show_cohort_comparison ?? true);
   const [allowShuffled, setAllowShuffled] = useState(course.allow_shuffled_learning ?? false);
   const [deadlineDays, setDeadlineDays] = useState(course.deadline_days?.toString() ?? "");
   const [deadlineDate, setDeadlineDate] = useState(course.deadline_date ?? "");
@@ -106,10 +109,16 @@ export function CourseEditor({ course, lessonDeadlineDates = [] }: {
     }
 
     setSaving(true);
-    const supabase = createClient();
-    const { error } = await supabase
-      .from("courses")
-      .update({
+    // Save through the service-role API route rather than a direct browser
+    // Supabase update: the `courses` UPDATE runs under RLS whose role-resolving
+    // policies re-enter the self-referential policy on `profiles` and fail with
+    // 42P17 "infinite recursion detected in policy for relation profiles" (OQ-003).
+    // The route authorizes via assertCourseOwner and writes with the service-role
+    // client, bypassing the broken RLS. See app/api/admin/courses/[id]/route.ts.
+    const res = await fetch(`/api/admin/courses/${course.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
         title,
         description,
         published,
@@ -124,17 +133,19 @@ export function CourseEditor({ course, lessonDeadlineDates = [] }: {
         outcomes: outcomes.filter((o) => o.trim()),
         pre_submission_ai: preSubmissionAi,
         ai_coach_enabled: aiCoachEnabled,
+        show_cohort_comparison: showCohort,
         allow_shuffled_learning: allowShuffled,
         deadline_days: deadlineMode === "days" && deadlineDays ? parseInt(deadlineDays) : null,
         deadline_date: deadlineMode === "date" && deadlineDate ? deadlineDate : null,
-      })
-      .eq("id", course.id);
+      }),
+    });
     setSaving(false);
-    if (error) {
+    if (!res.ok) {
       // Surface the failure instead of flashing a false "Saved ✓" — a silently
-      // discarded RLS/update error is how a "save" appears to succeed but the
+      // discarded update error is how a "save" appears to succeed but the
       // change is gone on refresh.
-      setSaveError(`Could not save changes: ${error.message}`);
+      const message = (await res.text()) || res.statusText;
+      setSaveError(`Could not save changes: ${message}`);
       return;
     }
     setSaved(true);
@@ -442,6 +453,27 @@ export function CourseEditor({ course, lessonDeadlineDates = [] }: {
           </label>
           <p className="text-xs text-brand-700 mt-0.5">
             Shows the AI Coach button on every lesson. Learners can ask questions, get summaries, and be quizzed — all grounded in the course materials.
+          </p>
+        </div>
+      </div>
+
+      {/* Cohort comparison */}
+      <div className="flex items-start gap-3 bg-brand-50 border border-brand-200 rounded-xl p-4">
+        <input
+          type="checkbox"
+          id="show_cohort_comparison"
+          checked={showCohort}
+          onChange={(e) => setShowCohort(e.target.checked)}
+          className="w-4 h-4 mt-0.5"
+        />
+        <div>
+          <label htmlFor="show_cohort_comparison" className="text-sm font-semibold text-brand-900 cursor-pointer">
+            ◎ Show cohort comparison
+          </label>
+          <p className="text-xs text-brand-700 mt-0.5">
+            Adds the cohort median to each learner&apos;s progress panel — lessons, time, quizzes and pace —
+            as a reference marker. Turn off for a course where comparing learners to each other
+            isn&apos;t appropriate; each learner then sees only their own figures.
           </p>
         </div>
       </div>

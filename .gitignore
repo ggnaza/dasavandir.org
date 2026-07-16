@@ -9,3 +9,6 @@ node_modules/
 dist/
 build/
 .claude/
+
+# transient tsc output for scripts/import-agenda.mjs
+.import-build/

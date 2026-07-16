@@ -3,7 +3,29 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createNotification } from "@/lib/notifications";
 import { sendAnnouncementEmail } from "@/lib/email";
 import { assertCourseOwner } from "@/lib/assert-course-owner";
+import { getTimetableAccess } from "@/lib/timetable/access";
 import { z } from "zod";
+
+/**
+ * Base-agenda writes are admin + course_creator only (ADR-0005).
+ *
+ * assertCourseOwner() also admits any course_manager, which is wider than the
+ * decision: a manager is read-only on the base unless they moderate a group, and
+ * then only via the override route. TLA 2026 has 9 managers but 5 group moderators,
+ * so this is a real narrowing, not a formality.
+ */
+async function assertCanEditBase(courseId: string, userId: string): Promise<Response | null> {
+  const admin = createAdminClient();
+  const access = await getTimetableAccess(admin, courseId, userId);
+  if (access.canEditBase) return null;
+  if (access.moderatedGroups.length > 0) {
+    return new Response(
+      "You moderate a group on this course, so you can adjust the sessions the course creator has opened for groups — but not the shared agenda itself.",
+      { status: 403 },
+    );
+  }
+  return new Response("Forbidden", { status: 403 });
+}
 
 const entrySchema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
@@ -13,6 +35,9 @@ const entrySchema = z.object({
   location: z.string().min(1).max(300),
   location_type: z.enum(["online", "in_person"]).default("online"),
   description: z.string().max(2000).nullable().optional(),
+  // ADR-0005: the creator's tick marking a slot open to group moderators.
+  // Optional so a client that predates group_timetables.sql still validates.
+  moderator_adjustable: z.boolean().optional(),
 });
 
 async function notifyEnrolled(
@@ -112,7 +137,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return new Response("Unauthorized", { status: 401 });
 
-  const ownerErr = await assertCourseOwner(params.id, user.id);
+  const ownerErr = await assertCanEditBase(params.id, user.id);
   if (ownerErr) return ownerErr;
 
   const body = await req.json();
@@ -146,7 +171,7 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return new Response("Unauthorized", { status: 401 });
 
-  const ownerErr = await assertCourseOwner(params.id, user.id);
+  const ownerErr = await assertCanEditBase(params.id, user.id);
   if (ownerErr) return ownerErr;
 
   const body = await req.json();
@@ -184,7 +209,7 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return new Response("Unauthorized", { status: 401 });
 
-  const ownerErr = await assertCourseOwner(params.id, user.id);
+  const ownerErr = await assertCanEditBase(params.id, user.id);
   if (ownerErr) return ownerErr;
 
   const { id: entryId } = await req.json();
