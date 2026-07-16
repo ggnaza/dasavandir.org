@@ -98,3 +98,78 @@ export async function DELETE(_req: Request, { params }: { params: { id: string }
   await logAudit("delete_course", user.id, _req, { course_id: courseId, course_title: courseTitle });
   return Response.json({ ok: true });
 }
+
+// PATCH /api/admin/courses/[id] — update a course's settings.
+//
+// Why this runs server-side with the service-role client instead of a direct
+// browser Supabase update: the course UPDATE happens under RLS, and every
+// role-resolving policy on `courses` evaluates `select … from profiles`, which
+// re-enters the self-referential "Admins can view all profiles" policy on
+// `profiles` and fails with 42P17 "infinite recursion detected in policy for
+// relation profiles" (see OQ-003). That surfaced to course staff as
+// "Could not save changes: infinite recursion detected in policy for relation
+// profiles" when publishing. Per ADR-0003, real authorization lives in the API
+// route (assertCourseOwner + service-role client), so the update runs here and
+// bypasses the broken RLS entirely.
+
+// Columns the editor is allowed to write. Anything else in the body is ignored,
+// so this endpoint can't be used to set arbitrary/privileged columns.
+const UPDATABLE_COLUMNS = [
+  "title",
+  "description",
+  "published",
+  "cover_image_url",
+  "course_type",
+  "access_type",
+  "is_paid",
+  "price_amd",
+  "language",
+  "category",
+  "hours_to_complete",
+  "outcomes",
+  "pre_submission_ai",
+  "ai_coach_enabled",
+  "show_cohort_comparison",
+  "allow_shuffled_learning",
+  "deadline_days",
+  "deadline_date",
+] as const;
+
+export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return new Response("Unauthorized", { status: 401 });
+
+  const ownerErr = await assertCourseOwner(params.id, user.id);
+  if (ownerErr) return ownerErr;
+
+  let body: Record<string, unknown>;
+  try {
+    body = await req.json();
+  } catch {
+    return new Response("Invalid JSON body", { status: 400 });
+  }
+
+  // Only forward whitelisted columns that were actually sent, so a partial save
+  // never clobbers unrelated columns with undefined.
+  const update: Record<string, unknown> = {};
+  for (const col of UPDATABLE_COLUMNS) {
+    if (col in body) update[col] = body[col];
+  }
+  if (Object.keys(update).length === 0) {
+    return new Response("No updatable fields in request", { status: 400 });
+  }
+
+  const admin = createAdminClient();
+  const { error } = await admin.from("courses").update(update).eq("id", params.id);
+  if (error) {
+    console.error("[courses/update] failed", error);
+    return new Response(`Failed to update course: ${error.message}`, { status: 500 });
+  }
+
+  await logAudit("update_course", user.id, req, {
+    course_id: params.id,
+    fields: Object.keys(update),
+  });
+  return Response.json({ ok: true });
+}
