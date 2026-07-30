@@ -109,7 +109,10 @@ export async function POST(req: Request) {
 
   const { data: course } = await admin.from("courses").select("title").eq("id", course_id).single();
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
-  const courseUrl = `${siteUrl}/courses/${course_id}`;
+  // Moderators manage the course from the admin area, not the public learner
+  // landing page (which 404s for unpublished/private/internal courses).
+  // Land them on Learners — the first tab in a course_manager's limited nav.
+  const courseUrl = `${siteUrl}/admin/courses/${course_id}/learners`;
 
   await sendModeratorAddedEmail({
     to: email,
