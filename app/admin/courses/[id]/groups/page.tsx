@@ -1,7 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
-import { assertCourseOwner } from "@/lib/assert-course-owner";
+import { assertCoursePageAccess } from "@/lib/assert-course-page-access";
 import { GroupsManager } from "./groups-manager";
 import { getCourseReviewers } from "@/lib/course-reviewers";
 
@@ -12,8 +12,7 @@ export default async function GroupsPage({ params }: { params: { id: string } })
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/auth/login");
 
-  const accessErr = await assertCourseOwner(params.id, user.id);
-  if (accessErr) return accessErr;
+  await assertCoursePageAccess(params.id, user.id);
 
   const admin = createAdminClient();
   const { data: profile } = await admin.from("profiles").select("role").eq("id", user.id).single();

@@ -1,7 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
-import { assertCourseOwner } from "@/lib/assert-course-owner";
+import { assertCoursePageAccess } from "@/lib/assert-course-page-access";
 import { getModeratorCohort } from "@/lib/get-moderator-cohort";
 import { QuizAnalysisSection } from "../quiz-analysis";
 import type { QuizStat, AtRiskLearner } from "../quiz-analysis";
@@ -19,8 +19,7 @@ export default async function QuizzesPage({ params }: { params: { id: string } }
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return notFound();
 
-  const accessErr = await assertCourseOwner(params.id, user.id);
-  if (accessErr) return accessErr;
+  await assertCoursePageAccess(params.id, user.id);
 
   const { data: viewerProfile } = await admin.from("profiles").select("role").eq("id", user.id).single();
   const cohortIds = await getModeratorCohort(user.id, params.id, viewerProfile?.role ?? "");

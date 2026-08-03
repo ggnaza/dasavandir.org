@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { SubmissionReviewer } from "./submission-reviewer";
-import { assertCourseOwner } from "@/lib/assert-course-owner";
+import { assertCoursePageAccess } from "@/lib/assert-course-page-access";
 
 export const dynamic = "force-dynamic";
 
@@ -36,8 +36,7 @@ export default async function SubmissionReviewPage({ params }: { params: { id: s
   const courseId = course?.id;
   if (!courseId) notFound();
 
-  const accessErr = await assertCourseOwner(courseId, user.id);
-  if (accessErr) return accessErr;
+  await assertCoursePageAccess(courseId, user.id);
 
   let submissionFileUrl: string | null = null;
   if (submission.file_path) {
