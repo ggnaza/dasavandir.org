@@ -51,23 +51,39 @@ export async function POST(req: Request) {
 
   const admin = createAdminClient();
 
-  // Assigning a cohort to a moderator implies they moderate this course, so
-  // grant course_manager_access too. Without this, the moderator has cohort
-  // rows but no access row — course access is gated on course_manager_access,
-  // so they'd see the course in neither "My Courses" nor the admin course tabs
-  // (which then 403 → crash). Keeps the two tables from drifting apart.
-  const { data: modProfile } = await admin
+  // Granting course_manager_access — and upgrading a learner's *global* role —
+  // is a privilege-granting action restricted to admin/course_creator, the same
+  // gate the "add moderator" route (POST /api/admin/moderators) enforces.
+  // assertCourseOwner above also passes for a course_manager on their own
+  // course, so this second check is what stops a course_manager from granting
+  // course access (or role) to arbitrary users. A course_manager may still
+  // create the cohort assignments below; the moderator they assign already has
+  // access, since only admin/course_creator could have added them.
+  const { data: callerProfile } = await admin
     .from("profiles")
     .select("role")
-    .eq("id", moderator_id)
+    .eq("id", user.id)
     .single();
-  if (modProfile?.role === "learner") {
-    await admin.from("profiles").update({ role: "course_manager" }).eq("id", moderator_id);
+
+  if (["admin", "course_creator"].includes(callerProfile?.role ?? "")) {
+    // Assigning a cohort to a moderator implies they moderate this course, so
+    // grant course_manager_access too. Without this, the moderator has cohort
+    // rows but no access row — course access is gated on course_manager_access,
+    // so they'd see the course in neither "My Courses" nor the admin course tabs
+    // (which then 403 → crash). Keeps the two tables from drifting apart.
+    const { data: modProfile } = await admin
+      .from("profiles")
+      .select("role")
+      .eq("id", moderator_id)
+      .single();
+    if (modProfile?.role === "learner") {
+      await admin.from("profiles").update({ role: "course_manager" }).eq("id", moderator_id);
+    }
+    await admin.from("course_manager_access").upsert(
+      { manager_id: moderator_id, course_id, granted_by: user.id },
+      { onConflict: "manager_id,course_id" }
+    );
   }
-  await admin.from("course_manager_access").upsert(
-    { manager_id: moderator_id, course_id, granted_by: user.id },
-    { onConflict: "manager_id,course_id" }
-  );
 
   const rows = learner_ids.map((learner_id) => ({ moderator_id, course_id, learner_id }));
   const { error } = await admin
