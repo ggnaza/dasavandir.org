@@ -151,5 +151,14 @@ export async function DELETE(req: Request) {
     .eq("manager_id", manager_id)
     .eq("course_id", course_id);
 
+  // Also clear their cohort assignments for this course. Leaving these behind
+  // orphans the moderator: getModeratorCohort still unions the legacy
+  // moderator_cohort_assignments table, so a "removed" moderator would keep a
+  // phantom cohort while having no course_manager_access row.
+  await admin.from("moderator_cohort_assignments")
+    .delete()
+    .eq("moderator_id", manager_id)
+    .eq("course_id", course_id);
+
   return Response.json({ ok: true });
 }

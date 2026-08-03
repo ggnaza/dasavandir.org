@@ -50,6 +50,25 @@ export async function POST(req: Request) {
   if (accessErr) return accessErr;
 
   const admin = createAdminClient();
+
+  // Assigning a cohort to a moderator implies they moderate this course, so
+  // grant course_manager_access too. Without this, the moderator has cohort
+  // rows but no access row — course access is gated on course_manager_access,
+  // so they'd see the course in neither "My Courses" nor the admin course tabs
+  // (which then 403 → crash). Keeps the two tables from drifting apart.
+  const { data: modProfile } = await admin
+    .from("profiles")
+    .select("role")
+    .eq("id", moderator_id)
+    .single();
+  if (modProfile?.role === "learner") {
+    await admin.from("profiles").update({ role: "course_manager" }).eq("id", moderator_id);
+  }
+  await admin.from("course_manager_access").upsert(
+    { manager_id: moderator_id, course_id, granted_by: user.id },
+    { onConflict: "manager_id,course_id" }
+  );
+
   const rows = learner_ids.map((learner_id) => ({ moderator_id, course_id, learner_id }));
   const { error } = await admin
     .from("moderator_cohort_assignments")

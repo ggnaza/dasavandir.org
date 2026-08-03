@@ -1,7 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
-import { assertCourseOwner } from "@/lib/assert-course-owner";
+import { assertCoursePageAccess } from "@/lib/assert-course-page-access";
 import { getModeratorCohort } from "@/lib/get-moderator-cohort";
 import { GradebookTable } from "../gradebook/gradebook-table";
 
@@ -15,8 +15,7 @@ export default async function AnalyticsGradebookPage({ params }: { params: { id:
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return notFound();
 
-  const accessErr = await assertCourseOwner(params.id, user.id);
-  if (accessErr) return accessErr;
+  await assertCoursePageAccess(params.id, user.id);
 
   const { data: viewerProfile } = await admin.from("profiles").select("role").eq("id", user.id).single();
   const viewerRole = viewerProfile?.role ?? "";
