@@ -27,6 +27,12 @@ related: [status, work-plan]
   plaintext** in `.claude/settings.local.json` (git-ignored, so not on GitHub, but a live credential in
   a file). **Resolve:** operator decides whether to rotate/remove. Value not stored anywhere in
   `.agent-docs/`.
+- **OQ-005** (🟢 ops; surfaced 2026-08-12) — The Asana **Build Agent's** last several scheduled runs
+  were **failing** before it was disabled. **Resolve:** only if re-enabling — investigate the failure
+  cause first. Lower priority now that it's off (`memories/asana-build-agent-is-disabled.md`).
+- **OQ-006** (🟢 process; surfaced 2026-08-12) — No **AI QA/review agent** exists: neither human PRs
+  nor the (now-off) Build Agent's output get AI review; Playwright covers only functional regressions
+  it has tests for. **Resolve:** decide whether to wire a PR-review workflow (offered, not built).
 
 ## Recently resolved
 
