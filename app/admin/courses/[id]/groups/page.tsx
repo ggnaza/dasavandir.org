@@ -20,43 +20,37 @@ export default async function GroupsPage({ params }: { params: { id: string } })
   const canAssignModerator = ["admin", "course_creator"].includes(profile?.role ?? "");
   const reviewers = await getCourseReviewers(admin, params.id);
 
+  // The course's phases, ordered (empty for a course that doesn't use phases —
+  // ADR-0003). Drives the phase tabs + which phase a new group is created in.
+  const { data: phases } = await admin
+    .from("course_phases")
+    .select("id, name, ord")
+    .eq("course_id", params.id)
+    .order("ord");
+
   // Load groups (managers only see their own)
   let groupQuery = admin
     .from("course_groups")
-    .select("id, name, moderator_id, created_at, course_group_members(user_id, profiles(id, full_name, email))")
+    .select("id, name, moderator_id, phase_id, created_at, course_group_members(user_id, profiles(id, full_name, email))")
     .eq("course_id", params.id)
     .order("created_at");
 
   if (isManager) groupQuery = groupQuery.eq("moderator_id", user.id);
   const { data: groups } = await groupQuery;
 
-  // All enrolled learners for this course with their group membership
+  // All enrolled learners for this course (the client computes per-phase "unassigned"
+  // from the group membership it already receives).
   const { data: enrollments } = await admin
     .from("enrollments")
     .select("user_id, profiles(id, full_name, email)")
     .eq("course_id", params.id);
-
-  // Which learners are already in a group in this course?
-  const { data: allMemberships } = await admin
-    .from("course_group_members")
-    .select("user_id, group_id, course_groups!inner(course_id)")
-    .eq("course_groups.course_id", params.id);
-
-  const assignedUserIds = new Set((allMemberships ?? []).map((m) => m.user_id));
-
-  const unassignedLearners = (enrollments ?? [])
-    .map((e) => ({
-      id: (e.profiles as any)?.id as string,
-      name: (e.profiles as any)?.full_name || (e.profiles as any)?.email || "Unknown",
-      email: (e.profiles as any)?.email || "",
-    }))
-    .filter((l) => l.id && !assignedUserIds.has(l.id));
 
   // Normalise groups shape
   const normalisedGroups = (groups ?? []).map((g) => ({
     id: g.id,
     name: g.name,
     moderator_id: g.moderator_id,
+    phase_id: g.phase_id ?? null,
     members: (g.course_group_members ?? []).map((m: any) => ({
       id: m.user_id,
       name: m.profiles?.full_name || m.profiles?.email || "Unknown",
@@ -81,8 +75,8 @@ export default async function GroupsPage({ params }: { params: { id: string } })
       </div>
       <GroupsManager
         courseId={params.id}
+        phases={phases ?? []}
         groups={normalisedGroups}
-        unassignedLearners={unassignedLearners}
         allLearners={allLearners}
         reviewers={reviewers}
         canAssignModerator={canAssignModerator}
