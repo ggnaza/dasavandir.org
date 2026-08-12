@@ -20,6 +20,10 @@ export default async function SubmissionsPage() {
   // ── Determine which courses + learners are visible ──────────────────────────
   let courseIds: string[] | null = null; // null = all courses
   let learnerIds: string[] | null = null; // null = all learners in those courses
+  // For a course_manager: the non-null phase_ids of the groups they moderate. Their
+  // queue is scoped to these phases (plus untagged lessons). null = not a manager, so
+  // no phase scoping. Empty set = manager with only untagged groups → untagged only.
+  let modPhases: Set<string> | null = null; // ADR-0003
 
   if (role === "admin") {
     courseIds = null; // all
@@ -36,10 +40,12 @@ export default async function SubmissionsPage() {
     // legacy moderator_cohort_assignments rows.
     const [{ data: managerAccess }, { data: modGroups }, { data: cohortAssignments }] = await Promise.all([
       admin.from("course_manager_access").select("course_id").eq("manager_id", user.id),
-      admin.from("course_groups").select("id").eq("moderator_id", user.id),
+      admin.from("course_groups").select("id, phase_id").eq("moderator_id", user.id),
       admin.from("moderator_cohort_assignments").select("learner_id").eq("moderator_id", user.id),
     ]);
     courseIds = (managerAccess ?? []).map((r) => r.course_id);
+
+    modPhases = new Set((modGroups ?? []).map((g: any) => g.phase_id).filter(Boolean) as string[]);
 
     const groupIds = (modGroups ?? []).map((g) => g.id);
     const { data: groupMembers } = groupIds.length
@@ -60,7 +66,7 @@ export default async function SubmissionsPage() {
       profiles(full_name, email),
       assignment_id,
       assignments(title, lesson_id,
-        lessons(id, title, order, course_id, courses(id, title)))
+        lessons(id, title, order, course_id, phase_id, courses(id, title)))
     `)
     .order("submitted_at", { ascending: false });
 
@@ -106,18 +112,34 @@ export default async function SubmissionsPage() {
     return <EmptyPage message="No submissions yet." />;
   }
 
-  // ── Assigned reviewer per (learner, course) = the moderator of the group the
-  //    learner belongs to in that course ────────────────────────────────────
+  // Phase-scope a moderator's queue (ADR-0003): keep untagged lessons + the phases the
+  // moderator actually moderates. Admins / creators (modPhases === null) see everything.
+  const mp = modPhases;
+  const scoped = mp
+    ? submissions.filter((s) => {
+        const phaseId = ((s.assignments as any)?.lessons as any)?.phase_id ?? null;
+        return phaseId === null || mp.has(phaseId as string);
+      })
+    : submissions;
+
+  if (scoped.length === 0) {
+    return <EmptyPage message="No submissions in your phase yet." />;
+  }
+
+  // ── Assigned reviewer per (learner, course, phase) = the moderator of the group the
+  //    learner belongs to in that course for the assignment's phase ─────────────────
   const subCourseIds = Array.from(new Set(
-    submissions
+    scoped
       .map((s) => ((s.assignments as any)?.lessons as any)?.courses?.id)
       .filter(Boolean)
   )) as string[];
-  const reviewerMap = new Map<string, string>(); // `${userId}:${courseId}` → moderator label
+  // `${userId}:${courseId}:${phaseKey}` → moderator label, plus a `:*` wildcard
+  // fallback (first group seen) for untagged assignments in a phased course.
+  const reviewerMap = new Map<string, string>();
   if (subCourseIds.length > 0) {
     const { data: groups } = await admin
       .from("course_groups")
-      .select("id, course_id, moderator_id")
+      .select("id, course_id, moderator_id, phase_id")
       .in("course_id", subCourseIds);
     const groupList = groups ?? [];
     const groupIds = groupList.map((g) => g.id);
@@ -135,7 +157,11 @@ export default async function SubmissionsPage() {
     for (const m of members ?? []) {
       const g = groupById[m.group_id];
       if (!g) continue;
-      reviewerMap.set(`${m.user_id}:${g.course_id}`, g.moderator_id ? (modName[g.moderator_id] ?? "Moderator") : "No moderator");
+      const label = g.moderator_id ? (modName[g.moderator_id] ?? "Moderator") : "No moderator";
+      const phaseKey = (g.phase_id as string | null) ?? "none";
+      reviewerMap.set(`${m.user_id}:${g.course_id}:${phaseKey}`, label);
+      const wildcard = `${m.user_id}:${g.course_id}:*`;
+      if (!reviewerMap.has(wildcard)) reviewerMap.set(wildcard, label);
     }
   }
 
@@ -145,7 +171,7 @@ export default async function SubmissionsPage() {
   const { data: overrides } = await admin
     .from("submissions")
     .select("id, reviewer_id")
-    .in("id", submissions.map((s) => s.id));
+    .in("id", scoped.map((s) => s.id));
   for (const o of overrides ?? []) {
     if ((o as any).reviewer_id) overrideById.set(o.id, (o as any).reviewer_id);
   }
@@ -156,7 +182,7 @@ export default async function SubmissionsPage() {
   const overrideName = Object.fromEntries((overrideProfiles ?? []).map((p: any) => [p.id, p.full_name || p.email || "Reviewer"]));
 
   // Flatten to table rows (pending first, then most recent).
-  const rows: SubRow[] = submissions
+  const rows: SubRow[] = scoped
     .map((sub) => {
       const assignment = sub.assignments as any;
       const lesson = assignment?.lessons as any;
@@ -164,9 +190,14 @@ export default async function SubmissionsPage() {
       if (!course || !lesson) return null;
       const p = sub.profiles as any;
       const overrideId = overrideById.get(sub.id);
+      const phaseId = (lesson.phase_id as string | null) ?? null;
+      const phaseKey = phaseId ?? "none";
       const reviewer = overrideId
         ? (overrideName[overrideId] ?? "Reviewer")
-        : (reviewerMap.get(`${sub.user_id}:${course.id}`) ?? "Unassigned");
+        : (reviewerMap.get(`${sub.user_id}:${course.id}:${phaseKey}`)
+            ?? (phaseId ? reviewerMap.get(`${sub.user_id}:${course.id}:none`) : undefined)
+            ?? reviewerMap.get(`${sub.user_id}:${course.id}:*`)
+            ?? "Unassigned");
       return {
         id: sub.id,
         learnerName: p?.full_name || p?.email || "Unknown",

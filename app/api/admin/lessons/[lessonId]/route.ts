@@ -16,6 +16,7 @@ const updateSchema = z.object({
   deadline_date: z.string().nullable().optional(),
   links: z.array(z.object({ label: z.string(), url: z.string() })).optional(),
   duration_seconds: z.number().nullable().optional(),
+  phase_id: z.string().uuid().nullable().optional(),
 });
 
 async function getCourseId(admin: any, lessonId: string): Promise<string | null> {
@@ -38,6 +39,17 @@ export async function PATCH(req: Request, { params }: { params: { lessonId: stri
 
   const parsed = updateSchema.safeParse(await req.json());
   if (!parsed.success) return new Response("Invalid input", { status: 400 });
+
+  // A lesson's phase must belong to the lesson's own course (ADR-0003). null clears it.
+  if (parsed.data.phase_id) {
+    const { data: phase } = await admin
+      .from("course_phases")
+      .select("id")
+      .eq("id", parsed.data.phase_id)
+      .eq("course_id", courseId)
+      .maybeSingle();
+    if (!phase) return new Response("Phase does not belong to this course", { status: 400 });
+  }
 
   const { error } = await admin.from("lessons").update(parsed.data).eq("id", params.lessonId);
   if (error) return new Response(error.message, { status: 500 });

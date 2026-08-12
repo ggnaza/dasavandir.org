@@ -41,6 +41,14 @@ here carry the claim-as-carry-away **plus status**. Route by status first (don't
   `course_manager_access` / `enrollments`); a shared table breaks role visibility *silently*.
   *(status: accepted.)*
 
+- ⭐ `0003-course-phases-within-a-single-course.md` — **Open when:** working on TLA phases, group
+  phase-scoping, the phased submissions queue, phase-aware reviewer routing, or "why not a separate
+  course for Regional Orientation, or why not a bare smallint?" **Carry-away:** a course runs in ordered
+  phases via a `course_phases` table + `lessons.phase_id` + `course_groups.phase_id` (`NULL`=untagged;
+  a course with no phase rows behaves exactly as today); one group per learner per `(course, phase_id)`;
+  a moderator's queue is phase-scoped with untagged lessons visible to all; reviewer attribution follows
+  the assignment lesson's phase; timetable hidden pending rework. *(status: accepted.)*
+
 ## Maintenance
 
 APPEND-ONLY for new ADRs; existing ADRs change `status:` in place, never move (supersession via
