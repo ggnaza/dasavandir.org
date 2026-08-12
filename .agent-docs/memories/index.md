@@ -44,6 +44,12 @@ anti-actions) · See also (related docs, upstream issues, commit refs).
   migration. **Carry-away:** no auto-runner — migrations are idempotent and pasted by the operator;
   hand over ONE exact paste-ready block generated from the committed file, never a lookalike summary.
 
+### CI / agents
+- `asana-build-agent-is-disabled.md` — **Open when:** reading `build-agent.yml`, or considering the
+  Asana→code automation. **Carry-away:** the scheduled Build Agent is intentionally OFF
+  (`disabled_manually`, 2026-08-12); the file still *says* scheduled — that's a GitHub toggle, not code.
+  Its runs were failing before disable.
+
 ## Maintenance
 
 UPDATE-IN-PLACE; adding/retiring a memory updates this index in the same change. Carry-away claims

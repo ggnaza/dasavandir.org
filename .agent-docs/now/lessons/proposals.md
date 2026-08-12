@@ -1,7 +1,7 @@
 ---
-provenance: kit-template
+provenance: llm-draft
 created: 2026-07-03
-last-modified: 2026-07-03
+last-modified: 2026-08-12
 tags: [current, lessons, proposals, staging]
 related: [MOC, ../../lessons/index]
 ---
@@ -20,15 +20,7 @@ human-gated.
 
 ## Staged candidates
 
-<!-- New candidates appended below as fenced lesson stubs (provenance: llm-draft, maturity: seedling).
-     EXAMPLE stub (delete on first real candidate):
-
-LP-001 — <one-line claim>
-provenance: llm-draft · maturity: seedling · severity: medium · module: process · type: gotcha
-Trigger:  <the concrete situation that should trigger the behavior>.
-Claim:    <when X, do Y, because Z — the stable, reusable rule>.
-Evidence: <a date + a commit / log entry / trace that grounds the claim>.
--->
+_(none — LP-001 and LP-002 accepted + promoted to `../../lessons/` on 2026-08-12.)_
 
 ## Lifecycle
 

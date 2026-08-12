@@ -34,4 +34,18 @@ only). Additively added kit-doctor/kit-upgrade skills + dispatch-gate hook; brou
 lint-agent-docs-indexes.sh to v0.8.2 and fixed a space-in-path bug in the index-lint. Backups under
 `.kit-backups/20260812T221816Z/`.
 
+## 2026-08-12 | handoff — Fieldbook store shipped to main+staging; Asana Build Agent disabled
+
+work + decision + memory. Merged PR #267 (chore→staging) and #268 (staging→main) — `.agent-docs/` now
+tracked on both (staging==main beforehand, so only the store was promoted). Disabled the Asana Build
+Agent workflow (`gh workflow disable "Build Agent"` → `disabled_manually`); its recent scheduled runs
+were failing. Filed `memories/asana-build-agent-is-disabled.md`, OQ-005 (Build Agent failures),
+OQ-006 (no AI review agent). No app code changed. Doc-lint clean.
+
+## 2026-08-12 | lesson — promoted LP-001, LP-002 to the ledger
+
+lesson. Operator accepted both handoff proposals: LP-001 (git-diff no-diff is a false all-clear on an
+ignored path) and LP-002 (committing untracked files hides them on branch switch). Moved to
+`lessons/`, indexed, cleared from `now/lessons/proposals.md`. Both seedling (not MOC-promoted).
+
 <!-- newest entries appended above this line -->

@@ -6,33 +6,34 @@ tags: [current, status]
 related: [work-plan, open-questions, handoff]
 ---
 
-# Status — dasavandir.org · Fieldbook context store installed + backfilled · 2026-08-12
+# Status — dasavandir.org · Fieldbook store live on main + staging; Asana Build Agent disabled · 2026-08-12
 
 ## TL;DR
-WU-0001 (install + backfill the Fieldbook context store) is the active unit. The `.agent-docs/` store
-was missing; it's now restored (Standard profile, v0.8.2) and committed on branch
-`chore/fieldbook-context-store` via PR #267 → `staging`. This session also backfilled the store with
-the project's real history (ADR-0001, three memories, two reference docs, OQ-001..004). Next: merge
-#267 after review; the operator still owns the audit's open security items.
+WU-0001 (install + backfill the Fieldbook context store) is **complete and shipped** — merged to
+`staging` (#267) and `main` (#268); `.agent-docs/` is now tracked on both. Also this session: the Asana
+**Build Agent** GitHub workflow was **disabled** at the operator's request. No app code changed all
+session. Next: nothing blocking — optionally wire an AI PR-review agent (OQ-006), or investigate the
+Build Agent failures only if it will be re-enabled (OQ-005).
 
 ## Branch / working tree
-- Working on `feat/timetable-week-view` (the timetable feature branch; base `main`).
-- The Fieldbook store lives on `chore/fieldbook-context-store` (PR #267 → `staging`). On
-  `feat/timetable-week-view` the `.agent-docs/` files are present locally but untracked until #267
-  merges and flows back.
+- Checked out on `feat/timetable-week-view` (base `main`; 1 commit ahead — the pre-existing timetable
+  work, untouched this session).
+- ⚠️ On this branch `.agent-docs/` shows as **untracked** — the store is tracked on `main`/`staging`,
+  not on this feature branch yet. This is expected; it flows in when `main` merges back.
+- Also untracked (pre-existing, NOT ours): `AUDIT_REPORT.md`, `CLAUDE.md.fieldbook-backup-*`,
+  `test-results/`.
 
 ## Build / test state
-- Gates: `npm run build` · `npm run test:e2e` (no separate lint/format scripts). Not re-run this
-  session — Fieldbook work touched only `.agent-docs/` + local `.claude/`, not app code.
-- Doc-lint (`lint-docs.py` v0.8.2): clean on the store.
+- Gates: `npm run build` · `npm run test:e2e` (no separate lint/format scripts). Not run this session —
+  only `.agent-docs/` + local `.claude/` + a CI toggle changed; zero app code.
+- Doc-schema lint (`lint-docs.py` v0.8.2): clean.
 
 ## Context-system state
-- `.agent-docs/` restored + backfilled: ADR-0001, memories (auth trigger, admin-client role read,
-  hand-applied migrations), reference (architecture-overview, security-audit-open-items), OQ-001..004.
-- `.claude/` engine is git-ignored (local-only, protects a plaintext token in `settings.local.json`).
-  Added `kit-doctor`/`kit-upgrade` skills + `dispatch-gate` hook; fixed a space-in-path bug in the
-  index-lint.
+- `.agent-docs/` store restored + backfilled + shipped (PR #267/#268). New this session:
+  `memories/asana-build-agent-is-disabled.md`; OQ-005 (Build Agent failing), OQ-006 (no AI review agent).
+- CI: `Build Agent` workflow = `disabled_manually`; `QA` + `Scheduled QA` (Playwright) still active.
 
 ## What this means for next steps
-Review + merge PR #267 to persist the store to `staging`. Going forward: `/orient` to start a session,
-`/handoff` to end one. The audit items (OQ-001..003) are operator actions, not code changes.
+No blockers. The memory system is live and shared. Optional follow-ups are OQ-005/OQ-006 (operator's
+call). Going forward: `/orient` to start, `/handoff` to end. If you edit `.agent-docs/` on this feature
+branch, note it's untracked here until `main` flows back.
