@@ -94,8 +94,12 @@ BEGIN
   END IF;
 END $$;
 
--- Allow course creators to assign moderators to their courses
-CREATE POLICY IF NOT EXISTS "Creators manage their course moderators" ON course_manager_access
+-- Allow course creators to assign moderators to their courses.
+-- NOTE: Postgres does NOT support CREATE POLICY IF NOT EXISTS — that is a syntax
+-- error that silently prevented this policy from being created (and could abort
+-- the whole migration if pasted as one block). Use DROP + CREATE for idempotency.
+DROP POLICY IF EXISTS "Creators manage their course moderators" ON course_manager_access;
+CREATE POLICY "Creators manage their course moderators" ON course_manager_access
   FOR ALL USING (
     EXISTS (
       SELECT 1 FROM course_creator_access
