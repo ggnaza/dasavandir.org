@@ -10,13 +10,14 @@ export default async function LessonPage({
   params: { id: string; lessonId: string };
 }) {
   const admin = createAdminClient();
-  const [{ data: lesson }, { data: quiz }, { data: files }, { data: assignment }, { data: allLessons }, { data: course }] = await Promise.all([
+  const [{ data: lesson }, { data: quiz }, { data: files }, { data: assignment }, { data: allLessons }, { data: course }, { data: phases }] = await Promise.all([
     admin.from("lessons").select("*").eq("id", params.lessonId).single(),
     admin.from("quizzes").select("id").eq("lesson_id", params.lessonId).single(),
     admin.from("lesson_files").select("id, file_name, storage_path").eq("lesson_id", params.lessonId).order("created_at"),
     admin.from("assignments").select("id").eq("lesson_id", params.lessonId).single(),
     admin.from("lessons").select("id, order, deadline_date, deadline_days").eq("course_id", params.id).order("order"),
     admin.from("courses").select("deadline_date, deadline_days").eq("id", params.id).single(),
+    admin.from("course_phases").select("id, name, ord").eq("course_id", params.id).order("ord"),
   ]);
 
   if (!lesson) notFound();
@@ -46,6 +47,7 @@ export default async function LessonPage({
       <LessonEditor
         lesson={lesson}
         courseId={params.id}
+        phases={phases ?? []}
         prevDeadlineDate={prevDeadlineDate}
         nextDeadlineDate={nextDeadlineDate}
         courseDeadlineDate={courseDeadlineDate}

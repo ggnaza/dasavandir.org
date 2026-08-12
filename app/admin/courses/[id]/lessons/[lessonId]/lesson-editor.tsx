@@ -40,13 +40,17 @@ type Lesson = {
   deadline_days: number | null;
   deadline_date: string | null;
   links: LessonLink[] | null;
+  phase_id: string | null;
 };
 
+type Phase = { id: string; name: string; ord: number };
+
 export function LessonEditor({
-  lesson, courseId, prevDeadlineDate, nextDeadlineDate, courseDeadlineDate,
+  lesson, courseId, phases = [], prevDeadlineDate, nextDeadlineDate, courseDeadlineDate,
 }: {
   lesson: Lesson;
   courseId: string;
+  phases?: Phase[];
   prevDeadlineDate?: string | null;
   nextDeadlineDate?: string | null;
   courseDeadlineDate?: string | null;
@@ -82,6 +86,7 @@ export function LessonEditor({
   );
   const [links, setLinks] = useState<LessonLink[]>(lesson.links ?? []);
   const [linkUploading, setLinkUploading] = useState<number | null>(null);
+  const [phaseId, setPhaseId] = useState(lesson.phase_id ?? "");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [deadlineError, setDeadlineError] = useState("");
@@ -276,6 +281,7 @@ export function LessonEditor({
         deadline_days: deadlineMode === "days" && deadlineDays ? parseInt(deadlineDays) : null,
         deadline_date: deadlineMode === "date" && deadlineDate ? deadlineDate : null,
         links: links.filter((l) => l.url.trim()),
+        ...(phases.length ? { phase_id: phaseId || null } : {}),
         ...(duration_seconds !== null ? { duration_seconds } : {}),
       }),
     });
@@ -337,6 +343,24 @@ export function LessonEditor({
           className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-500"
         />
       </div>
+
+      {/* Phase — only for courses that use phases (ADR-0003). Controls which
+          moderators review this lesson's assignments. */}
+      {phases.length > 0 && (
+        <div>
+          <label className="block text-sm font-medium mb-1">Phase</label>
+          <select
+            value={phaseId}
+            onChange={(e) => setPhaseId(e.target.value)}
+            className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-500"
+          >
+            <option value="">— None (visible to all moderators) —</option>
+            {phases.map((p) => (
+              <option key={p.id} value={p.id}>{p.name}</option>
+            ))}
+          </select>
+        </div>
+      )}
 
       <LessonContentEditor value={content} onChange={setContent} />
 

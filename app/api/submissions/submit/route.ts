@@ -3,7 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { z } from "zod";
 import { getAIModel, callLLM } from "@/lib/llm";
-import { buildReviewerMap } from "@/lib/reviewer-map";
+import { buildReviewerMap, resolveReviewer } from "@/lib/reviewer-map";
 import { sendReviewNeededEmail } from "@/lib/email";
 
 export const runtime = "nodejs";
@@ -43,7 +43,7 @@ export async function POST(req: Request) {
   const admin = createAdminClient();
   const { data: assignment } = await admin
     .from("assignments")
-    .select("title, instructions, rubric, lesson_id, lessons(course_id)")
+    .select("title, instructions, rubric, lesson_id, lessons(course_id, phase_id)")
     .eq("id", assignment_id)
     .single();
 
@@ -206,7 +206,8 @@ If only a file or link was submitted without text, note that manual review may b
   if (courseId) {
     try {
       const reviewerMap = await buildReviewerMap(admin, [courseId]);
-      const moderatorId = reviewerMap.get(`${user.id}:${courseId}`);
+      const phaseId = (assignment.lessons as any)?.phase_id ?? null;
+      const moderatorId = resolveReviewer(reviewerMap, user.id, courseId, phaseId);
       if (moderatorId) {
         const [{ data: mod }, { data: learner }, { data: course }] = await Promise.all([
           admin.from("profiles").select("email, full_name").eq("id", moderatorId).maybeSingle(),
