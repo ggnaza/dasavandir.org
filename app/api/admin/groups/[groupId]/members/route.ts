@@ -6,7 +6,7 @@ import { z } from "zod";
 async function getGroup(admin: any, groupId: string) {
   const { data } = await admin
     .from("course_groups")
-    .select("id, course_id, moderator_id")
+    .select("id, course_id, moderator_id, phase_id")
     .eq("id", groupId)
     .single();
   return data;
@@ -39,17 +39,22 @@ export async function POST(req: Request, { params }: { params: { groupId: string
     .maybeSingle();
   if (!enrollment) return new Response("Learner is not enrolled in this course", { status: 400 });
 
-  // Enforce one group per course per learner
+  // Enforce one group per learner per (course, phase). A phased course (e.g. TLA ->
+  // Regional Orientation) lets a learner belong to one group in each phase; a course
+  // with no phases keeps the old one-group-per-course behaviour (phase_id NULL is its
+  // own bucket, so NULL vs NULL still collides). See ADR-0003.
   const { data: existingMemberships } = await admin
     .from("course_group_members")
-    .select("group_id, course_groups!inner(course_id)")
+    .select("group_id, course_groups!inner(course_id, phase_id)")
     .eq("user_id", userId);
 
-  const alreadyInCourse = (existingMemberships ?? []).some(
-    (m) => (m.course_groups as any)?.course_id === group.course_id
-  );
-  if (alreadyInCourse) {
-    return new Response("This learner is already in a group for this course", { status: 400 });
+  const targetPhase = (group.phase_id as string | null) ?? null;
+  const alreadyInPhase = (existingMemberships ?? []).some((m) => {
+    const cg = m.course_groups as any;
+    return cg?.course_id === group.course_id && ((cg?.phase_id as string | null) ?? null) === targetPhase;
+  });
+  if (alreadyInPhase) {
+    return new Response("This learner is already in a group for this phase", { status: 400 });
   }
 
   const { error } = await admin

@@ -3,8 +3,9 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 
 type Member = { id: string; name: string; email: string };
-type Group = { id: string; name: string; moderator_id: string | null; members: Member[] };
+type Group = { id: string; name: string; moderator_id: string | null; phase_id: string | null; members: Member[] };
 type Reviewer = { id: string; name: string; role: string };
+type Phase = { id: string; name: string; ord: number };
 
 const ROLE_LABEL: Record<string, string> = {
   admin: "Admin", course_creator: "Creator", course_manager: "Moderator", learner: "Learner",
@@ -12,23 +13,39 @@ const ROLE_LABEL: Record<string, string> = {
 
 export function GroupsManager({
   courseId,
+  phases = [],
   groups: initialGroups,
-  unassignedLearners,
   allLearners,
   reviewers = [],
   canAssignModerator = false,
 }: {
   courseId: string;
+  phases?: Phase[];
   groups: Group[];
-  unassignedLearners: Member[];
   allLearners: Member[];
   reviewers?: Reviewer[];
   canAssignModerator?: boolean;
 }) {
   const router = useRouter();
   const [groups, setGroups] = useState<Group[]>(initialGroups);
-  const [unassigned, setUnassigned] = useState<Member[]>(unassignedLearners);
   const [savingMod, setSavingMod] = useState<string | null>(null);
+
+  // Phase scoping (ADR-0003). A course with no phases behaves exactly as before:
+  // no tabs, all groups shown, one-group-per-course. A phased course (e.g. TLA ->
+  // Regional Orientation) shows a tab per phase; groups, the unassigned banner and
+  // the add-member picker are all scoped to the selected phase.
+  const hasPhases = phases.length > 0;
+  const [selectedPhase, setSelectedPhase] = useState<string | null>(null);
+  // Derive the active phase with a fallback: a plain useState isn't reset when the
+  // server re-renders after refresh(), so a just-created (or deleted) phase would
+  // otherwise leave the selection dangling. Fall back to the first phase.
+  const effectivePhase = hasPhases
+    ? (phases.some((p) => p.id === selectedPhase) ? selectedPhase : phases[0].id)
+    : null;
+  const visibleGroups = hasPhases ? groups.filter((g) => g.phase_id === effectivePhase) : groups;
+  const takenInPhase = new Set(visibleGroups.flatMap((g) => g.members.map((m) => m.id)));
+  const unassigned = allLearners.filter((l) => !takenInPhase.has(l.id));
+  const selectedPhaseName = phases.find((p) => p.id === effectivePhase)?.name ?? "";
 
   async function assignModerator(groupId: string, moderatorId: string) {
     setSavingMod(groupId);
@@ -46,6 +63,35 @@ export function GroupsManager({
   const [newGroupName, setNewGroupName] = useState("");
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState("");
+
+  // Phase management (admins / creators only)
+  const [newPhaseName, setNewPhaseName] = useState("");
+  const [addingPhase, setAddingPhase] = useState(false);
+  const [phaseError, setPhaseError] = useState("");
+
+  async function addPhase() {
+    const name = newPhaseName.trim();
+    if (!name) return;
+    setAddingPhase(true);
+    setPhaseError("");
+    const res = await fetch(`/api/admin/courses/${courseId}/phases`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name }),
+    });
+    if (!res.ok) { setPhaseError(await res.text()); setAddingPhase(false); return; }
+    setNewPhaseName("");
+    setAddingPhase(false);
+    refresh();
+  }
+
+  async function deletePhase(phaseId: string, name: string) {
+    if (!confirm(`Delete phase "${name}"? Its groups and lessons become untagged (not deleted).`)) return;
+    await fetch(`/api/admin/courses/${courseId}/phases/${phaseId}`, { method: "DELETE" });
+    // effectivePhase falls back to the first remaining phase after refresh, so no
+    // manual re-selection is needed here.
+    refresh();
+  }
 
   // Editing state per group
   const [editingNames, setEditingNames] = useState<Record<string, string>>({});
@@ -68,7 +114,7 @@ export function GroupsManager({
     const res = await fetch(`/api/admin/courses/${courseId}/groups`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: newGroupName.trim() }),
+      body: JSON.stringify({ name: newGroupName.trim(), phase_id: effectivePhase }),
     });
     if (!res.ok) { setCreateError(await res.text()); setCreating(false); return; }
     setNewGroupName("");
@@ -117,17 +163,85 @@ export function GroupsManager({
     refresh();
   }
 
-  // Learners not yet in this specific group (could be in another group or unassigned)
-  function addableLearners(group: Group): Member[] {
-    const inGroup = new Set(group.members.map((m) => m.id));
-    return allLearners.filter((l) => !inGroup.has(l.id));
+  // Learners addable to this group: anyone not already in a group within the current
+  // phase (the server enforces one group per phase, so surfacing them would only lead
+  // to an error). takenInPhase already includes this group's own members.
+  function addableLearners(_group: Group): Member[] {
+    return allLearners.filter((l) => !takenInPhase.has(l.id));
   }
 
   return (
     <div className="space-y-6">
+      {/* Phase management — admins / creators only. Bootstraps a course into phases
+          (e.g. "TLA" + "Regional Orientation") and drives the tabs below (ADR-0003). */}
+      {canAssignModerator && (
+        <div className="bg-white border rounded-xl p-5">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-sm font-semibold text-gray-700">Phases</h2>
+            {!hasPhases && (
+              <span className="text-xs text-gray-400">Optional — leave empty for a single-stage course.</span>
+            )}
+          </div>
+          {hasPhases && (
+            <div className="flex flex-wrap gap-2 mb-3">
+              {phases.map((p) => (
+                <span key={p.id} className="inline-flex items-center gap-1.5 bg-gray-100 text-gray-700 text-xs font-medium rounded-full pl-3 pr-2 py-1">
+                  {p.name}
+                  <button
+                    onClick={() => deletePhase(p.id, p.name)}
+                    className="text-gray-400 hover:text-red-600"
+                    title="Delete phase"
+                  >✕</button>
+                </span>
+              ))}
+            </div>
+          )}
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={newPhaseName}
+              onChange={(e) => setNewPhaseName(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && addPhase()}
+              placeholder="Add a phase (e.g. TLA, Regional Orientation)"
+              maxLength={100}
+              className="flex-1 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+            />
+            <button
+              onClick={addPhase}
+              disabled={addingPhase || !newPhaseName.trim()}
+              className="bg-gray-800 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-900 disabled:opacity-50"
+            >
+              {addingPhase ? "Adding…" : "+ Add phase"}
+            </button>
+          </div>
+          {phaseError && <p className="text-red-600 text-xs mt-2">{phaseError}</p>}
+        </div>
+      )}
+
+      {/* Phase tabs — only for courses that use phases (ADR-0003) */}
+      {hasPhases && (
+        <div className="flex gap-1 border-b border-gray-200">
+          {phases.map((p) => (
+            <button
+              key={p.id}
+              onClick={() => { setSelectedPhase(p.id); setAddingTo(null); }}
+              className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+                effectivePhase === p.id
+                  ? "border-brand-600 text-brand-700"
+                  : "border-transparent text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              {p.name}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* Create new group */}
       <div className="bg-white border rounded-xl p-5">
-        <h2 className="text-sm font-semibold text-gray-700 mb-3">Create new group</h2>
+        <h2 className="text-sm font-semibold text-gray-700 mb-3">
+          Create new group{hasPhases && selectedPhaseName ? ` — ${selectedPhaseName}` : ""}
+        </h2>
         <div className="flex gap-2">
           <input
             type="text"
@@ -160,14 +274,14 @@ export function GroupsManager({
         </div>
       )}
 
-      {/* Group list */}
-      {groups.length === 0 ? (
+      {/* Group list (scoped to the selected phase when the course uses phases) */}
+      {visibleGroups.length === 0 ? (
         <div className="bg-white border rounded-xl p-10 text-center text-gray-400">
-          No groups yet. Create one above.
+          No groups{hasPhases && selectedPhaseName ? ` in ${selectedPhaseName}` : ""} yet. Create one above.
         </div>
       ) : (
         <div className="space-y-4">
-          {groups.map((group) => {
+          {visibleGroups.map((group) => {
             const isEditingName = editingNames[group.id] !== undefined;
             const isAddingHere = addingTo === group.id;
 

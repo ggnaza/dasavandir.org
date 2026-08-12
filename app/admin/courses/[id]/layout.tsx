@@ -49,7 +49,8 @@ export default function CourseAdminLayout({ children, params }: { children: Reac
         { label: "Progress", href: `${base}/progress` },
         { label: "Analytics", href: `${base}/analytics`, isAnalyticsGroup: true },
         { label: "Announcements", href: `${base}/announcements` },
-        { label: "Timetable", href: `${base}/timetable` },
+        // Timetable tab hidden pending rework (ADR-0003) — phased groups break its
+        // single-group resolution. Re-add here when the rework lands.
         { label: "Attendance", href: `${base}/attendance` },
         { label: "AI Coach", href: `${base}/ai-coach` },
       ]
@@ -60,7 +61,7 @@ export default function CourseAdminLayout({ children, params }: { children: Reac
         { label: "Progress", href: `${base}/progress` },
         { label: "Invitations", href: `${base}/invitations` },
         { label: "Announcements", href: `${base}/announcements` },
-        { label: "Timetable", href: `${base}/timetable` },
+        // Timetable tab hidden pending rework (ADR-0003) — see the manager branch note.
         { label: "Attendance", href: `${base}/attendance` },
         { label: "Question Bank", href: `${base}/question-bank` },
         { label: "Capstone", href: `${base}/capstone` },

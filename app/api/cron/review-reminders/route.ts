@@ -1,5 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
-import { buildReviewerMap } from "@/lib/reviewer-map";
+import { buildReviewerMap, resolveReviewer } from "@/lib/reviewer-map";
 import { sendReviewReminderEmail } from "@/lib/email";
 
 // Vercel Cron calls this daily with Authorization: Bearer <CRON_SECRET>.
@@ -16,7 +16,7 @@ export async function GET(req: Request) {
   // Pending = awaiting a moderator's verdict (not needs_revision, which waits on the learner).
   const { data: pending } = await admin
     .from("submissions")
-    .select("id, user_id, assignment_id, assignments(lessons(course_id))")
+    .select("id, user_id, assignment_id, assignments(lessons(course_id, phase_id))")
     .in("status", ["submitted", "ai_reviewed"]);
 
   if (!pending?.length) return Response.json({ moderatorsNotified: 0 });
@@ -30,7 +30,8 @@ export async function GET(req: Request) {
   for (const s of pending) {
     const cid = (s.assignments as any)?.lessons?.course_id;
     if (!cid) continue;
-    const modId = reviewerMap.get(`${s.user_id}:${cid}`);
+    const phaseId = (s.assignments as any)?.lessons?.phase_id ?? null;
+    const modId = resolveReviewer(reviewerMap, s.user_id, cid, phaseId);
     if (!modId) continue;
     countByMod.set(modId, (countByMod.get(modId) ?? 0) + 1);
   }
