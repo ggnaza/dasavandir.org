@@ -44,11 +44,15 @@ cost-of-recurrence can justify promotion on first sighting — it need not wait 
 
 ## Lessons
 
-<!-- EXAMPLE (delete this block on the first real lesson):
-- `example-when-x-do-y.md` — **Open when:** <the concrete situation that should trigger recall>.
-  **Carry-away:** <the "when X, do Y, because Z" in one sentence, traceable to the evidence>.
-  *(seedling · medium · process.)*
--->
+- `git-diff-no-diff-false-on-ignored-path.md` (LP-001) — **Open when:** deciding whether to commit
+  files under a config/tooling dir, or checking if a path is "the same" across branches.
+  **Carry-away:** verify tracked-ness with `git check-ignore`/`git ls-files` — a `git diff <ref> <ref>
+  -- <path>` shows no-diff for an ignored path, a false SAME that can lead to leaking a secret.
+  *(seedling · medium · action.)*
+- `committing-untracked-files-hides-them-on-branch-switch.md` (LP-002) — **Open when:** untracked files
+  vanish after switching back from a branch you committed them onto. **Carry-away:** that's normal
+  (tracked-there, absent-here); restore with `git restore --source=<branch> --worktree -- <path>`.
+  *(seedling · low · action.)*
 
 ## Maintenance
 
