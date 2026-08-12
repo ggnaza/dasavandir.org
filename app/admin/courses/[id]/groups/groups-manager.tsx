@@ -97,11 +97,26 @@ export function GroupsManager({
   const [editingNames, setEditingNames] = useState<Record<string, string>>({});
   const [savingName, setSavingName] = useState<string | null>(null);
 
-  // Add member state per group
+  // Add member state per group (multi-select)
   const [addingTo, setAddingTo] = useState<string | null>(null); // groupId
-  const [selectedMemberId, setSelectedMemberId] = useState("");
+  const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([]);
   const [addingMember, setAddingMember] = useState(false);
   const [addError, setAddError] = useState("");
+
+  function openAddPanel(groupId: string) {
+    setAddingTo(groupId);
+    setSelectedMemberIds([]);
+    setAddError("");
+  }
+  function closeAddPanel() {
+    setAddingTo(null);
+    setSelectedMemberIds([]);
+    setAddError("");
+  }
+  function toggleSelected(id: string, checked: boolean) {
+    setAddError("");
+    setSelectedMemberIds((prev) => (checked ? [...prev, id] : prev.filter((x) => x !== id)));
+  }
 
   function refresh() {
     router.refresh();
@@ -142,19 +157,29 @@ export function GroupsManager({
     refresh();
   }
 
-  async function addMember(groupId: string) {
-    if (!selectedMemberId) return;
+  async function addMembers(groupId: string) {
+    if (selectedMemberIds.length === 0) return;
     setAddingMember(true);
     setAddError("");
-    const res = await fetch(`/api/admin/groups/${groupId}/members`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userId: selectedMemberId }),
-    });
-    if (!res.ok) { setAddError(await res.text()); setAddingMember(false); return; }
+    // The members endpoint adds one learner at a time; add them sequentially and
+    // collect any failures (e.g. someone concurrently assigned elsewhere).
+    let failures = 0;
+    let lastError = "";
+    for (const userId of selectedMemberIds) {
+      const res = await fetch(`/api/admin/groups/${groupId}/members`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId }),
+      });
+      if (!res.ok) { failures++; lastError = await res.text(); }
+    }
     setAddingMember(false);
-    setSelectedMemberId("");
-    setAddingTo(null);
+    if (failures > 0) {
+      setAddError(`${failures} learner${failures !== 1 ? "s" : ""} couldn't be added: ${lastError}`);
+    } else {
+      setAddingTo(null);
+    }
+    setSelectedMemberIds([]);
     refresh();
   }
 
@@ -224,7 +249,7 @@ export function GroupsManager({
           {phases.map((p) => (
             <button
               key={p.id}
-              onClick={() => { setSelectedPhase(p.id); setAddingTo(null); }}
+              onClick={() => { setSelectedPhase(p.id); closeAddPanel(); }}
               className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
                 effectivePhase === p.id
                   ? "border-brand-600 text-brand-700"
@@ -386,40 +411,83 @@ export function GroupsManager({
                     </ul>
                   )}
 
-                  {/* Add member row */}
+                  {/* Add members row — multi-select. Learners already in a group for
+                      this phase are excluded (one group per learner per phase). */}
                   <div className="px-5 py-3 bg-gray-50 border-t">
                     {isAddingHere ? (
-                      <div className="flex gap-2 items-center">
-                        <select
-                          value={selectedMemberId}
-                          onChange={(e) => { setSelectedMemberId(e.target.value); setAddError(""); }}
-                          className="flex-1 border rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
-                        >
-                          <option value="">Select a learner…</option>
-                          {addableLearners(group).map((l) => (
-                            <option key={l.id} value={l.id}>
-                              {l.name}{l.name !== l.email ? ` (${l.email})` : ""}
-                            </option>
-                          ))}
-                        </select>
-                        <button
-                          onClick={() => addMember(group.id)}
-                          disabled={addingMember || !selectedMemberId}
-                          className="text-sm bg-brand-600 text-white px-3 py-1.5 rounded-lg hover:bg-brand-700 disabled:opacity-50 font-medium"
-                        >
-                          {addingMember ? "Adding…" : "Add"}
-                        </button>
-                        <button
-                          onClick={() => { setAddingTo(null); setSelectedMemberId(""); setAddError(""); }}
-                          className="text-sm text-gray-500 hover:text-gray-700"
-                        >Cancel</button>
-                      </div>
+                      (() => {
+                        const options = addableLearners(group);
+                        return (
+                          <div className="space-y-2">
+                            {options.length === 0 ? (
+                              <p className="text-sm text-gray-400 italic">
+                                Every eligible learner is already in a group for this phase.
+                              </p>
+                            ) : (
+                              <>
+                                <div className="flex items-center justify-between">
+                                  <span className="text-xs text-gray-500">
+                                    Select learners to add ({selectedMemberIds.length} selected)
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setSelectedMemberIds(
+                                        selectedMemberIds.length === options.length ? [] : options.map((l) => l.id)
+                                      )
+                                    }
+                                    className="text-xs text-brand-600 hover:underline"
+                                  >
+                                    {selectedMemberIds.length === options.length ? "Clear all" : "Select all"}
+                                  </button>
+                                </div>
+                                <div className="max-h-56 overflow-y-auto border rounded-lg bg-white divide-y">
+                                  {options.map((l) => (
+                                    <label
+                                      key={l.id}
+                                      className="flex items-center gap-2 px-3 py-2 text-sm cursor-pointer hover:bg-gray-50"
+                                    >
+                                      <input
+                                        type="checkbox"
+                                        checked={selectedMemberIds.includes(l.id)}
+                                        onChange={(e) => toggleSelected(l.id, e.target.checked)}
+                                        className="accent-brand-600"
+                                      />
+                                      <span className="font-medium text-gray-800">{l.name}</span>
+                                      {l.name !== l.email && l.email && (
+                                        <span className="text-gray-400 text-xs">{l.email}</span>
+                                      )}
+                                    </label>
+                                  ))}
+                                </div>
+                              </>
+                            )}
+                            <div className="flex gap-2 items-center">
+                              <button
+                                onClick={() => addMembers(group.id)}
+                                disabled={addingMember || selectedMemberIds.length === 0}
+                                className="text-sm bg-brand-600 text-white px-3 py-1.5 rounded-lg hover:bg-brand-700 disabled:opacity-50 font-medium"
+                              >
+                                {addingMember
+                                  ? "Adding…"
+                                  : `Add${selectedMemberIds.length ? ` ${selectedMemberIds.length}` : ""}`}
+                              </button>
+                              <button
+                                onClick={closeAddPanel}
+                                className="text-sm text-gray-500 hover:text-gray-700"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })()
                     ) : (
                       <button
-                        onClick={() => { setAddingTo(group.id); setSelectedMemberId(""); setAddError(""); }}
+                        onClick={() => openAddPanel(group.id)}
                         className="text-sm text-brand-600 hover:underline font-medium"
                       >
-                        + Add member
+                        + Add members
                       </button>
                     )}
                     {isAddingHere && addError && (
