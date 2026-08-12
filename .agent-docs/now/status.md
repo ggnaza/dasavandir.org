@@ -1,32 +1,38 @@
 ---
-provenance: kit-template
+provenance: llm-reviewed
 created: 2026-07-03
-last-modified: 2026-07-03
+last-modified: 2026-08-12
 tags: [current, status]
 related: [work-plan, open-questions, handoff]
 ---
 
-# Status — dasavandir.org · <one-line current headline> · <YYYY-MM-DD>
-
-<!-- The always-current "where are we?" snapshot. UPDATE-IN-PLACE at /flush and /handoff.
-     Keep it short and true; history lives in the version-control log, not here. -->
+# Status — dasavandir.org · Fieldbook context store installed + backfilled · 2026-08-12
 
 ## TL;DR
-<One short paragraph: the active work-unit (`WU-NNNN`), what just landed, what is next. Replace on
-every update; this is the first thing read at session start.>
+WU-0001 (install + backfill the Fieldbook context store) is the active unit. The `.agent-docs/` store
+was missing; it's now restored (Standard profile, v0.8.2) and committed on branch
+`chore/fieldbook-context-store` via PR #267 → `staging`. This session also backfilled the store with
+the project's real history (ADR-0001, three memories, two reference docs, OQ-001..004). Next: merge
+#267 after review; the operator still owns the audit's open security items.
 
 ## Branch / working tree
-- Branch `<branch>` (base: `main`). <pushed? ahead-by-N? never-stage list, if any.>
-- HEAD `<short-sha>` — <one-line description of the tip commit.>
+- Working on `feat/timetable-week-view` (the timetable feature branch; base `main`).
+- The Fieldbook store lives on `chore/fieldbook-context-store` (PR #267 → `staging`). On
+  `feat/timetable-week-view` the `.agent-docs/` files are present locally but untracked until #267
+  merges and flows back.
 
 ## Build / test state
-- Gates: `npm run build` · `npm run test:e2e` · `` · `` — <last-run result / clean
-  or the failing gate.>
-- <Any environment/toolchain note needed to reproduce a green build.>
+- Gates: `npm run build` · `npm run test:e2e` (no separate lint/format scripts). Not re-run this
+  session — Fieldbook work touched only `.agent-docs/` + local `.claude/`, not app code.
+- Doc-lint (`lint-docs.py` v0.8.2): clean on the store.
 
 ## Context-system state
-- <What changed in `.agent-docs/` this session: new ADRs / lessons / OQs / checkpoints; lint state.>
+- `.agent-docs/` restored + backfilled: ADR-0001, memories (auth trigger, admin-client role read,
+  hand-applied migrations), reference (architecture-overview, security-audit-open-items), OQ-001..004.
+- `.claude/` engine is git-ignored (local-only, protects a plaintext token in `settings.local.json`).
+  Added `kit-doctor`/`kit-upgrade` skills + `dispatch-gate` hook; fixed a space-in-path bug in the
+  index-lint.
 
 ## What this means for next steps
-<The concrete next action, and why. Should agree with `work-plan.md` §Immediate next — if they
-disagree, `now/*` wins and this line is the tiebreaker for "today".>
+Review + merge PR #267 to persist the store to `staging`. Going forward: `/orient` to start a session,
+`/handoff` to end one. The audit items (OQ-001..003) are operator actions, not code changes.

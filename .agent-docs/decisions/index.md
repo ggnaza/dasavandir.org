@@ -35,11 +35,11 @@ here carry the claim-as-carry-away **plus status**. Route by status first (don't
 
 ## Decisions (route by status, then topic)
 
-<!-- EXAMPLE (delete this block on the first real ADR):
-- ⭐ `0001-example-decision.md` — **Open when:** "why did we choose <X> over <Y>?" **Carry-away:**
-  <the one-sentence decision + the load-bearing reason>; alternatives <A/B/C> rejected in-ADR.
-  *(status: proposed.)*
--->
+- ⭐ `0001-role-to-course-access-via-three-link-tables.md` — **Open when:** "why not one shared
+  enrollments table for all roles?" or adding/editing any code that attaches a user to a course.
+  **Carry-away:** each role links through its own table (`course_creator_access` /
+  `course_manager_access` / `enrollments`); a shared table breaks role visibility *silently*.
+  *(status: accepted.)*
 
 ## Maintenance
 

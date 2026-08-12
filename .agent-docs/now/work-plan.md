@@ -1,35 +1,32 @@
 ---
-provenance: kit-template
+provenance: llm-reviewed
 created: 2026-07-03
-last-modified: 2026-07-03
+last-modified: 2026-08-12
 tags: [current, work-plan, decisions]
 related: [status, open-questions]
 ---
 
 # Work plan — dasavandir.org
 
-<!-- The plan + the locked decisions + the immediate next action. UPDATE-IN-PLACE as work progresses.
-     The board/backlog/completed split is optional; keep whatever shape stays true with least effort. -->
-
 ## The plan (phases / milestones)
-<The current phases or milestones, each with a one-line state (done / in progress / not started). Keep
-it coarse — this is the map, not the turn-by-turn.>
+- Fieldbook context store: **install + backfill** — done this session (PR #267 pending merge).
+- Creator timetable (weekly tabs + time ripple) — shipped (commit 614abc3); feature branch
+  `feat/timetable-week-view` in flight.
+- Security audit follow-through (2026-07) — open, operator-owned (OQ-001..003).
 
 ## Locked decisions (this cycle)
-<The decisions that are settled and should NOT be re-litigated without an ADR. One line each; link the
-`ADR-NNNN` that owns each where one exists.>
+- Role→course access uses three role-specific link tables, never one shared table — `ADR-0001`.
+- Only the `.agent-docs/` memory is git-tracked; the `.claude/` engine stays local (protects a token).
+- Fieldbook changes ship on their own branch/PR, separate from feature work.
 
 ## Immediate next
-> **🎯 CURRENT — <WU-NNNN>: <one-line objective>.** <The next concrete step, actionable cold; the
-> acceptance bar; the do-NOT (e.g. do not push without an explicit go). Link the plan/build doc that
-> carries the detail.>
+> **🎯 CURRENT — WU-0001: install + backfill the Fieldbook context store.** Remaining step: review +
+> merge PR #267 → `staging` to persist the store. Do NOT force-add `.claude/` (contains a secret).
+> Going forward, run `/orient` at session start and `/handoff` at session end.
 
 ## Work-unit spine
-<One row per active/queued work-unit. A `WU` is done only when it is WIRED (reachable from a production
-entrypoint) or has a recorded `DEFER` — not merely test-green.>
 
 | WU | Objective | Depends | Status |
 |---|---|---|---|
-<!-- EXAMPLE row (replace with real work):
-| WU-0001 | <one-line objective> | — | proposed |
--->
+| WU-0001 | Install + backfill the Fieldbook context/memory store | — | active (PR #267 open) |
+| WU-0002 | Creator timetable: weekly tabs + time ripple | — | done (614abc3) |

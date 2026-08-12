@@ -54,10 +54,13 @@ re-verified) · Last-verified (facts drift — date the check) · See also.
   **Carry-away:** an instrument that looks the same broken or clean has produced an artifact, not an
   observation — and a canary proves the instrument FIRES, never that it fires on the right proposition.
 
-<!-- EXAMPLE (delete this block on the first real project-authored reference doc):
-- `architecture-overview.md` — **Open when:** you need the big-picture shape before changing a
-  subsystem. **Carry-away:** <the one-sentence fact this doc anchors>. (Verified <date>.)
--->
+### Project reference (dasavandir.org)
+- ⭐ `architecture-overview.md` — **Open when:** you need the big-picture shape before changing a
+  subsystem. **Carry-away:** bilingual LMS on Next.js/Vercel + Supabase (Postgres/RLS); four roles;
+  fragile auth trigger; hand-applied migrations; staging→main ship flow. (Verified 2026-08-12.)
+- `security-audit-2026-07-open-items.md` — **Open when:** prioritizing security work or checking an
+  audit item's status. **Carry-away:** one 🔴 critical (leaked service-role key → rotate, OQ-001)
+  plus HIGH/MED items; full evidence in `AUDIT_REPORT.md`.
 
 ## Maintenance
 

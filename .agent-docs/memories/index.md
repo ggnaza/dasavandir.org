@@ -30,10 +30,19 @@ anti-actions) · See also (related docs, upstream issues, commit refs).
 
 ## Memories
 
-<!-- EXAMPLE (delete this block on the first real memory):
-- `example-surprising-behavior-because-cause.md` — **Open when:** <the situation where this gotcha
-  bites>. **Carry-away:** <the claim in one sentence + the specific anti-action>. (Surfaced <where>.)
--->
+### Auth / Supabase (production-critical)
+- `auth-trigger-must-swallow-errors.md` — **Open when:** editing `handle_new_user()`, `profiles`
+  columns, or debugging "Database error saving new user" / broken Google SSO. **Carry-away:** the
+  trigger must wrap its body in `EXCEPTION WHEN OTHERS` or it takes out BOTH email signup and SSO;
+  never read `role` from signup metadata.
+- `current-user-role-read-needs-admin-client.md` — **Open when:** reading the logged-in user's own
+  role server-side, or roles "appear as learner" in the nav. **Carry-away:** RLS on `profiles` means
+  use `createAdminClient()` (service role), never the user-auth client.
+
+### Database / operations
+- `migrations-applied-by-hand.md` — **Open when:** anything needs doing in Supabase, or writing a
+  migration. **Carry-away:** no auto-runner — migrations are idempotent and pasted by the operator;
+  hand over ONE exact paste-ready block generated from the committed file, never a lookalike summary.
 
 ## Maintenance
 
