@@ -1,3 +1,9 @@
+-- ⚠️ SUPERSEDED by consolidate_handle_new_user.sql — that file is the canonical
+--    trigger. This file has been DEFUSED (below) but do not treat it as the
+--    source of truth. Historically it (a) read role from raw_user_meta_data
+--    (privilege escalation) and (b) lacked an outer EXCEPTION handler. Both are
+--    now fixed here so a stray re-paste is harmless.
+--
 -- Run once in Supabase → SQL Editor
 
 -- 1. Make email nullable (in case it was added as NOT NULL without a default)
@@ -20,23 +26,31 @@ DECLARE
 BEGIN
   -- If another profile already exists with this email (e.g. prior email/password signup),
   -- inherit that role so OAuth logins don't lose admin/creator privileges.
-  SELECT role INTO v_existing_role
-  FROM profiles
-  WHERE email = NEW.email
-  LIMIT 1;
+  BEGIN
+    SELECT role INTO v_existing_role
+    FROM profiles
+    WHERE email = NEW.email
+    LIMIT 1;
+  EXCEPTION WHEN OTHERS THEN
+    v_existing_role := NULL;
+  END;
 
   INSERT INTO profiles (id, full_name, email, role, status)
   VALUES (
     NEW.id,
     COALESCE(NEW.raw_user_meta_data->>'full_name', NEW.raw_user_meta_data->>'name'),
     NEW.email,
-    COALESCE(v_existing_role, NEW.raw_user_meta_data->>'role', 'learner'),
+    COALESCE(v_existing_role, 'learner'),   -- NEVER raw_user_meta_data->>'role' (privilege-escalation guard)
     'active'
   )
   ON CONFLICT (id) DO UPDATE
     SET email = EXCLUDED.email,
         full_name = COALESCE(EXCLUDED.full_name, profiles.full_name);
 
+  RETURN NEW;
+EXCEPTION WHEN OTHERS THEN
+  RAISE WARNING '[handle_new_user] profile insert failed for user % (%): %',
+    NEW.id, NEW.email, SQLERRM;
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
