@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { staffCanAccessLearner } from "@/lib/auth/learner-access";
 import { z } from "zod";
 
 const schema = z.object({
@@ -23,16 +24,10 @@ export async function PATCH(req: Request) {
 
   const { userId, salesforce_url } = parsed.data;
 
-  // course_manager must be assigned to this learner in at least one course
-  if (profile?.role === "course_manager") {
-    const { data: assignment } = await admin
-      .from("moderator_cohort_assignments")
-      .select("id")
-      .eq("moderator_id", user.id)
-      .eq("learner_id", userId)
-      .maybeSingle();
-    if (!assignment) return new Response("Forbidden — not your cohort", { status: 403 });
-  }
+  // Staff may only edit a learner they share a course/cohort with (admins: any;
+  // managers: their cohort; creators: learners enrolled in one of their courses).
+  const canAccess = await staffCanAccessLearner(admin, user.id, profile?.role ?? "", userId);
+  if (!canAccess) return new Response("Forbidden — not your learner", { status: 403 });
 
   const { error } = await admin
     .from("profiles")

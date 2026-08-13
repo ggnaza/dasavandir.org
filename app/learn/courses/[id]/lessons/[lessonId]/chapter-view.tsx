@@ -1,5 +1,6 @@
 "use client";
 import { useState, useRef, useEffect } from "react";
+import { MediaWatermark } from "@/components/media-watermark";
 
 type Question = { question: string; options: string[]; correct: number };
 type Chapter = { id: string; title: string; start: number; end: number; questions?: Question[] };
@@ -101,7 +102,7 @@ function InlineQuiz({
 
 // ─── Native video player with chapter seek (self-hosted) ─────────────────────
 
-function NativeVideoChapters({ chapters, videoUrl }: { chapters: Chapter[]; videoUrl: string }) {
+function NativeVideoChapters({ chapters, videoUrl, watermark }: { chapters: Chapter[]; videoUrl: string; watermark?: string }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [activeChapter, setActiveChapter] = useState(0);
   const [quizChapter, setQuizChapter] = useState<number | null>(null);
@@ -149,8 +150,17 @@ function NativeVideoChapters({ chapters, videoUrl }: { chapters: Chapter[]; vide
 
   return (
     <div className="space-y-4 mb-6">
-      <div className="aspect-video rounded-xl overflow-hidden bg-black">
-        <video ref={videoRef} src={videoUrl} controls className="w-full h-full" controlsList="nodownload" />
+      <div className="relative aspect-video rounded-xl overflow-hidden bg-black">
+        <video
+          ref={videoRef}
+          src={videoUrl}
+          controls
+          className="w-full h-full"
+          controlsList="nodownload noplaybackrate"
+          disablePictureInPicture
+          onContextMenu={(e) => e.preventDefault()}
+        />
+        {watermark && <MediaWatermark label={watermark} />}
       </div>
 
       <div className="flex gap-2 flex-wrap">
@@ -236,11 +246,13 @@ export function ChapterView({
   chapters,
   videoUrl,
   isStorageVideo,
+  watermark,
 }: {
   chapters: Chapter[];
   videoUrl: string;
   isStorageVideo?: boolean;
+  watermark?: string;
 }) {
-  if (isStorageVideo) return <NativeVideoChapters chapters={chapters} videoUrl={videoUrl} />;
+  if (isStorageVideo) return <NativeVideoChapters chapters={chapters} videoUrl={videoUrl} watermark={watermark} />;
   return <IframeChapters chapters={chapters} videoUrl={videoUrl} />;
 }

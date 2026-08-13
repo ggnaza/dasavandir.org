@@ -11,6 +11,7 @@ import { VideoTracker } from "./video-tracker";
 import { ChapterView } from "./chapter-view";
 import { SlideAudioPlayer } from "./slide-audio-player";
 import { PdfViewer } from "@/components/pdf-viewer";
+import { MediaWatermark } from "@/components/media-watermark";
 
 function getLinkIcon(url: string): string {
   if (url.includes("docs.google.com/spreadsheets")) return "📊";
@@ -271,6 +272,10 @@ export default async function LessonPage({
   const embedUrl = !isStorageVideo && lesson.video_url ? getEmbedUrl(lesson.video_url) : null;
   const slidesEmbedUrl = lesson.slides_url ? getSlidesEmbedUrl(lesson.slides_url) : null;
 
+  // Identity stamped over hosted media (video + slides) — a leak-tracing deterrent,
+  // not copy prevention. Email is the most recognisable per-learner identifier.
+  const watermarkLabel = user?.email ?? user?.id ?? "";
+
   // If document_url is a Supabase storage file (lesson-documents bucket is private),
   // generate a signed URL so the learner's browser can load it in the iframe.
   let resolvedDocumentUrl = lesson.document_url ?? null;
@@ -339,7 +344,7 @@ export default async function LessonPage({
         <h1 className="text-xl sm:text-2xl font-bold mt-2 mb-6">{lesson.title}</h1>
 
         {resolvedVideoUrl && lesson.chapters?.length > 0 ? (
-          <ChapterView chapters={lesson.chapters} videoUrl={resolvedVideoUrl} isStorageVideo={isStorageVideo} />
+          <ChapterView chapters={lesson.chapters} videoUrl={resolvedVideoUrl} isStorageVideo={isStorageVideo} watermark={isStorageVideo ? watermarkLabel : undefined} />
         ) : isStorageVideo && resolvedVideoUrl ? (
           <VideoTracker
             embedUrl={resolvedVideoUrl}
@@ -348,6 +353,7 @@ export default async function LessonPage({
             lessonId={params.lessonId}
             userId={user!.id}
             isCompleted={isCompleted}
+            watermark={watermarkLabel}
           />
         ) : embedUrl && (
           <VideoTracker
@@ -361,8 +367,9 @@ export default async function LessonPage({
         )}
 
         {slidesEmbedUrl && (
-          <div className="mb-6 rounded-xl overflow-hidden border" style={{ aspectRatio: "16/9" }}>
+          <div className="relative mb-6 rounded-xl overflow-hidden border" style={{ aspectRatio: "16/9" }}>
             <iframe src={slidesEmbedUrl} className="w-full h-full" allowFullScreen allow="autoplay" />
+            {watermarkLabel && <MediaWatermark label={watermarkLabel} />}
           </div>
         )}
 
@@ -385,7 +392,7 @@ export default async function LessonPage({
             <span className="text-xl shrink-0">🎧</span>
             <div className="flex-1 min-w-0">
               <p className="text-xs font-medium text-gray-500 mb-1.5">Listen to this lesson</p>
-              <audio controls className="w-full h-9" src={lesson.audio_url} />
+              <audio controls controlsList="nodownload" className="w-full h-9" src={lesson.audio_url} />
             </div>
           </div>
         ) : null}

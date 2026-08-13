@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createNotification } from "@/lib/notifications";
 import { sendDirectMessageEmail } from "@/lib/email";
+import { staffCanAccessLearner } from "@/lib/auth/learner-access";
 import { z } from "zod";
 
 const schema = z.object({
@@ -32,16 +33,10 @@ export async function POST(req: Request) {
   if (!parsed.success) return new Response("Invalid input", { status: 400 });
   const { userId, subject, message } = parsed.data;
 
-  // course_manager: can only message learners in their assigned cohort
-  if (senderProfile.role === "course_manager") {
-    const { data: cohort } = await admin
-      .from("moderator_cohort_assignments")
-      .select("learner_id")
-      .eq("moderator_id", user.id)
-      .eq("learner_id", userId)
-      .maybeSingle();
-    if (!cohort) return new Response("Forbidden — learner not in your cohort", { status: 403 });
-  }
+  // Staff may only message a learner they share a course/cohort with (admins: any;
+  // managers: their cohort; creators: learners enrolled in one of their courses).
+  const canAccess = await staffCanAccessLearner(admin, user.id, senderProfile.role, userId);
+  if (!canAccess) return new Response("Forbidden — learner not in your courses", { status: 403 });
 
   // Load learner profile
   const { data: learner } = await admin
