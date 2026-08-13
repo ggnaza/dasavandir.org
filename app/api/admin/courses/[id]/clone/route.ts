@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { assertCourseOwner } from "@/lib/assert-course-owner";
 
 const EDITOR_ROLES = ["admin", "course_creator", "course_manager"];
 
@@ -13,6 +14,13 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   if (!EDITOR_ROLES.includes(profile?.role ?? "")) return new Response("Forbidden", { status: 403 });
 
   const sourceId = params.id;
+
+  // You may only clone a course you actually have access to: admins can clone any
+  // course; a creator/manager can clone only their own linked courses. Without this,
+  // any editor could clone (and thereby read the full content of) another creator's
+  // course by guessing its id.
+  const ownerErr = await assertCourseOwner(sourceId, user.id);
+  if (ownerErr) return ownerErr;
 
   // Fetch source course
   const { data: source, error: sourceError } = await admin
