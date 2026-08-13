@@ -1,7 +1,7 @@
 ---
 provenance: llm-reviewed
 created: 2026-07-03
-last-modified: 2026-08-12
+last-modified: 2026-08-13
 tags: [current, work-plan, decisions]
 related: [status, open-questions]
 ---
@@ -24,10 +24,14 @@ related: [status, open-questions]
 - Asana Build Agent (`build-agent.yml`) is OFF — `memories/asana-build-agent-is-disabled.md`.
 
 ## Immediate next
-> **🎯 No blocking work-unit in flight.** WU-0001 is done. Optional next actions are operator's call:
-> (a) wire an AI PR-review agent (OQ-006), (b) investigate Build Agent failures IF re-enabling (OQ-005),
-> (c) codify the Build Agent OFF state in `build-agent.yml` via PR. Do NOT push to `main` without an
-> explicit go. `.agent-docs/` edits on this feature branch are untracked until `main` flows back.
+> **🎯 No blocking work-unit in flight.** WU-0004 (course phases) shipped to prod (`main` #273/#274) and
+> staging (#272); migration applied to prod; TLA/Regional lessons tagged. Operator is mid-setup on prod:
+> granting `course_manager_access` to new Regional moderators → assigning them to Regional groups →
+> adding learners (now via the multi-select picker). **Possible follow-ups (operator's call):**
+> (a) a **"move learner between groups within a phase"** control (offered, not built — currently
+> remove-then-re-add); (b) **OQ-008** reconcile schema drift + applied-migrations ledger (this session
+> proved staging lacks the whole groups feature); (c) **OQ-007 stage 3** RLS hardening. Do NOT push to
+> `main` without an explicit go (operator authorised the prod path for phases this session).
 
 ## Work-unit spine
 
@@ -35,3 +39,5 @@ related: [status, open-questions]
 |---|---|---|---|
 | WU-0001 | Install + backfill the Fieldbook context/memory store | — | ✅ done (#267, #268 merged) |
 | WU-0002 | Creator timetable: weekly tabs + time ripple | — | done (614abc3) |
+| WU-0003 | RLS recursion + auth trigger / policy hardening | — | ✅ done — recursion fix applied to staging + prod (verified live), files on `main` (PR #271). Stage-3 remainder deferred (OQ-007). ADR-0002 accepted. |
+| WU-0004 | Course phases (TLA → Regional Orientation) — per-phase groups, phase-tagged lessons, phase-scoped review + notifications, hide timetable | — | ✅ done — shipped to prod (`main` #273 + #274) + staging (#272); prod migration applied; TLA lessons tagged. ADR-0003 accepted (on `origin/main`, not this local branch). |
