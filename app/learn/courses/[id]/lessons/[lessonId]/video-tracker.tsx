@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { MediaWatermark } from "@/components/media-watermark";
 
 declare global {
   interface Window {
@@ -16,9 +17,11 @@ type Props = {
   lessonId: string;
   userId: string;
   isCompleted: boolean;
+  /** Identity label stamped over hosted video as a leak-tracing deterrent. */
+  watermark?: string;
 };
 
-export function VideoTracker({ embedUrl, isYouTube, isStorageVideo, lessonId, userId, isCompleted }: Props) {
+export function VideoTracker({ embedUrl, isYouTube, isStorageVideo, lessonId, userId, isCompleted, watermark }: Props) {
   const playerRef = useRef<any>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -111,14 +114,17 @@ export function VideoTracker({ embedUrl, isYouTube, isStorageVideo, lessonId, us
   if (isStorageVideo) {
     return (
       <div className="mb-6">
-        <div className="aspect-video rounded-xl overflow-hidden bg-black">
+        <div className="relative aspect-video rounded-xl overflow-hidden bg-black">
           <video
             ref={videoRef}
             src={embedUrl}
             controls
             className="w-full h-full"
-            controlsList="nodownload"
+            controlsList="nodownload noplaybackrate"
+            disablePictureInPicture
+            onContextMenu={(e) => e.preventDefault()}
           />
+          {watermark && <MediaWatermark label={watermark} />}
         </div>
         {marked && !isCompleted && (
           <p className="text-xs text-green-600 mt-1">✓ Lesson marked complete — you watched over 50%</p>
