@@ -1,7 +1,7 @@
 ---
 provenance: kit-template
 created: 2026-07-03
-last-modified: 2026-07-09
+last-modified: 2026-08-13
 tags: [meta, index, routing, lessons]
 related: [CONVENTIONS]
 ---
@@ -53,6 +53,21 @@ cost-of-recurrence can justify promotion on first sighting — it need not wait 
   vanish after switching back from a branch you committed them onto. **Carry-away:** that's normal
   (tracked-there, absent-here); restore with `git restore --source=<branch> --worktree -- <path>`.
   *(seedling · low · action.)*
+- `verify-live-pg-policies-before-policy-migration.md` (LP-003) — **Open when:** writing/applying ANY
+  migration to a hand-applied Supabase DB (RLS/policy/trigger OR a plain `ALTER`/FK), or "same fix, now
+  on prod." **Carry-away:** the repo's `migrations/` ≠ live and staging ≠ prod; verify the live schema per
+  target FIRST — a `DROP POLICY IF EXISTS "<name>"` silently no-ops if the live name differs, AND an env
+  may be missing whole tables/features (`42P01`) — check `information_schema.tables` before referencing
+  them. *(seedling · high · action; broadened 2026-08-13 from policies to any migration.)*
+- `check-branch-base-against-pr-target.md` (LP-004) — **Open when:** about to `gh pr create` / push a
+  branch for review. **Carry-away:** run `git log <target>..HEAD` first; a branch cut from a feature
+  branch drags that feature in — isolate onto a target-based branch (a worktree off `origin/<target>`
+  also sidesteps untracked-dir checkout collisions). *(seedling · medium · action.)*
+- `client-usestate-not-reset-on-router-refresh.md` (LP-005) — **Open when:** editing a Next.js App Router
+  client component that seeds `useState` from a prop and calls `router.refresh()` after a mutation.
+  **Carry-away:** `useState` is NOT re-initialised when refresh passes new props — derive an *effective*
+  value from props with a fallback (`items.some(i=>i.id===sel)?sel:items[0]?.id`) and keep state only for
+  the explicit override; or `key` the component to force remount. *(seedling · medium · action.)*
 
 ## Maintenance
 
