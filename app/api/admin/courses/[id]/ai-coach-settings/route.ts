@@ -2,7 +2,10 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { z } from "zod";
 
-const EDITOR_ROLES = ["admin", "course_creator", "course_manager"];
+// AI-coach instructions are a creator-level control: only admins and the course's
+// own creators may read/write them. course_managers (moderators) are intentionally
+// excluded — they run cohorts, they don't tune the course's AI behaviour.
+const CREATOR_ROLES = ["admin", "course_creator"];
 
 async function authorize(courseId: string) {
   const supabase = createClient();
@@ -11,11 +14,11 @@ async function authorize(courseId: string) {
 
   const admin = createAdminClient();
   const { data: profile } = await admin.from("profiles").select("role").eq("id", user.id).single();
-  if (!EDITOR_ROLES.includes(profile?.role ?? "")) {
+  if (!CREATOR_ROLES.includes(profile?.role ?? "")) {
     return { error: new Response("Forbidden", { status: 403 }) };
   }
 
-  // course_creators must have access to this course
+  // course_creators must have access to this specific course
   if (profile?.role === "course_creator") {
     const { data: access } = await admin
       .from("course_creator_access")
