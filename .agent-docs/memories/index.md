@@ -38,6 +38,11 @@ anti-actions) · See also (related docs, upstream issues, commit refs).
 - `current-user-role-read-needs-admin-client.md` — **Open when:** reading the logged-in user's own
   role server-side, or roles "appear as learner" in the nav. **Carry-away:** RLS on `profiles` means
   use `createAdminClient()` (service role), never the user-auth client.
+- `rls-policies-recurse-through-profiles.md` — **Open when:** hitting `42P17` recursion, adding an RLS
+  policy that resolves a role, or asking why the app reads everything via the service-role client.
+  **Carry-away:** policies on/through `profiles` self-recurse (staging-setup.sql:452 + 3 admin
+  back-edges); the authenticated-role RLS layer is inert. Fix = `SECURITY DEFINER is_admin()`
+  (ADR-0002). Prod was bootstrapped from `staging-setup.sql`, which diverges from `migrations/`.
 
 ### Database / operations
 - `migrations-applied-by-hand.md` — **Open when:** anything needs doing in Supabase, or writing a

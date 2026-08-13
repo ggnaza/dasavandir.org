@@ -18,6 +18,83 @@ tags: [log, journal]
 
      A rejected lesson proposal logs its one-line reason here (see now/lessons/proposals.md). -->
 
+## 2026-08-13 lesson | LP-005 accepted; LP-003 broadened
+
+LP-005 (medium) — a Next App Router client component's `useState` is NOT reset when `router.refresh()`
+passes new props; derive an effective value from props with a fallback. Promoted to
+`lessons/client-usestate-not-reset-on-router-refresh.md`. LP-003 broadened from "verify live pg_policies
+before a policy migration" to "verify the live schema (policy names AND table existence) before ANY
+migration" — evidence: the `42P01 course_groups does not exist` staging failure (staging lacks the whole
+groups feature). Proposals drained; lessons/index.md updated.
+
+## 2026-08-13 handoff | WU-0004 course phases (TLA → Regional Orientation) shipped to prod
+
+Designed + shipped course phases (ADR-0003): a course runs ordered phases via a `course_phases` table +
+nullable `lessons.phase_id` / `course_groups.phase_id`; one group per learner per (course, phase);
+moderator submissions queue scoped to their phase(s) with untagged-lessons-visible-to-all; reviewer
+attribution + submit-email + cron routed by the assignment lesson's phase; groups UI phase tabs + phases
+CRUD; lesson editor phase dropdown; timetable nav hidden. Shipped to staging (#272) then prod via a
+clean cherry-pick onto main (#273); operator applied `course_phases.sql` to prod, seeded TLA phases,
+moved existing groups to the TLA phase, tagged the 9 `ՏԿ | ԻՈՒ` lessons Regional Orientation. Follow-up:
+multi-select add-members (#274). Surfaced: staging lacks the entire groups feature (OQ-008 sharpened);
+new OQ-009 (move-learner-between-groups control) + OQ-010 (timetable hard-gate). Gate = `tsc --noEmit`
+(no eslint/prettier in repo). Local tree still on the stale `fix/rls-*` branch; ADR-0003 lives on
+`origin/main`, not this local branch.
+
+decision | 2026-08-13 | Course phases modelled inside ONE course (not a separate course, not a bare
+smallint) — a `course_phases` table homes per-course phase names; a course with no phase rows behaves
+exactly as today. Operator dropped phase-privacy then chose it back (Option 2: queue scoped per phase).
+ADR-0003 (on origin/main).
+
+decision | 2026-08-13 | Phases feature shipped straight to PROD (not staging-first) because staging is
+missing the entire groups feature — the operator authorised the prod path.
+
+## 2026-08-13 lesson | LP-003 + LP-004 accepted (promoted to lessons/)
+
+LP-003 (high) — verify live pg_policies per-env before a policy migration on a hand-applied schema
+(repo ≠ live, staging ≠ prod; DROP-by-name silently no-ops on a name mismatch). LP-004 (medium) — check
+`git log <target>..HEAD` before a PR so a feature-based branch doesn't drag its feature in. Both seedling,
+llm-reviewed. Indexed in lessons/index.md; proposals drained.
+
+## 2026-08-13 handoff | WU-0003 RLS recursion fix shipped (staging+prod+main); stage-3 deferred
+
+Fix live on staging + prod (verified against live pg_policies), files on `main` via PR #271 (`8a7f755`)
+on a clean main-based branch `fix/rls-recursion-prod` (worktree — avoided bundling the timetable branch).
+No app code / no deploy. ADR-0002 accepted; memory + OQ-007/008 filed. Deferred: OQ-007 stage 3 (helper
+conversion / make RLS load-bearing), OQ-008 (schema-drift ledger). Working tree still on the timetable-
+based `fix/rls-recursion-and-auth-hardening` with uncommitted `.agent-docs/` store edits.
+
+## 2026-08-13 | WU-0003 apply — RLS recursion fix live on staging + production
+
+Verified (read-only pg_policies) then applied `is_admin()` + the 4 back-edge rewrites. STAGING:
+applied, validated in-app (admin/creator/learner + Kaits course-settings save). PROD: verified first
+and caught real drift — prod's enrollments back-edge is `"Admins view all enrollments"` (FOR SELECT),
+not staging's `"Admins manage all enrollments"` (FOR ALL); the staging block would have silently missed
+it, so prod got a tailored block. Prod's trigger ALREADY had the email role-inheritance (Option A) → no
+trigger change needed on prod. Prod also MISSING the two manager-visibility policies staging has (noted
+under OQ-008, not recursion). Updated the committed `fix_rls_recursion.sql` to the prod-accurate
+enrollments name (drops both). ADR-0002 → accepted. NEXT: prod in-app smoke check, then commit + PR the
+files to main. Stage 3 (full helper conversion / make-RLS-load-bearing) deferred by decision (OQ-007).
+
+## 2026-08-12 | WU-0003 RLS/auth review — found + fixed the profiles recursion, trigger drift, policy syntax bug
+
+Full read of all 48 migrations + `staging-setup.sql`/`schema.sql` + auth code. Findings: (F1, 🔴) the
+authenticated-role RLS layer recurses (42P17) through `profiles` — the live bootstrap
+`staging-setup.sql:452` has a policy ON profiles that reads profiles, plus 3 admin back-edges
+(enrollments/cca/cma); the app survives only on the service-role client → no defense-in-depth. This is
+the Kaits (#261) "profiles RLS recursion" and was previously tracked but lost in an OQ renumber. (F2,
+🔴 landmine) FIVE divergent `handle_new_user()` bodies; 2 violate CLAUDE.md — `fix_profile_trigger.sql`
+read role from signup metadata (privilege escalation) + no outer EXCEPTION, `security_fixes.sql` C-2 no
+outer EXCEPTION. The LIVE trigger (staging-setup) is the safe one, so this is a re-paste footgun, not an
+active fire. (F3, 🟠) `features_v2.sql` used invalid `CREATE POLICY IF NOT EXISTS`. (F4/OQ-008) three
+divergent schema sources with no applied-migrations ledger. Wrote: `fix_rls_recursion.sql` (is_admin()
+SECURITY DEFINER + rewrite the 4 back-edges, semantically identical, idempotent — ADR-0002);
+`consolidate_handle_new_user.sql` (canonical safe trigger); defused `fix_profile_trigger.sql`; fixed the
+`features_v2.sql` syntax. Persisted ADR-0002, memory rls-policies-recurse-through-profiles, OQ-007/OQ-008.
+Branch `fix/rls-recursion-and-auth-hardening`. NEXT: operator runs the read-only verification pack
+(`scratchpad/rls_verification.sql`) against prod, then applies in order with a signup smoke-test. No DB
+change applied yet — Claude cannot run DDL; all applies are operator-gated.
+
 ## 2026-08-12 | WU-0001 backfill — seed the store with real project history
 
 ingest + decision + memory. Backfilled the freshly-restored store from durable sources (`CLAUDE.md`,

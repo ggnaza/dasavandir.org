@@ -20,7 +20,9 @@ human-gated.
 
 ## Staged candidates
 
-_(none — LP-001 and LP-002 accepted + promoted to `../../lessons/` on 2026-08-12.)_
+_(none — 2026-08-13: LP-005 accepted + promoted to `../../lessons/client-usestate-not-reset-on-router-refresh.md`;
+the "LP-006" proposal was accepted AS a sharpening of the existing LP-003, not a new lesson — LP-003
+broadened from policies to any migration + table existence.)_
 
 ## Lifecycle
 

@@ -1,7 +1,7 @@
 ---
 provenance: kit-template
 created: 2026-07-03
-last-modified: 2026-07-03
+last-modified: 2026-08-13
 tags: [meta, index, routing, decisions]
 related: [CONVENTIONS]
 ---
@@ -40,6 +40,12 @@ here carry the claim-as-carry-away **plus status**. Route by status first (don't
   **Carry-away:** each role links through its own table (`course_creator_access` /
   `course_manager_access` / `enrollments`); a shared table breaks role visibility *silently*.
   *(status: accepted.)*
+
+- `0002-break-rls-recursion-with-security-definer-is-admin.md` — **Open when:** touching any RLS policy
+  that resolves a role, hitting `42P17` recursion, or wondering why the app reads everything via the
+  service-role client. **Carry-away:** break RLS recursion with a `SECURITY DEFINER` `is_admin()`
+  helper and rewrite only the 4 back-edge policies (semantically identical) — do NOT rewrite the whole
+  policy graph on a live DB. *(status: accepted — applied to staging + prod, verified live.)*
 
 - ⭐ `0003-course-phases-within-a-single-course.md` — **Open when:** working on TLA phases, group
   phase-scoping, the phased submissions queue, phase-aware reviewer routing, or "why not a separate
