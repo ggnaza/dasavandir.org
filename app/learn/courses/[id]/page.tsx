@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { checkCourseAccess } from "@/lib/assert-course-owner";
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { ModuleAccordion } from "./module-accordion";
@@ -62,7 +63,12 @@ export default async function LearnCoursePage({ params }: { params: { id: string
     .eq("course_id", params.id)
     .single();
 
-  if (!enrollment) {
+  // Staff (course managers/creators/admins with access to this course) may view
+  // the course without an enrollment — this removes the need to enroll them as
+  // learners, which was skewing course-progress stats.
+  const isStaff = (await checkCourseAccess(params.id, user!.id)) === "ok";
+
+  if (!enrollment && !isStaff) {
     const hasProgress = (progress ?? []).some((p) =>
       (lessons ?? []).some((l) => l.id === p.lesson_id)
     );

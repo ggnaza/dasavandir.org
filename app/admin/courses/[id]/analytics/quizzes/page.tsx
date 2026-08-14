@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 import { assertCoursePageAccess } from "@/lib/assert-course-page-access";
 import { getModeratorCohort } from "@/lib/get-moderator-cohort";
+import { filterLearnerIds } from "@/lib/filter-learner-ids";
 import { QuizAnalysisSection } from "../quiz-analysis";
 import type { QuizStat, AtRiskLearner } from "../quiz-analysis";
 
@@ -42,9 +43,13 @@ export default async function QuizzesPage({ params }: { params: { id: string } }
       : Promise.resolve({ data: [] }),
   ]);
 
-  const enrollments = cohortIds !== null
+  const cohortEnrollments = cohortIds !== null
     ? (allEnrollments ?? []).filter((e) => cohortIds.includes(e.user_id))
     : (allEnrollments ?? []);
+
+  // Exclude staff (moderators/creators/admins) — see lib/filter-learner-ids.ts.
+  const learnerSet = await filterLearnerIds(cohortEnrollments.map((e) => e.user_id));
+  const enrollments = cohortEnrollments.filter((e) => learnerSet.has(e.user_id));
   const userIds = enrollments.map((e) => e.user_id);
   const quizIds = (quizzes ?? []).map((q) => q.id);
 

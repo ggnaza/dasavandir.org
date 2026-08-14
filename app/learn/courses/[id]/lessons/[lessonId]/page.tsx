@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { checkCourseAccess } from "@/lib/assert-course-owner";
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { MarkCompleteButton } from "./mark-complete-button";
@@ -136,9 +137,16 @@ export default async function LessonPage({
 
   if (!lesson) notFound();
 
-  // Resolve effective enrollment — process pending invitations if not yet enrolled
+  // Staff (course managers/creators/admins with access to this course) may view
+  // the learner experience without being enrolled — enrolling them as learners
+  // is what was skewing course-progress stats. Access is checked against the
+  // same course_manager_access / course_creator_access model as the admin side.
+  const isStaff = (await checkCourseAccess(params.id, user!.id)) === "ok";
+
+  // Resolve effective enrollment — process pending invitations if not yet enrolled.
+  // Skipped entirely for staff, who view without an enrollment row.
   let effectiveEnrollment = enrollment;
-  if (!effectiveEnrollment) {
+  if (!effectiveEnrollment && !isStaff) {
     const userEmail = user!.email?.toLowerCase();
     if (userEmail) {
       const { data: pendingInvites } = await admin
@@ -250,8 +258,9 @@ export default async function LessonPage({
   const prevLesson = lessons?.[currentIndex - 1];
   const nextLesson = lessons?.[currentIndex + 1];
 
-  // Sequential gate: if not shuffled, block access if any prior lesson is incomplete
-  if (!allowShuffled && currentIndex > 0) {
+  // Sequential gate: if not shuffled, block access if any prior lesson is incomplete.
+  // Staff preview any lesson freely — they have no progress rows to satisfy the gate.
+  if (!allowShuffled && currentIndex > 0 && !isStaff) {
     const prevLessons = (lessons ?? []).slice(0, currentIndex);
     const firstIncomplete = prevLessons.find((l) => !completedIds.has(l.id));
     if (firstIncomplete) {
