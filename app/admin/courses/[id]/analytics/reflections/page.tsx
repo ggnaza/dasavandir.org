@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 import { assertCoursePageAccess } from "@/lib/assert-course-page-access";
 import { getModeratorCohort } from "@/lib/get-moderator-cohort";
+import { filterLearnerIds } from "@/lib/filter-learner-ids";
 
 export const dynamic = "force-dynamic";
 
@@ -34,9 +35,16 @@ export default async function ReflectionsPage({ params }: { params: { id: string
     .order("created_at", { ascending: false });
 
   // Scope moderators to their cohort.
-  const visibleReflections = cohortIds !== null
+  const cohortReflections = cohortIds !== null
     ? (reflections ?? []).filter((r) => cohortIds.includes(r.user_id))
     : (reflections ?? []);
+
+  // Exclude staff (moderators/creators/admins) — a promoted learner's own
+  // reflections should not surface as learner data. See lib/filter-learner-ids.ts.
+  const learnerSet = await filterLearnerIds(
+    Array.from(new Set(cohortReflections.map((r) => r.user_id)))
+  );
+  const visibleReflections = cohortReflections.filter((r) => learnerSet.has(r.user_id));
 
   const userIds = Array.from(new Set(visibleReflections.map((r) => r.user_id)));
   const { data: profiles } = userIds.length > 0

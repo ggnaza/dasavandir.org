@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { checkCourseAccess } from "@/lib/assert-course-owner";
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 
@@ -24,7 +25,9 @@ export default async function DiscussionsPage({ params }: { params: { id: string
     .eq("course_id", params.id)
     .single();
 
-  if (!enrollment) redirect(`/courses/${params.id}`);
+  // Staff (course managers/creators/admins) may view without an enrollment row.
+  const isStaff = (await checkCourseAccess(params.id, user!.id)) === "ok";
+  if (!enrollment && !isStaff) redirect(`/courses/${params.id}`);
 
   const { data: discussions } = await admin
     .from("discussions")

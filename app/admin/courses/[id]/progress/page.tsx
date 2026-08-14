@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 import { assertCoursePageAccess } from "@/lib/assert-course-page-access";
 import { getModeratorCohort } from "@/lib/get-moderator-cohort";
+import { filterLearnerIds } from "@/lib/filter-learner-ids";
 import { clampSessionSeconds } from "@/lib/session-time";
 import { ProgressMatrix, type LessonMeta, type LearnerRow } from "./progress-matrix";
 
@@ -33,9 +34,15 @@ export default async function ProgressPage({ params }: { params: { id: string } 
   // Filter to cohort if the moderator has an explicit cohort; otherwise they see
   // all enrolled learners in their assigned course (course access is the gate,
   // the cohort is an optional narrowing).
-  const enrollments = isCohortLimited
+  const cohortEnrollments = isCohortLimited
     ? (allEnrollments ?? []).filter((e) => cohortIds!.includes(e.user_id))
     : (allEnrollments ?? []);
+
+  // Exclude staff (moderators/creators/admins) from progress stats — a learner
+  // promoted out of the `learner` role must not skew course progress, even if an
+  // enrollment row still exists. See lib/filter-learner-ids.ts.
+  const learnerSet = await filterLearnerIds(cohortEnrollments.map((e) => e.user_id));
+  const enrollments = cohortEnrollments.filter((e) => learnerSet.has(e.user_id));
 
   const userIds = enrollments.map((e) => e.user_id);
   const lessonIds = (lessons ?? []).map((l) => l.id);

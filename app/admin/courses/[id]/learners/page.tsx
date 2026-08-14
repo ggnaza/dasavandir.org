@@ -7,6 +7,7 @@ import { InviteStudentsButton } from "./invite-students-modal";
 import { EnrollLearnersButton } from "./enroll-learners-modal";
 import { CancelInviteButton } from "./cancel-invite-button";
 import { getModeratorCohort } from "@/lib/get-moderator-cohort";
+import { filterLearnerIds } from "@/lib/filter-learner-ids";
 import { clampSessionSeconds } from "@/lib/session-time";
 
 export const dynamic = "force-dynamic";
@@ -49,11 +50,18 @@ export default async function CourseLearnerPage({ params }: { params: { id: stri
   // Filter enrollments to cohort only if the moderator has an explicit cohort.
   // No cohort = see all enrolled learners in the assigned course (course access
   // is the gate; the cohort is an optional narrowing).
-  const enrollments = isCohortLimited
+  const cohortEnrollments = isCohortLimited
     ? (allEnrollments ?? []).filter((e) => cohortIds!.includes(e.user_id))
     : (allEnrollments ?? []);
 
   if (!course) notFound();
+
+  // Exclude staff (moderators/creators/admins) from the learner roster — a
+  // promoted learner is no longer a learner here. The re-enroll picker below
+  // still uses `allEnrollments` so staff are not offered a duplicate enrollment.
+  // See lib/filter-learner-ids.ts.
+  const learnerSet = await filterLearnerIds(cohortEnrollments.map((e) => e.user_id));
+  const enrollments = cohortEnrollments.filter((e) => learnerSet.has(e.user_id));
 
   const userIds = (enrollments ?? []).map((e) => e.user_id);
 

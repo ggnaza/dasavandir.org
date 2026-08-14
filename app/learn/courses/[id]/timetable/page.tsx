@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { checkCourseAccess } from "@/lib/assert-course-owner";
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 
@@ -25,7 +26,9 @@ export default async function LearnTimetablePage({ params }: { params: { id: str
     .eq("user_id", user.id)
     .eq("course_id", params.id)
     .maybeSingle();
-  if (!enrollment) redirect(`/courses/${params.id}`);
+  // Staff (course managers/creators/admins) may view without an enrollment row.
+  const isStaff = (await checkCourseAccess(params.id, user.id)) === "ok";
+  if (!enrollment && !isStaff) redirect(`/courses/${params.id}`);
 
   // Resolve this learner's agenda: the shared base with their group's overrides
   // applied, their group's own additions included, and anything their group hid
