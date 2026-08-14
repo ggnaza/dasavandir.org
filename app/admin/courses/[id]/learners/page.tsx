@@ -32,7 +32,7 @@ export default async function CourseLearnerPage({ params }: { params: { id: stri
     admin.from("lessons").select("id, title, order").eq("course_id", params.id).order("order"),
     admin
       .from("enrollments")
-      .select("user_id, enrolled_at")
+      .select("user_id, enrolled_at, status")
       .eq("course_id", params.id)
       .order("enrolled_at", { ascending: false }),
     viewerRole !== "course_manager"
@@ -109,11 +109,14 @@ export default async function CourseLearnerPage({ params }: { params: { id: stri
     const completedCount = lessonList.filter((l) => completedIds.has(l.id)).length;
     const pct = totalLessons > 0 ? Math.round((completedCount / totalLessons) * 100) : 0;
 
+    const status: "active" | "suspended" = (e as { status?: string }).status === "suspended" ? "suspended" : "active";
+
     return {
       userId: e.user_id,
       name,
       email,
       enrolledAt: e.enrolled_at,
+      status,
       completedCount,
       totalLessons,
       pct,
@@ -123,11 +126,16 @@ export default async function CourseLearnerPage({ params }: { params: { id: stri
     };
   });
 
-  const avgPct = learners.length > 0
-    ? Math.round(learners.reduce((sum, l) => sum + l.pct, 0) / learners.length)
+  // Suspended learners keep their row and history but are excluded from the
+  // headline progress stats so they don't skew averages/completion.
+  const activeLearners = learners.filter((l) => l.status !== "suspended");
+  const suspendedCount = learners.length - activeLearners.length;
+
+  const avgPct = activeLearners.length > 0
+    ? Math.round(activeLearners.reduce((sum, l) => sum + l.pct, 0) / activeLearners.length)
     : 0;
 
-  const completedAll = learners.filter((l) => l.pct === 100).length;
+  const completedAll = activeLearners.filter((l) => l.pct === 100).length;
   const pendingInvites = invitations ?? [];
 
   return (
@@ -162,7 +170,10 @@ export default async function CourseLearnerPage({ params }: { params: { id: stri
       <div className="grid grid-cols-3 gap-4 mb-6">
         <div className="bg-white border rounded-xl p-5">
           <p className="text-sm text-gray-500">Enrolled</p>
-          <p className="text-3xl font-bold mt-1">{learners.length}</p>
+          <p className="text-3xl font-bold mt-1">{activeLearners.length}</p>
+          {suspendedCount > 0 && (
+            <p className="text-xs text-amber-600 mt-1">+{suspendedCount} suspended</p>
+          )}
         </div>
         <div className="bg-white border rounded-xl p-5">
           <p className="text-sm text-gray-500">Avg. progress</p>

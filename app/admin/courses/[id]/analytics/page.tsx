@@ -25,7 +25,7 @@ export default async function AnalyticsGradebookPage({ params }: { params: { id:
   const [{ data: course }, { data: lessons }, { data: allEnrollments }] = await Promise.all([
     admin.from("courses").select("id, title").eq("id", params.id).single(),
     admin.from("lessons").select("id, title, order").eq("course_id", params.id).order("order"),
-    admin.from("enrollments").select("user_id, enrolled_at").eq("course_id", params.id),
+    admin.from("enrollments").select("user_id, enrolled_at, status").eq("course_id", params.id),
   ]);
 
   if (!course) notFound();
@@ -37,7 +37,10 @@ export default async function AnalyticsGradebookPage({ params }: { params: { id:
   // Exclude staff (moderators/creators/admins) from the gradebook — see
   // lib/filter-learner-ids.ts.
   const learnerSet = await filterLearnerIds(cohortEnrollments.map((e) => e.user_id));
-  const enrollments = cohortEnrollments.filter((e) => learnerSet.has(e.user_id));
+  // Also drop suspended learners so they don't count toward gradebook stats.
+  const enrollments = cohortEnrollments.filter(
+    (e) => learnerSet.has(e.user_id) && (e as { status?: string }).status !== "suspended"
+  );
 
   const isCohortLimited = cohortIds !== null;
   const userIds = enrollments.map((e) => e.user_id);
