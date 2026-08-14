@@ -8,6 +8,7 @@ type Learner = {
   name: string;
   email: string;
   enrolledAt: string;
+  status: "active" | "suspended";
   completedCount: number;
   totalLessons: number;
   pct: number;
@@ -72,9 +73,54 @@ function UnenrollButton({ courseId, learner }: { courseId: string; learner: Lear
       onClick={handleUnenroll}
       disabled={busy}
       className="text-xs font-medium text-red-500 hover:text-red-700 disabled:opacity-50"
-      title="Remove from course"
+      title="Remove from course permanently"
     >
       {busy ? "Removing…" : "Unenroll"}
+    </button>
+  );
+}
+
+function SuspendToggleButton({ courseId, learner }: { courseId: string; learner: Learner }) {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  const suspended = learner.status === "suspended";
+
+  async function handle() {
+    const action = suspended ? "reactivate" : "suspend";
+    let reason: string | undefined;
+    if (suspended) {
+      if (!confirm(`Reactivate ${learner.name}? Their course access is restored.`)) return;
+    } else {
+      const r = prompt(
+        `Suspend ${learner.name} from this course? They keep their account, progress, and enrolment date, and lose access until reactivated.\n\nOptional reason:`
+      );
+      if (r === null) return; // cancelled
+      reason = r.trim() || undefined;
+    }
+    setBusy(true);
+    const res = await fetch(`/api/admin/courses/${courseId}/enrollments`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId: learner.userId, action, reason }),
+    });
+    if (!res.ok) {
+      alert(`Could not ${action}: ${await res.text()}`);
+      setBusy(false);
+      return;
+    }
+    router.refresh();
+  }
+
+  return (
+    <button
+      onClick={handle}
+      disabled={busy}
+      className={`text-xs font-medium disabled:opacity-50 ${
+        suspended ? "text-green-600 hover:text-green-700" : "text-amber-600 hover:text-amber-700"
+      }`}
+      title={suspended ? "Restore course access" : "Suspend course access (keeps all data)"}
+    >
+      {busy ? "…" : suspended ? "Reactivate" : "Suspend"}
     </button>
   );
 }
@@ -95,7 +141,9 @@ export function LearnerRows({
       {learners.map((l) => (
         <div
           key={l.userId}
-          className="relative grid grid-cols-12 gap-3 items-center px-5 py-4 hover:bg-gray-50 transition text-left"
+          className={`relative grid grid-cols-12 gap-3 items-center px-5 py-4 hover:bg-gray-50 transition text-left ${
+            l.status === "suspended" ? "opacity-60" : ""
+          }`}
         >
           {/* Full-row link overlay for navigation; interactive controls sit above it. */}
           <Link
@@ -109,7 +157,15 @@ export function LearnerRows({
             <div className="min-w-0">
               <p className="text-sm font-medium text-gray-900 truncate flex items-center gap-2">
                 <span className="truncate">{l.name}</span>
-                {l.online && (
+                {l.status === "suspended" && (
+                  <span
+                    className="text-[11px] font-semibold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded shrink-0 pointer-events-auto cursor-help"
+                    title="Suspended — no course access; account, progress and enrolment date retained"
+                  >
+                    suspended
+                  </span>
+                )}
+                {l.online && l.status !== "suspended" && (
                   <span
                     className="text-[11px] font-semibold text-green-600 shrink-0 pointer-events-auto cursor-help"
                     title="Online now — active in the last few minutes"
@@ -144,9 +200,12 @@ export function LearnerRows({
             {l.enrolledAt ? formatDate(l.enrolledAt) : "—"}
           </span>
 
-          <div className="col-span-1 flex justify-end relative z-10">
+          <div className="col-span-1 flex flex-col items-end gap-1 relative z-10">
             {canManage ? (
-              <UnenrollButton courseId={courseId} learner={l} />
+              <>
+                <SuspendToggleButton courseId={courseId} learner={l} />
+                <UnenrollButton courseId={courseId} learner={l} />
+              </>
             ) : (
               <span className="text-gray-400 text-sm pointer-events-none">→</span>
             )}

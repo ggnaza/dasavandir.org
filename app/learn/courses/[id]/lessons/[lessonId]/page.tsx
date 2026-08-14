@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { checkCourseAccess } from "@/lib/assert-course-owner";
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { MarkCompleteButton } from "./mark-complete-button";
@@ -129,16 +130,23 @@ export default async function LessonPage({
     admin.from("quizzes").select("id").eq("lesson_id", params.lessonId).single(),
     admin.from("lesson_files").select("id, file_name, storage_path").eq("lesson_id", params.lessonId).order("created_at"),
     admin.from("assignments").select("id, is_group_assignment").eq("lesson_id", params.lessonId).single(),
-    admin.from("enrollments").select("id, enrolled_at").eq("user_id", user!.id).eq("course_id", params.id).single(),
+    admin.from("enrollments").select("id, enrolled_at, status").eq("user_id", user!.id).eq("course_id", params.id).single(),
     admin.from("courses").select("allow_shuffled_learning, pre_submission_ai, ai_coach_enabled, title, access_type, course_type").eq("id", params.id).single(),
     admin.from("profiles").select("full_name").eq("id", user!.id).single(),
   ]);
 
   if (!lesson) notFound();
 
-  // Resolve effective enrollment — process pending invitations if not yet enrolled
+  // Staff (course managers/creators/admins with access to this course) may view
+  // the learner experience without being enrolled — enrolling them as learners
+  // is what was skewing course-progress stats. Access is checked against the
+  // same course_manager_access / course_creator_access model as the admin side.
+  const isStaff = (await checkCourseAccess(params.id, user!.id)) === "ok";
+
+  // Resolve effective enrollment — process pending invitations if not yet enrolled.
+  // Skipped entirely for staff, who view without an enrollment row.
   let effectiveEnrollment = enrollment;
-  if (!effectiveEnrollment) {
+  if (!effectiveEnrollment && !isStaff) {
     const userEmail = user!.email?.toLowerCase();
     if (userEmail) {
       const { data: pendingInvites } = await admin
@@ -161,7 +169,7 @@ export default async function LessonPage({
         );
         const { data: newEnrollment } = await admin
           .from("enrollments")
-          .select("id, enrolled_at")
+          .select("id, enrolled_at, status")
           .eq("user_id", user!.id)
           .eq("course_id", params.id)
           .single();
@@ -178,6 +186,12 @@ export default async function LessonPage({
       const isPrivate = course?.access_type === "private" || course?.course_type === "internal";
       redirect(isPrivate ? "/learn" : `/courses/${params.id}`);
     }
+  }
+
+  // Suspended learners are redirected to the course overview, which explains the
+  // paused access. Staff are never suspended.
+  if (!isStaff && (effectiveEnrollment as { status?: string } | null)?.status === "suspended") {
+    redirect(`/learn/courses/${params.id}`);
   }
 
   // Progress scoped to lessons in THIS course only (prevents cross-course leakage)
@@ -250,8 +264,9 @@ export default async function LessonPage({
   const prevLesson = lessons?.[currentIndex - 1];
   const nextLesson = lessons?.[currentIndex + 1];
 
-  // Sequential gate: if not shuffled, block access if any prior lesson is incomplete
-  if (!allowShuffled && currentIndex > 0) {
+  // Sequential gate: if not shuffled, block access if any prior lesson is incomplete.
+  // Staff preview any lesson freely — they have no progress rows to satisfy the gate.
+  if (!allowShuffled && currentIndex > 0 && !isStaff) {
     const prevLessons = (lessons ?? []).slice(0, currentIndex);
     const firstIncomplete = prevLessons.find((l) => !completedIds.has(l.id));
     if (firstIncomplete) {

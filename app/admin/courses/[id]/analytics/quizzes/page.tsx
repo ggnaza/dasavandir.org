@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 import { assertCoursePageAccess } from "@/lib/assert-course-page-access";
 import { getModeratorCohort } from "@/lib/get-moderator-cohort";
+import { filterLearnerIds } from "@/lib/filter-learner-ids";
 import { QuizAnalysisSection } from "../quiz-analysis";
 import type { QuizStat, AtRiskLearner } from "../quiz-analysis";
 
@@ -36,15 +37,22 @@ export default async function QuizzesPage({ params }: { params: { id: string } }
   const lessonIds = (lessons ?? []).map((l) => l.id);
 
   const [{ data: allEnrollments }, { data: quizzes }] = await Promise.all([
-    admin.from("enrollments").select("user_id").eq("course_id", params.id),
+    admin.from("enrollments").select("user_id, status").eq("course_id", params.id),
     lessonIds.length > 0
       ? admin.from("quizzes").select("id, lesson_id, questions").in("lesson_id", lessonIds)
       : Promise.resolve({ data: [] }),
   ]);
 
-  const enrollments = cohortIds !== null
+  const cohortEnrollments = cohortIds !== null
     ? (allEnrollments ?? []).filter((e) => cohortIds.includes(e.user_id))
     : (allEnrollments ?? []);
+
+  // Exclude staff (moderators/creators/admins) — see lib/filter-learner-ids.ts.
+  const learnerSet = await filterLearnerIds(cohortEnrollments.map((e) => e.user_id));
+  // Also drop suspended learners so they don't count toward quiz stats.
+  const enrollments = cohortEnrollments.filter(
+    (e) => learnerSet.has(e.user_id) && (e as { status?: string }).status !== "suspended"
+  );
   const userIds = enrollments.map((e) => e.user_id);
   const quizIds = (quizzes ?? []).map((q) => q.id);
 

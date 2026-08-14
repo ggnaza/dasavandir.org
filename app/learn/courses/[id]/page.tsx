@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { checkCourseAccess } from "@/lib/assert-course-owner";
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { ModuleAccordion } from "./module-accordion";
@@ -57,12 +58,17 @@ export default async function LearnCoursePage({ params }: { params: { id: string
   // Check enrollment — auto-enroll if user already has progress (migration compat)
   const { data: enrollment } = await admin
     .from("enrollments")
-    .select("id")
+    .select("id, status")
     .eq("user_id", user!.id)
     .eq("course_id", params.id)
     .single();
 
-  if (!enrollment) {
+  // Staff (course managers/creators/admins with access to this course) may view
+  // the course without an enrollment — this removes the need to enroll them as
+  // learners, which was skewing course-progress stats.
+  const isStaff = (await checkCourseAccess(params.id, user!.id)) === "ok";
+
+  if (!enrollment && !isStaff) {
     const hasProgress = (progress ?? []).some((p) =>
       (lessons ?? []).some((l) => l.id === p.lesson_id)
     );
@@ -75,6 +81,23 @@ export default async function LearnCoursePage({ params }: { params: { id: string
       const isPrivate = course?.access_type === "private" || course?.course_type === "internal";
       redirect(isPrivate ? "/learn" : `/courses/${params.id}`);
     }
+  }
+
+  // Suspended learners keep their account and history but cannot access course
+  // content until an admin reactivates them. Staff are never suspendable here.
+  if (!isStaff && (enrollment as { status?: string } | null)?.status === "suspended") {
+    return (
+      <div className="max-w-2xl mx-auto mt-10">
+        <Link href="/learn" className="text-sm text-gray-500 hover:text-gray-700">← Back to my courses</Link>
+        <div className="mt-4 bg-amber-50 border border-amber-200 rounded-2xl p-8 text-center">
+          <h1 className="text-xl font-bold text-amber-900">Access paused</h1>
+          <p className="mt-3 text-sm text-amber-800">
+            Your access to <strong>{course.title}</strong> has been temporarily suspended. Your
+            progress and account are safe. Please contact your program team to have access restored.
+          </p>
+        </div>
+      </div>
+    );
   }
 
   const completedIds = new Set((progress ?? []).map((p) => p.lesson_id));

@@ -7,6 +7,7 @@ import { InviteStudentsButton } from "./invite-students-modal";
 import { EnrollLearnersButton } from "./enroll-learners-modal";
 import { CancelInviteButton } from "./cancel-invite-button";
 import { getModeratorCohort } from "@/lib/get-moderator-cohort";
+import { filterLearnerIds } from "@/lib/filter-learner-ids";
 import { clampSessionSeconds } from "@/lib/session-time";
 
 export const dynamic = "force-dynamic";
@@ -31,7 +32,7 @@ export default async function CourseLearnerPage({ params }: { params: { id: stri
     admin.from("lessons").select("id, title, order").eq("course_id", params.id).order("order"),
     admin
       .from("enrollments")
-      .select("user_id, enrolled_at")
+      .select("user_id, enrolled_at, status")
       .eq("course_id", params.id)
       .order("enrolled_at", { ascending: false }),
     viewerRole !== "course_manager"
@@ -49,11 +50,18 @@ export default async function CourseLearnerPage({ params }: { params: { id: stri
   // Filter enrollments to cohort only if the moderator has an explicit cohort.
   // No cohort = see all enrolled learners in the assigned course (course access
   // is the gate; the cohort is an optional narrowing).
-  const enrollments = isCohortLimited
+  const cohortEnrollments = isCohortLimited
     ? (allEnrollments ?? []).filter((e) => cohortIds!.includes(e.user_id))
     : (allEnrollments ?? []);
 
   if (!course) notFound();
+
+  // Exclude staff (moderators/creators/admins) from the learner roster — a
+  // promoted learner is no longer a learner here. The re-enroll picker below
+  // still uses `allEnrollments` so staff are not offered a duplicate enrollment.
+  // See lib/filter-learner-ids.ts.
+  const learnerSet = await filterLearnerIds(cohortEnrollments.map((e) => e.user_id));
+  const enrollments = cohortEnrollments.filter((e) => learnerSet.has(e.user_id));
 
   const userIds = (enrollments ?? []).map((e) => e.user_id);
 
@@ -101,11 +109,14 @@ export default async function CourseLearnerPage({ params }: { params: { id: stri
     const completedCount = lessonList.filter((l) => completedIds.has(l.id)).length;
     const pct = totalLessons > 0 ? Math.round((completedCount / totalLessons) * 100) : 0;
 
+    const status: "active" | "suspended" = (e as { status?: string }).status === "suspended" ? "suspended" : "active";
+
     return {
       userId: e.user_id,
       name,
       email,
       enrolledAt: e.enrolled_at,
+      status,
       completedCount,
       totalLessons,
       pct,
@@ -115,11 +126,16 @@ export default async function CourseLearnerPage({ params }: { params: { id: stri
     };
   });
 
-  const avgPct = learners.length > 0
-    ? Math.round(learners.reduce((sum, l) => sum + l.pct, 0) / learners.length)
+  // Suspended learners keep their row and history but are excluded from the
+  // headline progress stats so they don't skew averages/completion.
+  const activeLearners = learners.filter((l) => l.status !== "suspended");
+  const suspendedCount = learners.length - activeLearners.length;
+
+  const avgPct = activeLearners.length > 0
+    ? Math.round(activeLearners.reduce((sum, l) => sum + l.pct, 0) / activeLearners.length)
     : 0;
 
-  const completedAll = learners.filter((l) => l.pct === 100).length;
+  const completedAll = activeLearners.filter((l) => l.pct === 100).length;
   const pendingInvites = invitations ?? [];
 
   return (
@@ -154,7 +170,10 @@ export default async function CourseLearnerPage({ params }: { params: { id: stri
       <div className="grid grid-cols-3 gap-4 mb-6">
         <div className="bg-white border rounded-xl p-5">
           <p className="text-sm text-gray-500">Enrolled</p>
-          <p className="text-3xl font-bold mt-1">{learners.length}</p>
+          <p className="text-3xl font-bold mt-1">{activeLearners.length}</p>
+          {suspendedCount > 0 && (
+            <p className="text-xs text-amber-600 mt-1">+{suspendedCount} suspended</p>
+          )}
         </div>
         <div className="bg-white border rounded-xl p-5">
           <p className="text-sm text-gray-500">Avg. progress</p>
