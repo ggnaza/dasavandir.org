@@ -26,7 +26,7 @@ export default async function ProgressPage({ params }: { params: { id: string } 
   const [{ data: course }, { data: lessons }, { data: allEnrollments }] = await Promise.all([
     admin.from("courses").select("id, title").eq("id", params.id).single(),
     admin.from("lessons").select("id, title, order, video_url").eq("course_id", params.id).order("order"),
-    admin.from("enrollments").select("user_id").eq("course_id", params.id),
+    admin.from("enrollments").select("user_id, status").eq("course_id", params.id),
   ]);
 
   if (!course) return notFound();
@@ -42,7 +42,10 @@ export default async function ProgressPage({ params }: { params: { id: string } 
   // promoted out of the `learner` role must not skew course progress, even if an
   // enrollment row still exists. See lib/filter-learner-ids.ts.
   const learnerSet = await filterLearnerIds(cohortEnrollments.map((e) => e.user_id));
-  const enrollments = cohortEnrollments.filter((e) => learnerSet.has(e.user_id));
+  // Also drop suspended learners so they don't count toward progress stats.
+  const enrollments = cohortEnrollments.filter(
+    (e) => learnerSet.has(e.user_id) && (e as { status?: string }).status !== "suspended"
+  );
 
   const userIds = enrollments.map((e) => e.user_id);
   const lessonIds = (lessons ?? []).map((l) => l.id);

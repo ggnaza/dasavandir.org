@@ -34,13 +34,15 @@ export default async function FeedbackPage({ params }: { params: { id: string } 
 
   const { data: enrollment } = await admin
     .from("enrollments")
-    .select("id")
+    .select("id, status")
     .eq("user_id", user.id)
     .eq("course_id", params.id)
     .maybeSingle();
   // Staff (course managers/creators/admins) may view without an enrollment row.
   const isStaff = (await checkCourseAccess(params.id, user.id)) === "ok";
   if (!enrollment && !isStaff) redirect(`/courses/${params.id}`);
+  if (!isStaff && (enrollment as { status?: string } | null)?.status === "suspended")
+    redirect(`/learn/courses/${params.id}`);
 
   // Get all lessons for this course
   const { data: lessons } = await admin

@@ -32,6 +32,8 @@ const ACTION_LABELS: Record<string, string> = {
   review_capstone: "Reviewed a capstone",
   delete_course: "Deleted a course",
   unenroll_learner: "Unenrolled a learner",
+  suspend_learner: "Suspended a learner",
+  reactivate_learner: "Reactivated a learner",
 };
 
 const ACTION_ICON: Record<string, string> = {
@@ -50,6 +52,8 @@ const ACTION_ICON: Record<string, string> = {
   review_capstone: "🎓",
   delete_course: "🗑️",
   unenroll_learner: "➖",
+  suspend_learner: "⏸️",
+  reactivate_learner: "▶️",
 };
 
 export default async function UserActivityPage({ params }: { params: { id: string } }) {

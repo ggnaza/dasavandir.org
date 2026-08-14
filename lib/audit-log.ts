@@ -19,6 +19,8 @@ export type AuditAction =
   | "delete_course"
   | "update_course"
   | "unenroll_learner"
+  | "suspend_learner"
+  | "reactivate_learner"
   | "reassign_review";
 
 export async function logAudit(

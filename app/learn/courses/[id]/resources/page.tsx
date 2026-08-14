@@ -16,10 +16,12 @@ export default async function ResourceLibraryPage({ params }: { params: { id: st
   if (!course) notFound();
 
   const { data: enrollment } = await admin
-    .from("enrollments").select("id").eq("user_id", user.id).eq("course_id", params.id).maybeSingle();
+    .from("enrollments").select("id, status").eq("user_id", user.id).eq("course_id", params.id).maybeSingle();
   // Staff (course managers/creators/admins) may view without an enrollment row.
   const isStaff = (await checkCourseAccess(params.id, user.id)) === "ok";
   if (!enrollment && !isStaff) redirect(`/courses/${params.id}`);
+  if (!isStaff && (enrollment as { status?: string } | null)?.status === "suspended")
+    redirect(`/learn/courses/${params.id}`);
 
   const { data: resources } = await admin
     .from("course_resources")

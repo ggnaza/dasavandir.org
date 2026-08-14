@@ -12,6 +12,7 @@ const ICONS: Record<string, string> = {
   bulk_delete_users: "🗑️", export_learners: "📤", bulk_enroll: "➕", bulk_unenroll: "➖",
   unenroll_learner: "➖", invite_users: "✉️", delete_invitation: "✉️", delete_course: "🗑️",
   review_submission: "📝", review_capstone: "🎓", reassign_review: "🔀",
+  suspend_learner: "⏸️", reactivate_learner: "▶️",
 };
 
 function describe(log: Log, actor: string): string {
@@ -20,6 +21,8 @@ function describe(log: Log, actor: string): string {
     case "bulk_enroll": return `${actor} enrolled ${m.count ?? "?"} learner${m.count === 1 ? "" : "s"}`;
     case "bulk_unenroll": return `${actor} unenrolled ${m.count ?? "?"} learner${m.count === 1 ? "" : "s"}`;
     case "unenroll_learner": return `${actor} unenrolled a learner`;
+    case "suspend_learner": return `${actor} suspended a learner`;
+    case "reactivate_learner": return `${actor} reactivated a learner`;
     case "invite_users": return `${actor} invited ${m.count ?? "?"} learner${m.count === 1 ? "" : "s"}`;
     case "delete_invitation": return `${actor} deleted a pending invitation`;
     case "delete_course": return `${actor} deleted the course${m.course_title ? ` "${m.course_title}"` : ""}`;
