@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { acceptPendingInvitations } from "@/lib/invitations/accept-pending";
 import Link from "next/link";
 
 export const dynamic = "force-dynamic";
@@ -19,17 +20,7 @@ export default async function LearnDashboard() {
       .eq("status", "pending");
 
     if (pendingInvites && pendingInvites.length > 0) {
-      await Promise.all(
-        pendingInvites.map((inv) =>
-          Promise.all([
-            admin.from("enrollments").upsert(
-              { user_id: user!.id, course_id: inv.course_id },
-              { onConflict: "user_id,course_id" }
-            ),
-            admin.from("invitations").update({ status: "accepted" }).eq("id", inv.id),
-          ])
-        )
-      );
+      await acceptPendingInvitations(admin, user!.id, pendingInvites);
     }
   }
 
