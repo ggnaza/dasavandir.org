@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { checkCourseAccess } from "@/lib/assert-course-owner";
+import { acceptPendingInvitations } from "@/lib/invitations/accept-pending";
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { ModuleAccordion } from "./module-accordion";
@@ -41,17 +42,7 @@ export default async function LearnCoursePage({ params }: { params: { id: string
       .eq("course_id", params.id)
       .eq("status", "pending");
     if (pendingInvites && pendingInvites.length > 0) {
-      await Promise.all(
-        pendingInvites.map((inv) =>
-          Promise.all([
-            admin.from("enrollments").upsert(
-              { user_id: user!.id, course_id: inv.course_id },
-              { onConflict: "user_id,course_id" }
-            ),
-            admin.from("invitations").update({ status: "accepted" }).eq("id", inv.id),
-          ])
-        )
-      );
+      await acceptPendingInvitations(admin, user!.id, pendingInvites);
     }
   }
 
