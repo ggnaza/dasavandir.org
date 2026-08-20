@@ -65,6 +65,7 @@ export function Nav({ role, userName, unreadNotifications = 0, lang = "en" }: Na
           { href: "/learn/announcements", label: T.announcements },
           { href: "/learn/progress", label: T.myProgress },
           { href: "/courses", label: T.browse },
+          { href: "/learn/profile", label: "Profile" },
         ];
 
   return (
