@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getManagedSpaceIds } from "@/lib/org";
 
 export type CourseAccess = "ok" | "not_found" | "forbidden";
 
@@ -16,7 +17,7 @@ export async function checkCourseAccess(courseId: string, userId: string): Promi
 
   const [{ data: profile }, { data: course }] = await Promise.all([
     admin.from("profiles").select("role").eq("id", userId).single(),
-    admin.from("courses").select("created_by").eq("id", courseId).single(),
+    admin.from("courses").select("created_by, space_id").eq("id", courseId).single(),
   ]);
 
   if (!course) return "not_found";
@@ -47,6 +48,12 @@ export async function checkCourseAccess(courseId: string, userId: string): Promi
       .maybeSingle();
 
     if (managerAccess) return "ok";
+  }
+
+  // Space managers have access to every course in a space they manage.
+  if (profile?.role === "space_manager" && course.space_id) {
+    const managedSpaceIds = await getManagedSpaceIds(admin, userId);
+    if (managedSpaceIds.includes(course.space_id)) return "ok";
   }
 
   return "forbidden";

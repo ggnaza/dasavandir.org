@@ -1,6 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
-import { getCurrentOrgId } from "@/lib/org";
+import { getCurrentOrgId, getManagedSpaceIds } from "@/lib/org";
 import Link from "next/link";
 import { DeleteCourseButton } from "./delete-course-button";
 import { CloneCourseButton } from "./clone-course-button";
@@ -24,6 +24,10 @@ export default async function CoursesPage({
 
   const isAdmin = profile?.role === "admin";
   const isManager = profile?.role === "course_manager";
+  const isSpaceManager = profile?.role === "space_manager";
+
+  // Spaces a space_manager administers (drives both their course list and their subtabs).
+  const managedSpaceIds = isSpaceManager ? await getManagedSpaceIds(admin, user!.id) : [];
 
   const COLS = "id, title, description, published, created_at, created_by, space_id";
   let courses: any[] = [];
@@ -33,6 +37,12 @@ export default async function CoursesPage({
       .from("courses")
       .select(COLS)
       .order("created_at", { ascending: false });
+    courses = data ?? [];
+  } else if (isSpaceManager) {
+    // Space managers see every course in the space(s) they manage.
+    const { data } = managedSpaceIds.length
+      ? await admin.from("courses").select(COLS).in("space_id", managedSpaceIds).order("created_at", { ascending: false })
+      : { data: [] };
     courses = data ?? [];
   } else if (isManager) {
     // course_managers see only courses they're explicitly assigned to via course_manager_access
@@ -56,7 +66,10 @@ export default async function CoursesPage({
   const { data: allSpaces } = orgId
     ? await admin.from("spaces").select("id, name, ord").eq("org_id", orgId).order("ord")
     : { data: [] };
-  const spaces = allSpaces ?? [];
+  // A space manager only sees subtabs for the spaces they administer.
+  const spaces = (allSpaces ?? []).filter(
+    (s) => !isSpaceManager || managedSpaceIds.includes(s.id as string)
+  );
 
   const enrollmentCounts: Record<string, number> = {};
   const creatorNames: Record<string, string> = {};

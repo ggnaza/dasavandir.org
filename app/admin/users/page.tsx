@@ -39,6 +39,8 @@ export default function UsersPage() {
   const [assignManagerName, setAssignManagerName] = useState("");
   const [spacesUserId, setSpacesUserId] = useState<string | null>(null);
   const [spacesUserName, setSpacesUserName] = useState("");
+  const [managedSpacesUserId, setManagedSpacesUserId] = useState<string | null>(null);
+  const [managedSpacesUserName, setManagedSpacesUserName] = useState("");
   const [resending, setResending] = useState<string | null>(null);
 
   const fetchUsers = useCallback(async (p: number = page, s: string = search, silent = false) => {
@@ -229,6 +231,14 @@ export default function UsersPage() {
                                   Spaces
                                 </button>
                               )}
+                              {user.role === "space_manager" && (
+                                <button
+                                  onClick={() => { setManagedSpacesUserId(user.id); setManagedSpacesUserName(user.full_name || "User"); }}
+                                  className="text-teal-600 hover:underline text-sm"
+                                >
+                                  Managed spaces
+                                </button>
+                              )}
                             </>
                           )}
                           <button
@@ -293,6 +303,14 @@ export default function UsersPage() {
         userId={spacesUserId}
         userName={spacesUserName}
         onClose={() => setSpacesUserId(null)}
+      />
+      <ManageSpacesModal
+        userId={managedSpacesUserId}
+        userName={managedSpacesUserName}
+        onClose={() => setManagedSpacesUserId(null)}
+        endpoint="/api/admin/space-manager-access"
+        heading="Managed spaces"
+        blurb="Which spaces this manager administers — they see and manage every course, learner, and submission in these spaces."
       />
       <AssignManagerCoursesModal
         managerId={assignManagerId || ""}
