@@ -1,4 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
+import { redirect } from "next/navigation";
 import { clampSessionSeconds } from "@/lib/session-time";
 import Link from "next/link";
 
@@ -12,6 +14,13 @@ function fmtTime(seconds: number): string {
 
 export default async function AnalyticsPage() {
   const admin = createAdminClient();
+
+  // Org-wide analytics is not space-scoped yet — keep space managers out until it is (slice-2 follow-up).
+  const { data: { user } } = await createClient().auth.getUser();
+  if (user) {
+    const { data: profile } = await admin.from("profiles").select("role").eq("id", user.id).single();
+    if (profile?.role === "space_manager") redirect("/admin/courses");
+  }
 
   const [
     { data: courses },
