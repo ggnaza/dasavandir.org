@@ -1,5 +1,4 @@
 import { createAdminClient } from "@/lib/supabase/admin";
-import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import { cookies } from "next/headers";
 import { getLang, translations } from "@/lib/i18n";
@@ -13,27 +12,19 @@ export default async function CourseCatalogPage({
   searchParams: { filter?: string; lang_filter?: string };
 }) {
   const admin = createAdminClient();
-  const { data: { user } } = await createClient().auth.getUser();
 
-  // The public catalog shows only discoverable courses — public/paid (private is invitation-only).
+  // The public catalog is the org's storefront: EVERY published public/paid course is discoverable to
+  // everyone, signed-in or not (private courses are invitation-only and excluded). Space membership does
+  // NOT gate public discovery — it scopes private/assigned content and the learner's own course list
+  // (ADR-0004, revised 2026-08-21: registered users must see all published free + paid courses).
   const { data: courses } = await admin
     .from("courses")
-    .select("id, title, description, cover_image_url, is_paid, price_amd, language, access_type, space_id")
+    .select("id, title, description, cover_image_url, is_paid, price_amd, language, access_type")
     .eq("published", true)
     .in("access_type", ["public", "paid"])
     .order("created_at", { ascending: false });
 
-  // Space scoping (ADR-0004): a signed-in user sees public/paid courses only in the spaces they belong
-  // to; an anonymous visitor sees the org's whole public/paid storefront.
-  let visible = courses ?? [];
-  if (user) {
-    const { data: memberships } = await admin
-      .from("space_members")
-      .select("space_id")
-      .eq("user_id", user.id);
-    const spaceIds = new Set((memberships ?? []).map((m) => m.space_id as string));
-    visible = visible.filter((c) => c.space_id != null && spaceIds.has(c.space_id as string));
-  }
+  const visible = courses ?? [];
 
   const uiLang = getLang(cookies().get("lang")?.value);
   const T = translations[uiLang];

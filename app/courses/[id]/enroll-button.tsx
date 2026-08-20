@@ -11,6 +11,36 @@ export function EnrollButton({ courseId, isPaid }: { courseId: string; isPaid: b
     setLoading(true);
     setError("");
     try {
+      // Paid course → start checkout (create an order, then go to the payment page). Free → enrol directly.
+      if (isPaid) {
+        const res = await fetch("/api/payments/checkout", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ courseId }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data?.alreadyEnrolled) {
+            router.push(`/learn/courses/${courseId}`);
+            return;
+          }
+          if (data?.checkoutUrl) {
+            router.push(data.checkoutUrl);
+            return;
+          }
+        }
+        let msg = "Could not start checkout. Please try again.";
+        try {
+          const data = await res.json();
+          if (data?.error) msg = data.error;
+        } catch {
+          /* ignore */
+        }
+        setError(msg);
+        setLoading(false);
+        return;
+      }
+
       const res = await fetch("/api/enrollments/enroll", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
