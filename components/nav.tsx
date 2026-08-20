@@ -58,7 +58,9 @@ export function Nav({ role, userName, unreadNotifications = 0, lang = "en" }: Na
       : role === "space_manager"
       ? [
           { href: "/admin/courses", label: "Courses" },
-          { href: "/learn", label: "Learn" },
+          { href: "/admin/submissions", label: "Submissions" },
+          { href: "/admin/capstone-submissions", label: "Capstones" },
+          { href: "/admin/learners", label: "Learners" },
         ]
       : [
           { href: "/learn", label: T.myCourses },

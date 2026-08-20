@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { getManagedSpaceCourseIds } from "@/lib/org";
 import { redirect } from "next/navigation";
 import { SubmissionsTable, type SubRow } from "./submissions-table";
 
@@ -15,7 +16,7 @@ export default async function SubmissionsPage() {
   const admin = createAdminClient();
   const { data: profile } = await admin.from("profiles").select("role").eq("id", user.id).single();
   const role = profile?.role ?? "";
-  if (!["admin", "course_creator", "course_manager"].includes(role)) redirect("/learn");
+  if (!["admin", "course_creator", "course_manager", "space_manager"].includes(role)) redirect("/learn");
 
   // ── Determine which courses + learners are visible ──────────────────────────
   let courseIds: string[] | null = null; // null = all courses
@@ -27,6 +28,9 @@ export default async function SubmissionsPage() {
 
   if (role === "admin") {
     courseIds = null; // all
+  } else if (role === "space_manager") {
+    // A space manager sees every submission in the courses of the spaces they manage.
+    courseIds = await getManagedSpaceCourseIds(admin, user.id);
   } else if (role === "course_creator") {
     const { data: access } = await admin
       .from("course_creator_access")
