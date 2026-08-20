@@ -65,7 +65,6 @@ export function Nav({ role, userName, unreadNotifications = 0, lang = "en" }: Na
           { href: "/learn/announcements", label: T.announcements },
           { href: "/learn/progress", label: T.myProgress },
           { href: "/courses", label: T.browse },
-          { href: "/learn/profile", label: "Profile" },
         ];
 
   return (
@@ -92,7 +91,11 @@ export function Nav({ role, userName, unreadNotifications = 0, lang = "en" }: Na
         </div>
 
         <div className="flex items-center gap-2 sm:gap-3 text-sm">
-          {userName && <span className="text-gray-500 hidden sm:inline truncate max-w-[120px]">{userName}</span>}
+          {userName && (
+            <Link href="/learn/profile" className="text-gray-500 hover:text-gray-900 hidden sm:inline truncate max-w-[120px]" title="My profile">
+              {userName}
+            </Link>
+          )}
           {(role === "learner" || role === "creator") && (
             <>
               <LanguageToggle current={lang} />
@@ -137,7 +140,15 @@ export function Nav({ role, userName, unreadNotifications = 0, lang = "en" }: Na
               {l.label}
             </Link>
           ))}
-          {userName && <p className="px-2 py-1 text-xs text-gray-400">{userName}</p>}
+          {userName && (
+            <Link
+              href="/learn/profile"
+              onClick={() => setMenuOpen(false)}
+              className="block px-2 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-lg"
+            >
+              {userName} — My profile
+            </Link>
+          )}
           <button
             onClick={handleSignOut}
             className="block w-full text-left px-2 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-lg"
