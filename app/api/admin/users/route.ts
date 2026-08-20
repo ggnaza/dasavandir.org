@@ -6,7 +6,7 @@ import { z } from "zod";
 
 const updateSchema = z.object({
   userId: z.string().uuid(),
-  role: z.enum(["admin", "course_creator", "course_manager", "learner"]),
+  role: z.enum(["admin", "course_creator", "course_manager", "space_manager", "learner"]),
 });
 
 export async function POST(req: Request) {
@@ -51,7 +51,7 @@ export async function GET(req: Request) {
   let query = admin
     .from("profiles")
     .select("id, full_name, email, role, status, created_at", { count: "exact" })
-    .in("role", ["admin", "course_creator", "course_manager"])
+    .in("role", ["admin", "course_creator", "course_manager", "space_manager"])
     .order("created_at", { ascending: false })
     .range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1);
 
