@@ -6,6 +6,7 @@ import { AddUserModal } from "./add-user-modal";
 import { DeleteUserDialog } from "./delete-user-dialog";
 import { AssignCoursesModal } from "./assign-courses-modal";
 import { AssignManagerCoursesModal } from "./assign-manager-courses-modal";
+import { ManageSpacesModal } from "./manage-spaces-modal";
 import Link from "next/link";
 
 type User = {
@@ -36,6 +37,8 @@ export default function UsersPage() {
   const [assignManagerId, setAssignManagerId] = useState<string | null>(null);
   const [assignManagerEmail, setAssignManagerEmail] = useState("");
   const [assignManagerName, setAssignManagerName] = useState("");
+  const [spacesUserId, setSpacesUserId] = useState<string | null>(null);
+  const [spacesUserName, setSpacesUserName] = useState("");
   const [resending, setResending] = useState<string | null>(null);
 
   const fetchUsers = useCallback(async (p: number = page, s: string = search, silent = false) => {
@@ -218,6 +221,14 @@ export default function UsersPage() {
                                   Courses
                                 </button>
                               )}
+                              {user.role === "learner" && (
+                                <button
+                                  onClick={() => { setSpacesUserId(user.id); setSpacesUserName(user.full_name || "User"); }}
+                                  className="text-teal-600 hover:underline text-sm"
+                                >
+                                  Spaces
+                                </button>
+                              )}
                             </>
                           )}
                           <button
@@ -277,6 +288,11 @@ export default function UsersPage() {
         creatorName={assignCreatorName}
         isOpen={!!assignCreatorId}
         onClose={() => setAssignCreatorId(null)}
+      />
+      <ManageSpacesModal
+        userId={spacesUserId}
+        userName={spacesUserName}
+        onClose={() => setSpacesUserId(null)}
       />
       <AssignManagerCoursesModal
         managerId={assignManagerId || ""}

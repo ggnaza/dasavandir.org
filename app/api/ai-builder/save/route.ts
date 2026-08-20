@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getCurrentOrgId } from "@/lib/org";
 import { z } from "zod";
 
 const quizQuestionSchema = z.object({
@@ -34,9 +35,10 @@ export async function POST(req: Request) {
 
   const { title, description, lessons } = parsed.data;
 
+  const orgId = await getCurrentOrgId(admin);
   const { data: course, error: courseError } = await admin
     .from("courses")
-    .insert({ title, description, created_by: user.id, published: false })
+    .insert({ title, description, created_by: user.id, published: false, org_id: orgId })
     .select("id")
     .single();
 

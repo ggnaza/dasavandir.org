@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ensureProfile } from "@/lib/auth/ensure-profile";
+import { addUserToCourseSpace } from "@/lib/org";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 
 export async function POST(req: Request) {
@@ -47,6 +48,9 @@ export async function POST(req: Request) {
       { status: 500, headers: { "Content-Type": "application/json" } }
     );
   }
+
+  // Place the learner in the course's space so they belong to that audience (ADR-0004).
+  await addUserToCourseSpace(admin, user.id, courseId);
 
   return Response.json({ enrolled: true });
 }
