@@ -65,6 +65,15 @@ here carry the claim-as-carry-away **plus status**. Route by status first (don't
   domains/billing/white-label (DEFERRED → `memories/phase-2-multi-tenant-gtm-deferred.md`).
   *(status: proposed — operator agreed in principle; not yet human-signed to accepted.)*
 
+- ⭐ `0005-space-manager-role.md` — **Open when:** touching roles/access-control, adding a course-level
+  admin view (does it route through `checkCourseAccess`?), or asking "why not reuse `space_members.role`
+  for space managers?" **Carry-away:** `space_manager` = admin-of-a-space, linked via a dedicated
+  `space_manager_access(manager_id, space_id)` table (parallels `course_manager_access` one level up),
+  NOT `space_members` (that stays learner-only). Access = course's `space_id` ∈ managed spaces, via the
+  shared `checkCourseAccess` guard. Global aggregate views (submissions/learners/analytics) NOT yet
+  space-scoped (slice 2) → nav is Courses-only. *(status: proposed — operator-directed; shipped to prod
+  foundation.)*
+
 ## Maintenance
 
 APPEND-ONLY for new ADRs; existing ADRs change `status:` in place, never move (supersession via

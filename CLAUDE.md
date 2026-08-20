@@ -75,20 +75,24 @@ There are three separate tables that link users to courses. Using the wrong one 
 |------|-----------|-----------|
 | `course_creator` | `course_creator_access` (`creator_id`, `course_id`) | `creator_id,course_id` |
 | `course_manager` | `course_manager_access` (`manager_id`, `course_id`) | `manager_id,course_id` |
-| `learner` | `enrollments` (`user_id`, `course_id`) | `user_id,course_id` |
+| `space_manager` | `space_manager_access` (`manager_id`, `space_id`) — links to a **space**, then to every course where `courses.space_id` matches (one level up) | `manager_id,space_id` |
+| `learner` | `enrollments` (`user_id`, `course_id`) + `space_members` (`user_id`, `space_id`) for the space audience | `user_id,course_id` |
 
 **Hard rules:**
 1. Any code path that creates or updates a user and accepts a `courseId` **must branch on role** and insert into the correct table. Never fall a `course_creator` or `course_manager` into `enrollments`. The bug was in `app/api/admin/users/create/route.ts` — it was fixed; don't reintroduce it.
-2. The role toggle in `app/admin/users/user-role-toggle.tsx` must list all four roles: `admin`, `course_creator`, `course_manager`, `learner`. Removing any makes that role unassignable via the UI without any error.
+2. The role toggle in `app/admin/users/user-role-toggle.tsx` must list all five roles: `admin`, `course_creator`, `course_manager`, `space_manager`, `learner`. Removing any makes that role unassignable via the UI without any error.
 3. The users page (`app/admin/users/page.tsx`) must show a course-management action for **both** `course_creator` (→ `AssignCoursesModal`) and `course_manager` (→ `AssignManagerCoursesModal`). If you add a role that has course access, add a matching UI action.
 4. When adding a new role that implies course-level access, create its access table and the moderators/course-access API before wiring up the UI — never let the UI ship without the API backing it.
 
 ### How courses are fetched per role (`app/admin/courses/page.tsx`)
 - `admin` → all courses from `courses`
+- `space_manager` → courses where `space_id IN` the spaces from `space_manager_access.manager_id = user.id` (see `lib/org.getManagedSpaceIds`); can create (new course is stamped into their space) + edit (via `checkCourseAccess`)
 - `course_manager` → courses via `course_manager_access.manager_id = user.id`
 - `course_creator` (and any other role) → courses via `course_creator_access.creator_id = user.id`
 
-If you add another editor role, add its branch here.
+If you add another editor role, add its branch here. NOTE: `checkCourseAccess` (`lib/assert-course-owner.ts`) is the shared API/page guard and also branches on `space_manager` (course's `space_id` ∈ their managed spaces) — keep it in sync with this fetch map.
+
+**Space manager — deferred (slice 2):** the GLOBAL aggregate views (`/admin/submissions`, `/admin/learners`, `/admin/analytics`, capstones) are NOT yet scoped to a space manager's spaces; their nav is Courses-only and they operate through per-course pages. Wire the space filter into those views before exposing them in the space_manager nav.
 
 ### The `GET /api/admin/moderators` route
 Supports two modes:
