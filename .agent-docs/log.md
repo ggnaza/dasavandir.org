@@ -18,6 +18,40 @@ tags: [log, journal]
 
      A rejected lesson proposal logs its one-line reason here (see now/lessons/proposals.md). -->
 
+## 2026-08-17 handoff | WU-0006 — invitation-accept-before-enroll bug fixed → staging
+Operator report: tatev@teachforarmenia.org invited, email received, but not in the enrolled list + no
+access. Forensics (Supabase REST, service-role, prod `mmkmsudwtrqdzehnfctx`) found the auto-enroll-on-
+visit code (`/learn`, course page, lesson page) marked the invite `status='accepted'` in a `Promise.all`
+concurrent with — and blind to — the enrollment upsert. A failed enrollment left the invite `accepted`,
+and auto-enroll only reprocesses `pending`, so the user was permanently stranded. Fixed Tatev's data
+(created her enrollment row in prod) + root cause: new `lib/invitations/accept-pending.ts` (mark accepted
+only after enroll succeeds), wired into all 3 sites. Merged to `staging` as PR #283 (`fba7a65`).
+Found 18 stranded total; 17 left un-backfilled (OQ-014). Pending: promote #283 to `main` on operator go.
+
+## 2026-08-17 decision | Backfill only Tatev; fix root cause + PR to staging
+Operator chose to fix only the reported learner (Tatev) and NOT backfill the other 17 stranded learners
+now (tracked OQ-014), and to fix the root-cause code + PR to staging (not straight to main, per the
+default-target-branch rule). Branch cut off `origin/staging` because staging is ahead of main (#280/#281
+staff-access logic) and a main-based branch would clobber it.
+
+## 2026-08-14 handoff | WU-0005 — staff-stats fix + learner suspension shipped to prod
+Started from an operator question: moderators enrolled as learners in "Teacher Leadership Academy 2026"
+(`88450829…`) were skewing progress stats. Forensics (service-role REST) showed it was MANUAL admin
+enrollment, not a default — the course is `access_type='private'`, so self-enroll is impossible; 13 staff
+had course access, 11 also held learner enrollments. Operator unenrolled the 11. Then shipped two fixes to
+prod: **#280** — staff view courses without enrollment (`checkCourseAccess` bypass) + exclude `role!='learner'`
+from per-course stats (new `lib/filter-learner-ids.ts`); **#281** — course-level learner suspension
+(`enrollments.status`, reversible, keeps data) with migration + `PATCH /api/admin/courses/[id]/enrollments`
++ access gates + roster toggle. Promoted `staging→main` via **#282** (`72f46be`). ⚠️ OPEN: the migration
+`enrollment_suspension.sql` is hand-applied and UNCONFIRMED on prod — code selects `enrollments.status`;
+verify first next session (OQ-011). Gate: `tsc --noEmit` clean; full build needs `--max-old-space-size=8192`.
+
+## 2026-08-14 decision | Stats-exclusion by role; suspension course-level
+Excluded staff from learner stats by profile ROLE (`role='learner'` only), not per-course access — mirrors
+the existing global analytics page; accepted the edge case that a course_manager who learns elsewhere is
+also excluded. Chose COURSE-level suspension (`enrollments.status`) over account-level (`profiles.status`
+is informational-only, enforces nothing); account-level offered but deferred → OQ-013.
+
 ## 2026-08-13 lesson | LP-005 accepted; LP-003 broadened
 
 LP-005 (medium) — a Next App Router client component's `useState` is NOT reset when `router.refresh()`
@@ -124,5 +158,20 @@ OQ-006 (no AI review agent). No app code changed. Doc-lint clean.
 lesson. Operator accepted both handoff proposals: LP-001 (git-diff no-diff is a false all-clear on an
 ignored path) and LP-002 (committing untracked files hides them on branch switch). Moved to
 `lessons/`, indexed, cleared from `now/lessons/proposals.md`. Both seedling (not MOC-promoted).
+
+## 2026-08-20 | feat — multi-tenancy Phase 0 + Phase 1 shipped to staging (WU-0007, WU-0008)
+
+Designed + built the org/space multi-tenancy model (ADR-0004; Shopify console/storefront, one identity
++ `org_members`/`space_members`, denormalized `org_id`, RLS enforcement deferred to pre-Phase-2). Phase 0
+(orgs/spaces/members + `org_id` on all tenant tables + AEI backfill) and Phase 1 (space_members,
+`courses.space_id`, space-scoped catalog, learner→space assignment UI, auto-add on enrol, org/space
+write-stamping via `ensureProfile`/`lib/org.ts`) — migrations 0a/0b/0c/phase1 applied to staging DB; code
+merged to `staging` via #285 + #286. QA (data-level, service-role REST): space scoping + FK delete-guard
+verified; `tsc --noEmit` clean; reachability confirmed. Could NOT test authed admin UI (no creds) or the
+`access_type` filter live (staging lacked the column). Flow model published as an Artifact ("dasavandir
+Tenancy Flows"). Phase 2 (domains/billing/white-label) deferred → `memories/phase-2-multi-tenant-gtm-deferred.md`.
+**OQ-008 sharpened** with the complete prod↔staging diff (11 tables + ~30 columns missing on staging) +
+a rebuild-from-prod remediation. **OQ-011 RESOLVED** — prod introspection confirms `enrollments.status`
+exists on prod. Not on prod yet (Phase 0/1 is staging-only pending operator test + "push to main").
 
 <!-- newest entries appended above this line -->

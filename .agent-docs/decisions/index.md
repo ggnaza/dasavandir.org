@@ -55,6 +55,16 @@ here carry the claim-as-carry-away **plus status**. Route by status first (don't
   a moderator's queue is phase-scoped with untagged lessons visible to all; reviewer attribution follows
   the assignment lesson's phase; timetable hidden pending rework. *(status: accepted.)*
 
+- ⭐ `0004-multi-tenancy-organizations-spaces-shopify-model.md` — **Open when:** touching anything
+  tenant/org-scoped, adding a new table (does it need `org_id`?), designing spaces/domains/billing, or
+  asking "why not just a category column / one org per user / join-derived RLS?" **Carry-away:**
+  two-level tenancy — `organizations` (billing+security boundary) + owner-named `spaces` — on the
+  Shopify console/storefront model; one global identity + `org_members` (many-to-many); denormalized
+  `org_id` + flat `auth_org()` RLS (NOT join-derived — avoids the ADR-0002 recursion class). Rolled out
+  in phases: **0** invisible backbone (build now), **1** spaces feature (build now), **2** GTM
+  domains/billing/white-label (DEFERRED → `memories/phase-2-multi-tenant-gtm-deferred.md`).
+  *(status: proposed — operator agreed in principle; not yet human-signed to accepted.)*
+
 ## Maintenance
 
 APPEND-ONLY for new ADRs; existing ADRs change `status:` in place, never move (supersession via

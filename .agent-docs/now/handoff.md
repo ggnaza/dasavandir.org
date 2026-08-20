@@ -1,133 +1,143 @@
 ---
 provenance: llm-reviewed
-created: 2026-08-13
-last-modified: 2026-08-13
+created: 2026-08-17
+last-modified: 2026-08-17
 tags: [current, handoff, session-state]
 related: [status, work-plan, open-questions]
 generator: /handoff
 ---
 
-# Session handoff — READ FIRST (2026-08-13) · 🎯 Course phases (TLA → Regional Orientation) shipped to PROD
+# Session handoff — READ FIRST (2026-08-17) · 🎯 Invitation-accept-before-enroll bug fixed → staging
 
 ## Project in one paragraph
-Bilingual (Armenian-default) LMS on Next.js + Supabase, Vercel (`ggnaza/dasavandir.org`; ship flow
-feature→`staging`→`main`, but see the twist below). This session designed + shipped **course phases**
-(ADR-0003): one course can run in ordered phases so the same learners are re-divided into new groups with
-new moderators for a later stage without losing the first stage's data. For **TLA**: Phase 1 = **TLA**,
-Phase 2 = **Regional Orientation**. It went **straight to production** (not staging-first) because staging
-is missing the entire groups feature. Operator is now mid-setup on prod.
+`dasavandir.org` — a Next.js (App Router) + Supabase LMS. Prod DB project = `mmkmsudwtrqdzehnfctx`
+(`.env.local` target, holds real data); staging DB = `zzaiyqvlkdjiqnuluznl` (`.env.staging`). Deploy
+flow: Claude's changes PR to **`staging`** → operator tests on `staging.dasavandir.org` → operator says
+"push to main" → promotion PR `staging → main`. Migrations are **hand-applied** by the operator in the
+Supabase SQL editor (no auto-runner). This session fixed a learner-enrollment bug and shipped it to
+`staging` (PR #283); it is **not yet on `main`.**
 
 ## Current state summary
-| Item | State |
-|---|---|
-| Course phases feature | ✅ shipped — prod `main` (#273 + #274), staging (#272). ADR-0003 accepted. |
-| Prod DB migration `course_phases.sql` | ✅ applied by operator (additive, tx-wrapped). |
-| TLA phase setup on prod | ✅ 2 phases seeded; existing groups → TLA phase; 9 `ՏԿ \| ԻՈՒ` lessons → Regional Orientation. |
-| Multi-select add-members | ✅ shipped prod (#274). |
-| Operator's remaining setup | ⏳ grant `course_manager_access` to Regional moderators → assign to Regional groups → add learners. |
-| Timetable | ⏳ hidden (nav only), pending rework — OQ-010. |
+An operator report — "tatev@teachforarmenia.org was invited, got the email, but isn't in the enrolled
+list and has no access" — turned out to be a real, systemic bug. The three auto-enroll-on-visit server
+pages marked an invitation `status='accepted'` **concurrently with, and blind to,** the enrollment
+upsert (an unchecked `Promise.all`). When the enrollment write failed, the invite still flipped to
+`accepted`; auto-enroll only ever reprocesses `pending` invites, so the user was **permanently
+stranded** (no enrollment, no access, invisible in rosters, never retried). **18 learners** were in this
+state. Tatev was fixed directly in prod (enrollment row created); the root cause was fixed in code
+(shared `lib/invitations/accept-pending.ts`, wired into all 3 sites) and merged to `staging` as
+**PR #283 (`fba7a65`)**. The other **17 stranded learners were left un-backfilled per operator
+decision** (OQ-014).
 
 ## Important context
-- **The design + rationale:** `decisions/0003-course-phases-within-a-single-course.md` (ADR-0003) —
-  **but it lives on `origin/main`, NOT on this local branch** (see traps). Reference by ID.
-- **Model:** `course_phases (id, course_id, name, ord)` + nullable `lessons.phase_id` /
-  `course_groups.phase_id`. One group per learner per **(course, phase)**. A course with **no phase rows
-  behaves exactly as today** — every non-TLA course is untouched.
-- **Moderator review scoping:** a moderator sees a submission iff the learner is in a group they moderate
-  AND (`lesson.phase_id IS NULL` OR in their phases). Untagged lessons stay visible to all → no
-  migration-day blackout. Reviewer attribution + submit-email + cron routed by the assignment lesson's
-  phase (`lib/reviewer-map.ts` — `buildReviewerMap` keyed `user:course:phase` + `:*` wildcard,
-  `resolveReviewer`).
-- **Two-gate visibility for a moderator (told the operator):** being a group's moderator is not enough —
-  they must ALSO have `course_manager_access` to the course (that's what `getCourseReviewers` gates the
-  moderator dropdown on). Grant access first, then assign.
-- **Gate = `tsc --noEmit`** only. **No ESLint / Prettier in this repo** (`next lint` prompts for setup).
-  `next.config` has no `ignoreBuildErrors`, so the type-check IS the build's static gate.
-- Auth invariants still load-bearing: `memories/auth-trigger-must-swallow-errors.md`,
-  `memories/current-user-role-read-needs-admin-client.md`, `memories/migrations-applied-by-hand.md`.
+- **Invite ≠ enrollment.** `POST /api/invitations/invite` only writes an `invitations` row + sends an
+  email. The invite becomes an enrollment only when the invitee signs up AND visits `/learn` (or a
+  course/lesson page), where auto-enroll fires. The **enrolled list is driven by `enrollments`**, and
+  pending invites show as a separate "Pending invites" list.
+- **The fix (WU-0006):** `lib/invitations/accept-pending.ts::acceptPendingInvitations(admin, userId,
+  invites)` upserts the enrollment, and marks the invite `accepted` **only if that upsert returned no
+  error** (else leaves it `pending` to retry). Idempotent. Wired in `app/learn/page.tsx`,
+  `app/learn/courses/[id]/page.tsx`, `app/learn/courses/[id]/lessons/[lessonId]/page.tsx`.
+- **Deploy discipline** (CLAUDE.md): default PR target is `staging`; never `--base main` without an
+  explicit "push to main". Migrations hand-applied + must be idempotent.
+- **Prior open loop still live:** WU-0005's `enrollment_suspension.sql` migration is not confirmed
+  applied to prod (OQ-011) — untouched this session.
 
-## ⚠️ Anti-assumptions / traps (load-bearing)
-1. **Staging is NOT a mirror of prod — it's missing the ENTIRE groups feature.** `course_groups`,
-   `course_group_members`, `moderator_cohort_assignments` do not exist on staging (only
-   courses/lessons/assignments/submissions/profiles do). Any migration touching them fails on staging with
-   `42P01`. This is why phases shipped to prod. VERIFY live schema (table existence, not just policies)
-   before any migration — repo ≠ live, staging ≠ prod. (OQ-008 sharpened; LP-005/LP-006 proposed.)
-2. **ADR-0003 + `course_phases.sql` are on `origin/main`/`origin/staging`, NOT on this local branch.**
-   `ls .agent-docs/decisions/` here shows only 0001, 0002. The local tree
-   (`fix/rls-recursion-and-auth-hardening`) never received the phases merge. Don't "re-add" 0003 locally
-   thinking it's missing — it's on prod.
-3. **Do NOT PR this local branch to main.** It's based on the timetable branch (`614abc3`); merging it
-   drags the timetable feature. All phases work was done in **separate worktrees off `origin/main` /
-   `origin/staging`**, already merged + removed. Future prod work: branch off `origin/main`, cherry-pick,
-   PR to main (that's what #273 did).
-4. **`next build` OOM-crashed (SIGABRT) in the env-less worktree** — an environment artifact of running
-   the Next build from a nested worktree resolving modules upward, NOT a code error. Use `tsc --noEmit`
-   for the local gate; the real build runs on the Vercel deploy.
-5. **Timetable is hidden, not hard-gated** — pages still resolve by direct URL; only nav links removed.
-   Once a learner is in two groups, `resolved_timetable()`'s `LIMIT 1` picks arbitrarily. OQ-010.
-6. **Client-component `useState` doesn't reset on `router.refresh()`** — derive effective values from
-   props with a fallback (fixed `selectedPhase` in `groups-manager.tsx`). LP-005 proposed.
+## ⚠️ Anti-assumptions / traps
+1. **"Invite sent + email received" does NOT mean enrolled.** The obvious read ("the invite failed") was
+   wrong — the invite succeeded; the *enrollment* silently failed later, at first login. Diagnose by
+   checking `enrollments`, not `invitations`.
+2. **A `status='accepted'` invite with NO enrollment is the bug signature — and it is self-perpetuating.**
+   Auto-enroll filters `status='pending'`, so it never revisits an `accepted` row; and re-inviting uses
+   `upsert(..., {onConflict:'course_id,email', ignoreDuplicates:true})`, which re-sends the email but
+   leaves the row `accepted`. So "just re-invite them" LOOKS like a fix but does nothing. The code fix
+   (#283) stops NEW strandings; it does **not** retro-fix existing ones — those need a data backfill.
+3. **`staging` is AHEAD of `main`.** It carries #280/#281 staff-access logic (`checkCourseAccess`/
+   `isStaff`, extra enrollment columns) that `main` lacks. I first edited the fix on the `main` tree,
+   then had to REDO every edit after branching off `origin/staging` — the main-based edits didn't match
+   the staging files (would clobber the staff logic). **Cut the branch off `origin/staging` BEFORE
+   editing** for any staging-targeted change. (LP-004 accepted; LP-006 staged.)
+4. **`gh pr merge` prints a scary git error after a SUCCESSFUL merge.** "Not possible to fast-forward,
+   aborting" is `gh` failing to sync the *local* branch post-merge — the PR was already MERGED on the
+   remote. Verify with `gh pr view <n> --json state,mergedAt,mergeCommit` before reacting. (LP-008
+   staged.)
+5. **`next build` OOM-crashes (SIGABRT) at default heap.** Use `tsc --noEmit` as the fast gate, or
+   `NODE_OPTIONS=--max-old-space-size=8192 npm run build` for a full build (compiles + type-checks +
+   generates all 115 routes). (LP-007 staged — 3rd session confirming.)
+6. **Shell/tooling foot-guns in this env:** `UID` is a readonly numeric var in zsh — assigning a UUID to
+   it fails with "bad math expression"; use another name. Python `urllib` hits `CERTIFICATE_VERIFY_FAILED`
+   here — use `curl` for Supabase REST and pipe to python for processing. `next lint` standalone prompts
+   for interactive ESLint setup (not a wired gate).
 
-## Detour-chain (the side-quest stack)
-MAIN: "let TLA re-group learners for a 2nd phase (Regional Orientation) without losing phase-1 data" →
-design discussion (rejected separate-course + bare-smallint; chose `course_phases` table) → wrote ADR-0003
-→ built the feature in a worktree off staging (migration, phases API, groups tabs, lesson phase dropdown,
-phase-scoped submissions + reviewer-map, hid timetable) → merged to staging (#272) → **discovered staging
-lacks the groups feature entirely** (migration `42P01`) → pivoted to prod: verified prod schema, operator
-applied migration to prod, cherry-picked feature onto main (#273) → tagged lessons by title marker
-`ՏԿ | ԻՈՒ` (module numbers were unreliable) → answered operator Qs on moderator visibility (two-gate:
-course_manager_access + group moderator) → built multi-select add-members (#274) → this handoff. All
-resolved; operator mid-setup on prod. Open follow-ups: OQ-009 (move-learner control), OQ-010 (timetable).
+## Detour-chain
+- **MAIN:** "Tatev was invited but has no access — fix it."
+  - **→ Forensics** (Supabase REST, service-role): Tatev HAS a profile (signed up), invite
+    `status='accepted'`, but ZERO enrollments. Course `ed7e3fd0-…` (Welcome), `access_type='private'`.
+    → root cause = unchecked-parallel accept-vs-enroll.
+  - **→ Immediate data fix:** created Tatev's enrollment row in prod (verified via read-back). ✅ resolved.
+  - **→ Blast-radius sweep:** diffed all `accepted` invitations vs `enrollments` → **18 stranded** (16 TLA
+    2026, 2 Welcome). Operator: fix only Tatev, leave 17 (→ OQ-014). Open.
+  - **→ Root-cause code fix:** extracted `acceptPendingInvitations()`, wired 3 sites. Branch off
+    `origin/staging` (after a false start on `main` — trap #3). Typecheck + build gates pass. Merged
+    PR #283 to `staging`. ✅ code done; ⏳ pending promote to `main`.
+- **Untouched:** WU-0005 migration verification (OQ-011) — orthogonal, still open.
 
 ## Immediate next steps
-No blocking dev work. Operator-side, on **prod**:
-1. For each **Regional Orientation moderator**: grant `course_manager_access` to the TLA course (admin
-   **Users** page → manage-courses for a `course_manager` / `AssignManagerCoursesModal`) BEFORE they'll
-   appear in the group moderator dropdown. Then Groups → **Regional Orientation** tab → create group →
-   pick moderator → add learners (multi-select).
-2. Verify a Regional moderator sees exactly Regional submissions from their group's learners (offered).
-3. Possible dev follow-up (OQ-009): a **"move learner between groups within a phase"** control — currently
-   remove-then-re-add. Offered, not built.
-4. Deferred: OQ-010 (timetable rework + hard-gate), OQ-008 (schema-drift ledger), OQ-007 (RLS stage 3).
+1. **Operator tests #283 on `staging.dasavandir.org`** (invite a fresh test learner, confirm they land in
+   the enrolled list on first login). Then, on operator "push to main":
+   ```bash
+   gh pr create --base main --head staging --title "release: invitation-accept-before-enroll fix (#283)"
+   gh pr merge <n> --squash   # then verify: gh pr view <n> --json state,mergedAt
+   ```
+2. **Offer to backfill the 17 stranded learners (OQ-014).** Recipe (service-role REST; keys in
+   `.env.local` — read, never print). Diff logic used this session:
+   ```text
+   fetch invitations?status=eq.accepted&select=email,course_id
+   fetch profiles?select=id,email  ; fetch enrollments?select=user_id,course_id
+   stranded = accepted invites whose (email→profile.id, course_id) has no enrollment row
+   backfill = POST enrollments {user_id, course_id} with Prefer: resolution=merge-duplicates
+   ```
+   Full stranded list (16 on TLA 2026 `88450829-1694-480e-9afa-9bb44800bc47`; the 17th on Welcome
+   `ed7e3fd0-…`): raffi@gmail.com, lilit.grigoryan@, lilit.khloyan@, mane.kirakosyan@, karlen.nazaryan@,
+   hakob.varosyan@, mariam.aleksanyantfa@gmail.com, aleksanian.miriam@gmail.com, shushan.navasardyan@,
+   ani.khachatryan@, stepanyan.mery@yahoo.com, manukyandranik@gmail.com, gevorgyanlilit864@gmail.com,
+   yana@, vahehovsepyantfa@gmail.com, narine@ (all @teachforarmenia.org unless shown) + jvard.cash1@gmail.com
+   (Welcome). Tatev (`ffd523ff-…`, Welcome) is ALREADY done.
+3. **Verify WU-0005 migration (OQ-011)** — unchanged prior loop: service-role REST read
+   `enrollments?select=status&limit=1` → `42703` if `enrollment_suspension.sql` not yet applied to prod.
+4. **`git pull` before committing these doc updates** — local `main` lags `origin/main`.
 
-**Reusable recipe — prod deploy from this session (verbatim):**
+### Gate recipe (verbatim)
+```bash
+npx tsc --noEmit                                    # fast type-check gate (clean this session)
+NODE_OPTIONS="--max-old-space-size=8192" npm run build   # full build; default heap OOMs (SIGABRT)
 ```
-git worktree add -b <branch> <path> origin/main
-# implement, then:
-npx --no-install tsc --noEmit -p tsconfig.json    # the only local gate (no eslint/prettier)
-git push -u origin <branch> && gh pr create --base main ... && gh pr merge <n> --squash --delete-branch
-git worktree remove <path> --force
-```
-Cherry-pick path (when the commit already exists on staging): `git cherry-pick <sha>` onto a fresh
-`origin/main` worktree, tsc, PR to main.
 
 ## Recent decisions made
 | When | Decision | Rationale / ref |
 |---|---|---|
-| 2026-08-13 | Phases modelled inside ONE course via a `course_phases` table | Per-course phase names; no-phase courses unchanged. Rejected: separate course, bare smallint. ADR-0003. |
-| 2026-08-13 | Moderator queue scoped per-phase (Option 2), untagged-lessons-visible-to-all | Operator chose clean handoff over see-everything; untagged fallback avoids migration-day blackout. |
-| 2026-08-13 | Ship phases straight to PROD, not staging-first | Staging lacks the whole groups feature; operator authorised the prod path. |
-| 2026-08-13 | Tag Regional lessons by title marker `ՏԿ \| ԻՈՒ`, not module number | Module numbers were unreliable ("something wrong with the list"). |
+| 2026-08-17 | Fix only Tatev's data; leave the other 17 stranded learners un-backfilled | Operator call (AskUserQuestion); tracked as OQ-014 for a later batch decision |
+| 2026-08-17 | Fix root cause + PR to `staging` (not straight to `main`) | Default-target-branch rule (CLAUDE.md); operator confirmed |
+| 2026-08-17 | Extract shared `acceptPendingInvitations()` vs. fixing 3 copies inline | One correct sequencing in one place; matches `ensureProfile` helper pattern |
+| 2026-08-17 | Branch off `origin/staging`, not `main` | staging is ahead (#280/#281 staff logic); a main-based branch would clobber it (trap #3) |
 
 ## Breadcrumbs / artifacts
-- Worktrees used this session were removed after merge (`course-phases`, `course-phases-main`,
-  `groups-multi-add`). Nothing left in a non-git tree.
-- Scratch PR body: `<scratchpad>/pr-body.md` (ephemeral; content is captured in PR #272).
-- Operator-run prod SQL (not committed — instance data): TLA phase seed, group→phase backfill, and the
-  lesson tag update (`title LIKE 'ՏԿ | ԻՈՒ%'` → Regional, else TLA). Reproduced from this handoff if needed.
+- Scratch scripts in the session scratchpad (`…/scratchpad/q.sh`, `q.json`/`inv.json`/etc.) — the
+  Supabase REST forensic queries + stranded-user diff. Ephemeral (temp dir clears); the reproducible
+  logic is captured in §Immediate-next above. Keep-or-clean: **clean** (nothing durable beyond the recipe).
+- **Prod data write this session:** 1 row — Tatev's enrollment (`user_id ffd523ff-116c-47fd-9080-
+  36cd020a2955`, `course_id ed7e3fd0-11ea-4432-a52d-5cb6faaff2b7`, id `c77156d5-…`, status `active`).
 
 ## Reading order
-1. This handoff. 2. `now/status.md` (branch/drift detail). 3. `now/work-plan.md` (WU-0004 + immediate).
-4. `now/open-questions.md` (OQ-008 sharpened, OQ-009, OQ-010). 5. `CLAUDE.md` (invariants).
-6. ADR-0003 — **on `origin/main`** (`git show origin/main:.agent-docs/decisions/0003-course-phases-within-a-single-course.md`).
-No newer `checkpoints/` sitrep exists.
+1. This handoff. 2. `now/status.md` (delta). 3. `now/work-plan.md` (WU-0006 + Immediate-next).
+4. `now/open-questions.md` (OQ-014 new; OQ-011 prior). 5. `CLAUDE.md` (auth/enrollment invariants +
+deploy flow). No `checkpoints/` sitrep post-dates this handoff.
 
-## Recent commits (origin/main)
-- `6ac0a2f` feat: multi-select add-members in the groups manager (#274)
-- `931a1bb` feat: course phases (TLA / Regional Orientation) with per-phase groups & review (#272) (#273)
-- `8a7f755` Merge #271 — RLS recursion fix (previous session)
-- `598700d` fix(rls): break profiles RLS infinite recursion via SECURITY DEFINER is_admin()
-- `566bd04` Merge #270 from staging
+## Recent commits
+- `origin/staging` head: `fba7a65` — fix: mark course invitation accepted only after enrollment succeeds (#283)
+- `8f051b1` — feat: course-level learner suspension (#281)
+- `ed5e15b` — feat: staff view courses without enrollment; exclude staff from progress stats (#280)
+- local `main` head: `f6faca9` — release: security + content-protection fixes to production (#279) [behind origin]
 
 ---
-*How to refresh this file: `/handoff`.*
+*How to refresh this file: run `/handoff`.*
