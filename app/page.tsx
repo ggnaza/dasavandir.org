@@ -3,7 +3,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import { getLang } from "@/lib/i18n";
-import { HomeClient } from "./home-client";
+import { getPageForPublic, getMenu } from "@/lib/landing/store";
+import { PublicPage } from "@/components/landing/public-page";
 
 export const dynamic = "force-dynamic";
 
@@ -18,6 +19,12 @@ export default async function Home() {
   }
 
   const lang = getLang(cookies().get("lang")?.value);
+  const [page, nav, footer] = await Promise.all([
+    getPageForPublic("home"),
+    getMenu("nav"),
+    getMenu("footer"),
+  ]);
 
-  return <HomeClient lang={lang} />;
+  // `home` always resolves (falls back to DEFAULT_HOME_BLOCKS), but guard defensively.
+  return <PublicPage blocks={page?.blocks ?? []} nav={nav} footer={footer} lang={lang} />;
 }
