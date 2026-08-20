@@ -57,6 +57,12 @@ export async function ensureOrgMembership(
   }
 }
 
+/** The space ids a user is a MANAGER of (via space_manager_access) — "admin of these spaces". */
+export async function getManagedSpaceIds(admin: SupabaseClient, userId: string): Promise<string[]> {
+  const { data } = await admin.from("space_manager_access").select("space_id").eq("manager_id", userId);
+  return (data ?? []).map((r) => (r as { space_id: string }).space_id);
+}
+
 /**
  * Add a user to the space that owns a course — called when they enrol, so an invited learner lands in
  * that course's audience (e.g. HR Onboarding). Best-effort, idempotent, never throws.

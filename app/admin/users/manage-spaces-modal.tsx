@@ -7,10 +7,16 @@ export function ManageSpacesModal({
   userId,
   userName,
   onClose,
+  endpoint = "/api/admin/space-members",
+  heading = "Spaces",
+  blurb,
 }: {
   userId: string | null;
   userName: string;
   onClose: () => void;
+  endpoint?: string;
+  heading?: string;
+  blurb?: string;
 }) {
   const [spaces, setSpaces] = useState<Space[]>([]);
   const [memberOf, setMemberOf] = useState<Set<string>>(new Set());
@@ -24,7 +30,7 @@ export function ManageSpacesModal({
     setError(null);
     Promise.all([
       fetch("/api/admin/spaces").then((r) => r.json()),
-      fetch(`/api/admin/space-members?userId=${userId}`).then((r) => r.json()),
+      fetch(`${endpoint}?userId=${userId}`).then((r) => r.json()),
     ])
       .then(([s, m]) => {
         setSpaces(s.spaces ?? []);
@@ -41,8 +47,8 @@ export function ManageSpacesModal({
     setBusyId(spaceId);
     setError(null);
     const res = isMember
-      ? await fetch(`/api/admin/space-members?userId=${userId}&spaceId=${spaceId}`, { method: "DELETE" })
-      : await fetch("/api/admin/space-members", {
+      ? await fetch(`${endpoint}?userId=${userId}&spaceId=${spaceId}`, { method: "DELETE" })
+      : await fetch(endpoint, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ userId, spaceId }),
@@ -63,10 +69,14 @@ export function ManageSpacesModal({
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={onClose}>
       <div className="bg-white rounded-xl p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
-        <h2 className="text-lg font-bold mb-1">Spaces</h2>
+        <h2 className="text-lg font-bold mb-1">{heading}</h2>
         <p className="text-sm text-gray-500 mb-4">
-          Which spaces <span className="font-medium text-gray-700">{userName}</span> belongs to. A learner
-          sees the courses in the spaces they belong to.
+          {blurb ?? (
+            <>
+              Which spaces <span className="font-medium text-gray-700">{userName}</span> belongs to. A
+              learner sees the courses in the spaces they belong to.
+            </>
+          )}
         </p>
         {error && <div className="mb-3 text-sm text-red-600">{error}</div>}
         {loading ? (
