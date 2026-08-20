@@ -74,6 +74,15 @@ here carry the claim-as-carry-away **plus status**. Route by status first (don't
   space-scoped (slice 2) → nav is Courses-only. *(status: proposed — operator-directed; shipped to prod
   foundation.)*
 
+- ⭐ `0007-course-payments-pluggable-provider.md` — **Open when:** working on payments/checkout/
+  enrolment/subscription, or "why doesn't the pay button work?" **Carry-away:** paid course → order →
+  `/checkout/[orderId]` → pay → `lib/enroll.enrollUserInCourse`; gated by `PAYMENTS_MODE` env (`disabled`
+  default+prod-safe / `mock` staging-only / `arca`+`stripe` future seam). Fixes the free-paid hole (paid
+  was self-enrollable free). **Revises ADR-0004's catalog rule** — public/paid courses are storefront-open
+  (all registered users see them), space scoping is for private/assigned content only. `courses.subscription_available`
+  added for the later subscription phase. *(status: proposed — code on staging, not prod.)*
+  *(NB: ADR-0006 is reserved for an in-progress landing-page-CMS WIP, not yet committed.)*
+
 ## Maintenance
 
 APPEND-ONLY for new ADRs; existing ADRs change `status:` in place, never move (supersession via
