@@ -52,6 +52,40 @@ the existing global analytics page; accepted the edge case that a course_manager
 also excluded. Chose COURSE-level suspension (`enrollments.status`) over account-level (`profiles.status`
 is informational-only, enforces nothing); account-level offered but deferred → OQ-013.
 
+## 2026-08-21 handoff | Multi-tenancy + spaces + space_manager + learner profile ALL shipped to PROD
+
+Marathon build session, design→prod. Shipped to `main`/prod (operator applied every migration + pushed
+directly to prod for the later features): **multi-tenancy Phase 0+1** (ADR-0004 — organizations/spaces/
+org_members/space_members, AEI as org #1, `org_id` everywhere, space-scoped `/courses`, learner→space
+assignment, write-stamping; prod backfill verified 144 users + 10 courses, 0 nulls); **admin course
+space subtabs + `course_type` retired**; **`space_manager` role** (ADR-0005 — `space_manager_access`,
+"admin of a space" via `checkCourseAccess`; foundation only, slice-2 global-view scoping deferred);
+**learner profile** `/learn/profile` (name/avatar/region/LinkedIn/bio/language/password) + name-in-nav
+links to it. Migrations to prod: `multitenancy_phase0a/b/c/phase1`, `space_manager_access`,
+`profiles_profile_fields`. PRs #287,#289,#291,#293,#295 (+ #285/#286/#288/#290/#292/#294 to staging).
+Docs on `main`: ADR-0004, ADR-0005, CLAUDE.md role-linking table updated, phase-2 memory. OQ-011
+RESOLVED (enrollments.status confirmed on prod). OQ-008 sharpened + staging catch-up applied (finish
+block pending). Gate = `tsc --noEmit` throughout (no eslint/prettier/pre-commit; `next build` OOMs).
+**Could NOT authed-click-test** (no creds) — operator verifies on prod.
+
+decision | 2026-08-20 | Multi-tenancy = organizations + owner-named spaces on the Shopify console/
+storefront model; one identity + `org_members`/`space_members`; denormalized `org_id` + FLAT `auth_org()`
+RLS (NOT join-derived — avoids the ADR-0002 recursion class). RLS enforcement + NOT NULL deferred to
+pre-Phase-2 (zero value with one org). Phase 2 (domains/billing/white-label) deferred. ADR-0004.
+
+decision | 2026-08-20 | `space_manager` = dedicated role + `space_manager_access(manager_id, space_id)`
+table (parallels course_manager one level up), NOT `space_members.role` (keeps that learner-only) and
+NOT org-admin. Access via the shared `checkCourseAccess`. ADR-0005.
+
+decision | 2026-08-20 | `course_type` (program/internal) retired — spaces do the categorising; internal
+≈ private. Toggle removed, column kept, no data migration (operator: "managed with the space").
+
+decision | 2026-08-21 | LinkedIn on the profile is URL-only (no live import — LinkedIn's API is gated).
+
+memory | 2026-08-20 | Prod introspection (service-role REST OpenAPI `/rest/v1/`) is the reliable way to
+verify a hand-applied migration landed + to diff staging↔prod schema. Used it all session; captured the
+full OQ-008 diff this way. `Date.now()`/`new Date()` fine in app code (unlike workflow scripts).
+
 ## 2026-08-13 lesson | LP-005 accepted; LP-003 broadened
 
 LP-005 (medium) — a Next App Router client component's `useState` is NOT reset when `router.refresh()`

@@ -71,6 +71,11 @@ last-modified: 2026-08-17
   committed multi-tenancy migrations (0a/0b/0c/phase1). This needs operator DB access (REST can't run DDL).
   **Bridge available:** a tables-only catch-up assembled from committed migration files (scratchpad
   `staging_catchup_tables.sql`, idempotent) covers 10/11 missing tables + `settings`, but NOT the columns.
+  **2026-08-21 update:** operator applied `scratchpad/staging_full_catchup.sql` (11 tables + 31 base
+  columns) to staging — re-diff confirmed only leftovers were `org_id` on the 11 newly-created tables +
+  `timetable_entries.source_key` + `space_manager_access`. A FINISH block (`scratchpad/staging_finish.sql`)
+  was assembled to close those; **NOT confirmed applied to staging** — run it + re-diff to reach 0 gaps.
+  Prod is complete (all this session's migrations applied + verified). Staging remains the weak env.
 
 - **OQ-009** (🟢 product; surfaced 2026-08-13) — The groups manager has **no "move a learner between
   groups within a phase"** control; moving someone is remove-then-re-add. Offered to the operator, not
