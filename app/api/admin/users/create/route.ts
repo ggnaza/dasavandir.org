@@ -2,6 +2,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { logAudit } from "@/lib/audit-log";
 import { sendInviteLinkEmail } from "@/lib/email";
+import { ensureOrgMembership, addUserToCourseSpace } from "@/lib/org";
 import { z } from "zod";
 
 const schema = z.object({
@@ -53,8 +54,10 @@ export async function POST(req: Request) {
             { user_id: existingProfile.id, course_id: courseId },
             { onConflict: "user_id,course_id" }
           );
+          await addUserToCourseSpace(admin, existingProfile.id, courseId);
         }
       }
+      await ensureOrgMembership(admin, existingProfile.id, role);
       return new Response(
         JSON.stringify({ success: true, message: "User already exists — role updated." }),
         { status: 200 }
@@ -116,8 +119,11 @@ export async function POST(req: Request) {
           { user_id: linkData.user.id, course_id: courseId },
           { onConflict: "user_id,course_id" }
         );
+        await addUserToCourseSpace(admin, linkData.user.id, courseId);
       }
     }
+
+    await ensureOrgMembership(admin, linkData.user.id, role);
 
     await sendInviteLinkEmail({ to: email, fullName, inviteUrl: linkData.properties.action_link });
 

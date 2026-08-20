@@ -1,4 +1,5 @@
 import type { SupabaseClient, User } from "@supabase/supabase-js";
+import { ensureOrgMembership } from "@/lib/org";
 
 /**
  * Defensively ensure a profile row exists for the given auth user.
@@ -44,4 +45,8 @@ export async function ensureProfile(
       error: error.message,
     });
   }
+
+  // Multi-tenancy: also ensure org + default-space membership so the user can browse the general
+  // catalog. Best-effort — never blocks the auth flow (ADR-0004).
+  await ensureOrgMembership(admin, user.id);
 }
