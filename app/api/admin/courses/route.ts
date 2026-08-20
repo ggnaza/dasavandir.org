@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getCurrentOrgId } from "@/lib/org";
 
 export async function POST(req: Request) {
   const supabase = createClient();
@@ -14,9 +15,10 @@ export async function POST(req: Request) {
   const { title, description } = await req.json();
   if (!title?.trim()) return new Response("Title is required", { status: 400 });
 
+  const orgId = await getCurrentOrgId(admin);
   const { data: course, error } = await admin
     .from("courses")
-    .insert({ title: title.trim(), description: description?.trim() || null, created_by: user.id })
+    .insert({ title: title.trim(), description: description?.trim() || null, created_by: user.id, org_id: orgId })
     .select("id")
     .single();
 

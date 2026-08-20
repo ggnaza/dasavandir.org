@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { addUserToCourseSpace } from "@/lib/org";
 
 /**
  * Convert a user's pending course invitations into enrollments.
@@ -45,6 +46,9 @@ export async function acceptPendingInvitations(
       );
       continue;
     }
+
+    // Enrollment succeeded — place the learner in the course's space (ADR-0004). Best-effort.
+    await addUserToCourseSpace(admin, userId, inv.course_id);
 
     const { error: updateErr } = await admin
       .from("invitations")

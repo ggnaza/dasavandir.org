@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getCurrentOrgId } from "@/lib/org";
 import { z } from "zod";
 
 const EDITOR_ROLES = ["admin", "course_creator", "course_manager"];
@@ -34,7 +35,8 @@ export async function POST(req: Request) {
   if (!parsed.success) return new Response("Invalid input", { status: 400 });
   const { title, description, outcomes, language, materialUrl, lessons } = parsed.data;
 
-  // Create the course
+  // Create the course, stamped with the current tenant org (ADR-0004).
+  const orgId = await getCurrentOrgId(admin);
   const { data: course, error: courseError } = await admin
     .from("courses")
     .insert({
@@ -44,6 +46,7 @@ export async function POST(req: Request) {
       language,
       published: false,
       created_by: user.id,
+      org_id: orgId,
     })
     .select("id")
     .single();
