@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getCurrentOrgId } from "@/lib/org";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { CourseEditor } from "./course-editor";
@@ -23,6 +24,12 @@ export default async function CoursePage({ params }: { params: { id: string } })
   const { data: creator } = course.created_by
     ? await admin.from("profiles").select("full_name").eq("id", course.created_by).single()
     : { data: null };
+
+  // Spaces available for this course's organization (for the space picker in the editor).
+  const orgId = course.org_id ?? (await getCurrentOrgId(admin));
+  const { data: spaces } = orgId
+    ? await admin.from("spaces").select("id, name").eq("org_id", orgId).order("ord")
+    : { data: [] };
 
   const enrolledCount = enrollments?.length ?? 0;
   const lessonCount = lessons?.length ?? 0;
@@ -53,7 +60,7 @@ export default async function CoursePage({ params }: { params: { id: string } })
         </Link>
       </div>
 
-      <CourseEditor course={course} lessonDeadlineDates={(lessons ?? []).map(l => ({ title: l.title, deadline_date: l.deadline_date ?? null }))} />
+      <CourseEditor course={course} spaces={(spaces ?? []).map((s) => ({ id: s.id as string, name: s.name as string }))} lessonDeadlineDates={(lessons ?? []).map(l => ({ title: l.title, deadline_date: l.deadline_date ?? null }))} />
 
       <div className="mt-4">
         <CourseResources courseId={course.id} />

@@ -120,6 +120,7 @@ const UPDATABLE_COLUMNS = [
   "published",
   "cover_image_url",
   "course_type",
+  "space_id",
   "access_type",
   "is_paid",
   "price_amd",

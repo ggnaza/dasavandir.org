@@ -9,6 +9,7 @@ type Course = {
   published: boolean;
   cover_image_url: string | null;
   course_type: "program" | "internal" | null;
+  space_id: string | null;
   access_type: "public" | "private" | "paid" | null;
   is_paid: boolean | null;
   price_amd: number | null;
@@ -24,8 +25,9 @@ type Course = {
   allow_shuffled_learning: boolean | null;
 };
 
-export function CourseEditor({ course, lessonDeadlineDates = [] }: {
+export function CourseEditor({ course, spaces = [], lessonDeadlineDates = [] }: {
   course: Course;
+  spaces?: { id: string; name: string }[];
   lessonDeadlineDates?: { title: string; deadline_date: string | null }[];
 }) {
   const router = useRouter();
@@ -37,6 +39,7 @@ export function CourseEditor({ course, lessonDeadlineDates = [] }: {
   const [description, setDescription] = useState(course.description ?? "");
   const [published, setPublished] = useState(course.published);
   const [courseType, setCourseType] = useState<"program" | "internal">(course.course_type ?? "program");
+  const [spaceId, setSpaceId] = useState(course.space_id ?? "");
   const [accessType, setAccessType] = useState<"public" | "private" | "paid">(
     course.access_type ?? (course.is_paid ? "paid" : "private")
   );
@@ -124,6 +127,7 @@ export function CourseEditor({ course, lessonDeadlineDates = [] }: {
         published,
         cover_image_url: coverUrl || null,
         course_type: courseType,
+        space_id: spaceId || null,
         access_type: accessType,
         is_paid: accessType === "paid",
         price_amd: accessType === "paid" && priceAmd ? parseInt(priceAmd) : null,
@@ -319,6 +323,24 @@ export function CourseEditor({ course, lessonDeadlineDates = [] }: {
             <span className="text-sm">English</span>
           </label>
         </div>
+      </div>
+
+      {/* Space */}
+      <div className="border rounded-lg p-4 space-y-2">
+        <p className="text-sm font-medium">Space</p>
+        <p className="text-xs text-gray-500">
+          Which audience group this course belongs to. Learners see courses in the spaces they belong to.
+        </p>
+        <select
+          value={spaceId}
+          onChange={(e) => setSpaceId(e.target.value)}
+          className="border rounded-lg px-3 py-2 text-sm w-full max-w-xs focus:outline-none focus:ring-2 focus:ring-brand-500"
+        >
+          <option value="">— No space —</option>
+          {spaces.map((s) => (
+            <option key={s.id} value={s.id}>{s.name}</option>
+          ))}
+        </select>
       </div>
 
       {/* Access & Pricing */}
