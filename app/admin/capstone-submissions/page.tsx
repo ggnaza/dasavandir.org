@@ -1,4 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
+import { getManagedSpaceCourseIds } from "@/lib/org";
 import Link from "next/link";
 
 export const dynamic = "force-dynamic";
@@ -19,8 +21,22 @@ const STATUS_LABELS: Record<string, string> = {
 
 export default async function CapstoneSubmissionsPage() {
   const admin = createAdminClient();
+  const { data: { user } } = await createClient().auth.getUser();
 
-  const { data: submissions } = await admin
+  // A space manager sees only capstone submissions for the courses in their spaces.
+  let capstoneIds: string[] | null = null; // null = all
+  if (user) {
+    const { data: profile } = await admin.from("profiles").select("role").eq("id", user.id).single();
+    if (profile?.role === "space_manager") {
+      const courseIds = await getManagedSpaceCourseIds(admin, user.id);
+      const { data: caps } = courseIds.length
+        ? await admin.from("capstones").select("id").in("course_id", courseIds)
+        : { data: [] as { id: string }[] };
+      capstoneIds = (caps ?? []).map((c) => c.id);
+    }
+  }
+
+  let submissionsQuery = admin
     .from("capstone_submissions")
     .select(`
       id, status, ai_total_score, final_score, submitted_at,
@@ -28,6 +44,11 @@ export default async function CapstoneSubmissionsPage() {
       capstone_id, capstones(title, course_id, courses(title))
     `)
     .order("submitted_at", { ascending: false });
+  if (capstoneIds !== null) {
+    // Empty → no visible capstones → force an empty result set.
+    submissionsQuery = submissionsQuery.in("capstone_id", capstoneIds.length ? capstoneIds : ["00000000-0000-0000-0000-000000000000"]);
+  }
+  const { data: submissions } = await submissionsQuery;
 
   const pending = submissions?.filter((s) => s.status === "ai_reviewed") ?? [];
   const others = submissions?.filter((s) => s.status !== "ai_reviewed") ?? [];

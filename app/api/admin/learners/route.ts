@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { getManagedSpaceCourseIds } from "@/lib/org";
 
 export async function GET() {
   const supabase = createClient();
@@ -8,7 +9,7 @@ export async function GET() {
 
   const admin = createAdminClient();
   const { data: profile } = await admin.from("profiles").select("role").eq("id", user.id).single();
-  if (!["admin", "course_creator"].includes(profile?.role ?? "")) return new Response("Forbidden", { status: 403 });
+  if (!["admin", "course_creator", "space_manager"].includes(profile?.role ?? "")) return new Response("Forbidden", { status: 403 });
 
   const isAdmin = profile?.role === "admin";
 
@@ -28,9 +29,12 @@ export async function GET() {
     authMap[u.id] = { email: u.email ?? "", last_login: u.last_sign_in_at ?? null };
   }
 
-  // If course creator, only show learners enrolled in their courses
+  // Non-admins only see learners in their courses: a space_manager → the courses in their spaces;
+  // a course_creator → their course_creator_access courses.
   let allowedCourseIds: Set<string> | null = null;
-  if (!isAdmin) {
+  if (profile?.role === "space_manager") {
+    allowedCourseIds = new Set(await getManagedSpaceCourseIds(admin, user.id));
+  } else if (!isAdmin) {
     const { data: access } = await admin
       .from("course_creator_access")
       .select("course_id")

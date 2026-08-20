@@ -63,6 +63,14 @@ export async function getManagedSpaceIds(admin: SupabaseClient, userId: string):
   return (data ?? []).map((r) => (r as { space_id: string }).space_id);
 }
 
+/** The course ids in the spaces a user manages — the scope for a space_manager's global dashboards. */
+export async function getManagedSpaceCourseIds(admin: SupabaseClient, userId: string): Promise<string[]> {
+  const spaceIds = await getManagedSpaceIds(admin, userId);
+  if (spaceIds.length === 0) return [];
+  const { data } = await admin.from("courses").select("id").in("space_id", spaceIds);
+  return (data ?? []).map((r) => (r as { id: string }).id);
+}
+
 /**
  * Add a user to the space that owns a course — called when they enrol, so an invited learner lands in
  * that course's audience (e.g. HR Onboarding). Best-effort, idempotent, never throws.
