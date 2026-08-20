@@ -1,12 +1,17 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentOrgId, getManagedSpaceIds } from "@/lib/org";
 import Link from "next/link";
 import { DeleteCourseButton } from "./delete-course-button";
 import { CloneCourseButton } from "./clone-course-button";
 
 export const dynamic = "force-dynamic";
 
-export default async function CoursesPage() {
+export default async function CoursesPage({
+  searchParams,
+}: {
+  searchParams: { space?: string };
+}) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   const admin = createAdminClient();
@@ -19,30 +24,52 @@ export default async function CoursesPage() {
 
   const isAdmin = profile?.role === "admin";
   const isManager = profile?.role === "course_manager";
+  const isSpaceManager = profile?.role === "space_manager";
 
+  // Spaces a space_manager administers (drives both their course list and their subtabs).
+  const managedSpaceIds = isSpaceManager ? await getManagedSpaceIds(admin, user!.id) : [];
+
+  const COLS = "id, title, description, published, created_at, created_by, space_id";
   let courses: any[] = [];
 
   if (isAdmin) {
     const { data } = await admin
       .from("courses")
-      .select("id, title, description, published, created_at, created_by, course_type")
+      .select(COLS)
       .order("created_at", { ascending: false });
+    courses = data ?? [];
+  } else if (isSpaceManager) {
+    // Space managers see every course in the space(s) they manage.
+    const { data } = managedSpaceIds.length
+      ? await admin.from("courses").select(COLS).in("space_id", managedSpaceIds).order("created_at", { ascending: false })
+      : { data: [] };
     courses = data ?? [];
   } else if (isManager) {
     // course_managers see only courses they're explicitly assigned to via course_manager_access
     const { data } = await admin
       .from("course_manager_access")
-      .select("course_id, courses(id, title, description, published, created_at, created_by, course_type)")
+      .select(`course_id, courses(${COLS})`)
       .eq("manager_id", user!.id);
     courses = (data ?? []).map((r: any) => r.courses).filter(Boolean);
   } else {
     // Course creators see only courses they're assigned to
     const { data } = await admin
       .from("course_creator_access")
-      .select("course_id, courses(id, title, description, published, created_at, created_by, course_type)")
+      .select(`course_id, courses(${COLS})`)
       .eq("creator_id", user!.id);
     courses = (data ?? []).map((r: any) => r.courses).filter(Boolean);
   }
+
+  // Spaces for the current org (for the subtabs). Only surface tabs the user actually has courses in,
+  // plus every space for an admin (who can file courses anywhere).
+  const orgId = await getCurrentOrgId(admin);
+  const { data: allSpaces } = orgId
+    ? await admin.from("spaces").select("id, name, ord").eq("org_id", orgId).order("ord")
+    : { data: [] };
+  // A space manager only sees subtabs for the spaces they administer.
+  const spaces = (allSpaces ?? []).filter(
+    (s) => !isSpaceManager || managedSpaceIds.includes(s.id as string)
+  );
 
   const enrollmentCounts: Record<string, number> = {};
   const creatorNames: Record<string, string> = {};
@@ -60,8 +87,28 @@ export default async function CoursesPage() {
     }
   }
 
-  const programs = courses.filter((c) => c.course_type === "program" || !c.course_type);
-  const internal = courses.filter((c) => c.course_type === "internal");
+  // Which subtab is active. Default: "all". Special value "none" = courses with no space.
+  const selected = searchParams.space ?? "all";
+  const hasUnassigned = courses.some((c) => !c.space_id);
+  const countFor = (key: string) =>
+    key === "all"
+      ? courses.length
+      : key === "none"
+      ? courses.filter((c) => !c.space_id).length
+      : courses.filter((c) => c.space_id === key).length;
+
+  const tabs: { key: string; label: string }[] = [
+    { key: "all", label: "All" },
+    ...spaces.map((s) => ({ key: s.id as string, label: s.name as string })),
+    ...(hasUnassigned ? [{ key: "none", label: "No space" }] : []),
+  ];
+
+  const visible =
+    selected === "all"
+      ? courses
+      : selected === "none"
+      ? courses.filter((c) => !c.space_id)
+      : courses.filter((c) => c.space_id === selected);
 
   function CourseRow({ course }: { course: any }) {
     return (
@@ -116,7 +163,7 @@ export default async function CoursesPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold">{isManager ? "My Courses" : "Courses"}</h1>
         {!isManager && (
           <Link
@@ -128,6 +175,29 @@ export default async function CoursesPage() {
         )}
       </div>
 
+      {/* Space subtabs */}
+      {courses.length > 0 && tabs.length > 1 && (
+        <div className="flex gap-1 mb-6 border-b overflow-x-auto">
+          {tabs.map((tab) => {
+            const active = selected === tab.key;
+            return (
+              <Link
+                key={tab.key}
+                href={tab.key === "all" ? "/admin/courses" : `/admin/courses?space=${tab.key}`}
+                className={`px-4 py-2 text-sm font-medium whitespace-nowrap border-b-2 -mb-px transition ${
+                  active
+                    ? "border-brand-600 text-brand-700"
+                    : "border-transparent text-gray-500 hover:text-gray-800"
+                }`}
+              >
+                {tab.label}
+                <span className="ml-1.5 text-xs text-gray-400">{countFor(tab.key)}</span>
+              </Link>
+            );
+          })}
+        </div>
+      )}
+
       {courses.length === 0 && (
         <div className="bg-white border rounded-xl p-10 text-center text-gray-500">
           No courses yet.{" "}
@@ -137,25 +207,13 @@ export default async function CoursesPage() {
         </div>
       )}
 
-      {/* Programs */}
-      {programs.length > 0 && (
-        <section className="mb-10">
-          <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Programs</h2>
-          <div className="space-y-3">
-            {programs.map((course) => <CourseRow key={course.id} course={course} />)}
-          </div>
-        </section>
+      {courses.length > 0 && visible.length === 0 && (
+        <p className="text-sm text-gray-500">No courses in this space yet.</p>
       )}
 
-      {/* Internal */}
-      {internal.length > 0 && (
-        <section>
-          <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Internal</h2>
-          <div className="space-y-3">
-            {internal.map((course) => <CourseRow key={course.id} course={course} />)}
-          </div>
-        </section>
-      )}
+      <div className="space-y-3">
+        {visible.map((course) => <CourseRow key={course.id} course={course} />)}
+      </div>
     </div>
   );
 }

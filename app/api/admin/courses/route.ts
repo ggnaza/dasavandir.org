@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getCurrentOrgId } from "@/lib/org";
+import { getCurrentOrgId, getManagedSpaceIds } from "@/lib/org";
 
 export async function POST(req: Request) {
   const supabase = createClient();
@@ -9,16 +9,24 @@ export async function POST(req: Request) {
 
   const admin = createAdminClient();
   const { data: profile } = await admin.from("profiles").select("role").eq("id", user.id).single();
-  const allowed = ["admin", "course_creator"];
+  const allowed = ["admin", "course_creator", "space_manager"];
   if (!allowed.includes(profile?.role ?? "")) return new Response("Forbidden", { status: 403 });
 
   const { title, description } = await req.json();
   if (!title?.trim()) return new Response("Title is required", { status: 400 });
 
   const orgId = await getCurrentOrgId(admin);
+  // A space manager's new course lands in one of their spaces so it's visible to them immediately.
+  let spaceId: string | null = null;
+  if (profile?.role === "space_manager") {
+    const managed = await getManagedSpaceIds(admin, user.id);
+    if (managed.length === 0) return new Response("You do not manage any space yet.", { status: 403 });
+    spaceId = managed[0] ?? null;
+  }
+
   const { data: course, error } = await admin
     .from("courses")
-    .insert({ title: title.trim(), description: description?.trim() || null, created_by: user.id, org_id: orgId })
+    .insert({ title: title.trim(), description: description?.trim() || null, created_by: user.id, org_id: orgId, space_id: spaceId })
     .select("id")
     .single();
 
