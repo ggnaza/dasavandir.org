@@ -92,7 +92,7 @@ There are three separate tables that link users to courses. Using the wrong one 
 
 If you add another editor role, add its branch here. NOTE: `checkCourseAccess` (`lib/assert-course-owner.ts`) is the shared API/page guard and also branches on `space_manager` (course's `space_id` ∈ their managed spaces) — keep it in sync with this fetch map.
 
-**Space manager — deferred (slice 2):** the GLOBAL aggregate views (`/admin/submissions`, `/admin/learners`, `/admin/analytics`, capstones) are NOT yet scoped to a space manager's spaces; their nav is Courses-only and they operate through per-course pages. Wire the space filter into those views before exposing them in the space_manager nav.
+**Space manager global dashboards (slice 2, shipped):** `/admin/submissions`, `/admin/capstone-submissions`, and `/admin/learners` (via `/api/admin/learners`) are scoped to a manager's spaces using `lib/org.getManagedSpaceCourseIds()`; they're in the space_manager nav. **Still deferred:** `/admin/analytics` — org-wide aggregation across ~8 datasets isn't space-scoped yet, so it **redirects space managers away** (no cross-space leak) and is NOT in their nav. Scope it (filter every dataset to the manager's courses/lessons) before exposing it.
 
 ### The `GET /api/admin/moderators` route
 Supports two modes:
