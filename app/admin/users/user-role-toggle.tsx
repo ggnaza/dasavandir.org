@@ -5,7 +5,7 @@ import { useState } from "react";
 type UserRoleToggleProps = {
   userId: string;
   currentRole: string;
-  onUpdate?: () => void;
+  onUpdate?: (newRole: string) => void;
 };
 
 export function UserRoleToggle({ userId, currentRole, onUpdate }: UserRoleToggleProps) {
@@ -25,9 +25,10 @@ export function UserRoleToggle({ userId, currentRole, onUpdate }: UserRoleToggle
 
       if (res.ok) {
         setRole(newRole);
-        onUpdate?.();
+        onUpdate?.(newRole);
       } else {
-        alert("Failed to update role");
+        const msg = await res.json().catch(() => ({}));
+        alert(msg.error ? `Failed to update role: ${msg.error}` : "Failed to update role");
       }
     } catch (err) {
       alert("Error updating role");

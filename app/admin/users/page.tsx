@@ -203,7 +203,18 @@ export default function UsersPage() {
                             </button>
                           ) : (
                             <>
-                              <UserRoleToggle userId={user.id} currentRole={user.role} onUpdate={() => fetchUsers(page, search)} />
+                              <UserRoleToggle
+                                userId={user.id}
+                                currentRole={user.role}
+                                onUpdate={(newRole) => {
+                                  fetchUsers(page, search);
+                                  // A space manager needs at least one space to manage — prompt for it now.
+                                  if (newRole === "space_manager") {
+                                    setManagedSpacesUserId(user.id);
+                                    setManagedSpacesUserName(user.full_name || "User");
+                                  }
+                                }}
+                              />
                               <Link href={`/admin/users/${user.id}/activity`} className="text-blue-600 hover:underline text-sm">
                                 Activity
                               </Link>
