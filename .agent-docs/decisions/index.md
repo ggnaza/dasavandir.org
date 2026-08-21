@@ -55,6 +55,42 @@ here carry the claim-as-carry-away **plus status**. Route by status first (don't
   a moderator's queue is phase-scoped with untagged lessons visible to all; reviewer attribution follows
   the assignment lesson's phase; timetable hidden pending rework. *(status: accepted.)*
 
+- ⭐ `0004-multi-tenancy-organizations-spaces-shopify-model.md` — **Open when:** touching anything
+  tenant/org-scoped, adding a new table (does it need `org_id`?), designing spaces/domains/billing, or
+  asking "why not just a category column / one org per user / join-derived RLS?" **Carry-away:**
+  two-level tenancy — `organizations` (billing+security boundary) + owner-named `spaces` — on the
+  Shopify console/storefront model; one global identity + `org_members` (many-to-many); denormalized
+  `org_id` + flat `auth_org()` RLS (NOT join-derived — avoids the ADR-0002 recursion class). Rolled out
+  in phases: **0** invisible backbone (build now), **1** spaces feature (build now), **2** GTM
+  domains/billing/white-label (DEFERRED → `memories/phase-2-multi-tenant-gtm-deferred.md`).
+  *(status: proposed — operator agreed in principle; not yet human-signed to accepted.)*
+
+- ⭐ `0005-space-manager-role.md` — **Open when:** touching roles/access-control, adding a course-level
+  admin view (does it route through `checkCourseAccess`?), or asking "why not reuse `space_members.role`
+  for space managers?" **Carry-away:** `space_manager` = admin-of-a-space, linked via a dedicated
+  `space_manager_access(manager_id, space_id)` table (parallels `course_manager_access` one level up),
+  NOT `space_members` (that stays learner-only). Access = course's `space_id` ∈ managed spaces, via the
+  shared `checkCourseAccess` guard. Global aggregate views (submissions/learners/analytics) NOT yet
+  space-scoped (slice 2) → nav is Courses-only. *(status: proposed — operator-directed; shipped to prod
+  foundation.)*
+
+- ⭐ `0006-landing-page-cms-structured-blocks.md` — **Open when:** editing the public marketing site,
+  adding a landing block type, or "how is the homepage rendered?" **Carry-away:** the public homepage/
+  pages/menu are DB-backed **structured blocks** (not freeform drag-drop), org-scoped, bilingual (en/hy),
+  Zod-validated (`lib/landing/blocks`). Public renderer (`app/page.tsx`, `app/[slug]`) **falls back to
+  `DEFAULT_HOME_BLOCKS`/`DEFAULT_MENU` when tables/rows are absent** → safe before the migration + zero
+  visual regression. Admin editor at `/admin/pages`; migration `landing_pages.sql` (`pages` + `menu_items`).
+  *(status: proposed — shipped to prod; homepage renders defaults until edited.)*
+
+- ⭐ `0007-course-payments-pluggable-provider.md` — **Open when:** working on payments/checkout/
+  enrolment/subscription, or "why doesn't the pay button work?" **Carry-away:** paid course → order →
+  `/checkout/[orderId]` → pay → `lib/enroll.enrollUserInCourse`; gated by `PAYMENTS_MODE` env (`disabled`
+  default+prod-safe / `mock` staging-only / `arca`+`stripe` future seam). Fixes the free-paid hole (paid
+  was self-enrollable free). **Revises ADR-0004's catalog rule** — public/paid courses are storefront-open
+  (all registered users see them), space scoping is for private/assigned content only. `courses.subscription_available`
+  added for the later subscription phase. *(status: proposed — shipped to prod; PAYMENTS_MODE=disabled
+  until a gateway is wired.)*
+
 ## Maintenance
 
 APPEND-ONLY for new ADRs; existing ADRs change `status:` in place, never move (supersession via

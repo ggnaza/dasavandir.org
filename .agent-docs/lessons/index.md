@@ -68,6 +68,12 @@ cost-of-recurrence can justify promotion on first sighting — it need not wait 
   **Carry-away:** `useState` is NOT re-initialised when refresh passes new props — derive an *effective*
   value from props with a fallback (`items.some(i=>i.id===sel)?sel:items[0]?.id`) and keep state only for
   the explicit override; or `key` the component to force remount. *(seedling · medium · action.)*
+- `adding-a-role-means-grepping-every-enum-validation-site.md` (LP-009) — **Open when:** adding a new
+  `role` (or any string enum used across the app). **Carry-away:** a role/enum is validated in MORE than
+  the UI toggle + DB CHECK — every write endpoint's `z.enum([...])` (create AND update are different
+  routes) AND any `.in("role",[...])` read filter. `tsc` can't catch a missed one (the string is valid
+  TS); it fails at runtime as a 400/empty-list. `grep -rn` the enum members across `app/api` before
+  merging. *(seedling · medium · action.)*
 
 ## Maintenance
 

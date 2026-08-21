@@ -55,6 +55,14 @@ anti-actions) · See also (related docs, upstream issues, commit refs).
   (`disabled_manually`, 2026-08-12); the file still *says* scheduled — that's a GitHub toggle, not code.
   Its runs were failing before disable.
 
+### Roadmap / deferred
+- `phase-2-multi-tenant-gtm-deferred.md` — **Open when:** picking up multi-tenancy after Phase 0/1, or
+  asked about domains/subdomains, custom-domain SSO, storefront editor, org signup, subscription
+  billing/coupons, or white-label. **Carry-away:** Phase 2 (the go-to-market machinery) is deliberately
+  NOT built now — build the Phase 0 backbone + Phase 1 spaces first; Phase 2 is additive and waits for
+  the first external customer. Two open sub-decisions parked: neutral base domain now-vs-later, and who
+  collects learner payments inside another org's storefront. (ADR-0004.)
+
 ## Maintenance
 
 UPDATE-IN-PLACE; adding/retiring a memory updates this index in the same change. Carry-away claims

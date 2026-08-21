@@ -1,133 +1,150 @@
 ---
 provenance: llm-reviewed
-created: 2026-08-13
-last-modified: 2026-08-13
+created: 2026-08-21
+last-modified: 2026-08-21
 tags: [current, handoff, session-state]
 related: [status, work-plan, open-questions]
 generator: /handoff
 ---
 
-# Session handoff — READ FIRST (2026-08-13) · 🎯 Course phases (TLA → Regional Orientation) shipped to PROD
+# Session handoff — READ FIRST (2026-08-21) · 🎯 Multi-tenancy + spaces + space_manager + learner profile ALL shipped to PROD
 
 ## Project in one paragraph
-Bilingual (Armenian-default) LMS on Next.js + Supabase, Vercel (`ggnaza/dasavandir.org`; ship flow
-feature→`staging`→`main`, but see the twist below). This session designed + shipped **course phases**
-(ADR-0003): one course can run in ordered phases so the same learners are re-divided into new groups with
-new moderators for a later stage without losing the first stage's data. For **TLA**: Phase 1 = **TLA**,
-Phase 2 = **Regional Orientation**. It went **straight to production** (not staging-first) because staging
-is missing the entire groups feature. Operator is now mid-setup on prod.
+`dasavandir.org` — a Next.js (App Router) + Supabase LMS. Prod DB = `mmkmsudwtrqdzehnfctx`
+(`.env.local`, real data); staging DB = `zzaiyqvlkdjiqnuluznl` (`.env.staging`, ~empty + schema-behind).
+Deploy: Claude PRs to `staging` → operator tests on `staging.dasavandir.org` → "push to main" → promotion
+PR `staging → main`. Migrations are **hand-applied by the operator** in the Supabase SQL editor (no
+auto-runner; Claude has REST only, cannot run DDL). This session designed + shipped the whole
+multi-tenancy roadmap to **production**; nothing is mid-flight.
 
 ## Current state summary
-| Item | State |
-|---|---|
-| Course phases feature | ✅ shipped — prod `main` (#273 + #274), staging (#272). ADR-0003 accepted. |
-| Prod DB migration `course_phases.sql` | ✅ applied by operator (additive, tx-wrapped). |
-| TLA phase setup on prod | ✅ 2 phases seeded; existing groups → TLA phase; 9 `ՏԿ \| ԻՈՒ` lessons → Regional Orientation. |
-| Multi-select add-members | ✅ shipped prod (#274). |
-| Operator's remaining setup | ⏳ grant `course_manager_access` to Regional moderators → assign to Regional groups → add learners. |
-| Timetable | ⏳ hidden (nav only), pending rework — OQ-010. |
+Everything below is **LIVE on `main`/prod** (verified: prod HTTP 200; schema + backfill introspected via
+service-role REST). The operator applied every migration and, for the later features, pushed directly to
+prod.
+- **Multi-tenancy Phase 0+1** (ADR-0004): `organizations`+`spaces`+`org_members`+`space_members`; AEI =
+  org #1; `org_id` on all tenant tables; space-scoped `/courses`; learner→space assignment; org/space
+  write-stamping (`lib/org.ts`, `ensureProfile`). Prod backfill verified (144 users→org+Learning space;
+  10 courses→org+Learning; 0 nulls).
+- **Admin courses by space subtabs** + **`course_type` retired** (toggle gone, column kept).
+- **`space_manager` role** (ADR-0005): `space_manager_access(manager_id, space_id)`; sees/creates/manages
+  courses in their space via the shared `checkCourseAccess`. **Foundation only** — slice 2 (scope the
+  GLOBAL views) deferred; their nav is Courses-only.
+- **Learner profile** `/learn/profile` (name/avatar/region/LinkedIn-URL/bio/language/password); the user's
+  **name in the nav links to it** (standalone tab removed).
+
+Migrations applied to PROD this session: `multitenancy_phase0a/0b/0c/phase1`, `space_manager_access`,
+`profiles_profile_fields` (all verified present via REST).
 
 ## Important context
-- **The design + rationale:** `decisions/0003-course-phases-within-a-single-course.md` (ADR-0003) —
-  **but it lives on `origin/main`, NOT on this local branch** (see traps). Reference by ID.
-- **Model:** `course_phases (id, course_id, name, ord)` + nullable `lessons.phase_id` /
-  `course_groups.phase_id`. One group per learner per **(course, phase)**. A course with **no phase rows
-  behaves exactly as today** — every non-TLA course is untouched.
-- **Moderator review scoping:** a moderator sees a submission iff the learner is in a group they moderate
-  AND (`lesson.phase_id IS NULL` OR in their phases). Untagged lessons stay visible to all → no
-  migration-day blackout. Reviewer attribution + submit-email + cron routed by the assignment lesson's
-  phase (`lib/reviewer-map.ts` — `buildReviewerMap` keyed `user:course:phase` + `:*` wildcard,
-  `resolveReviewer`).
-- **Two-gate visibility for a moderator (told the operator):** being a group's moderator is not enough —
-  they must ALSO have `course_manager_access` to the course (that's what `getCourseReviewers` gates the
-  moderator dropdown on). Grant access first, then assign.
-- **Gate = `tsc --noEmit`** only. **No ESLint / Prettier in this repo** (`next lint` prompts for setup).
-  `next.config` has no `ignoreBuildErrors`, so the type-check IS the build's static gate.
-- Auth invariants still load-bearing: `memories/auth-trigger-must-swallow-errors.md`,
-  `memories/current-user-role-read-needs-admin-client.md`, `memories/migrations-applied-by-hand.md`.
+- **Roles are now 5**: admin, course_creator, course_manager, **space_manager**, learner. CLAUDE.md
+  §Role-to-course-linking updated (the row + fetch branch + the "route new admin views through
+  `checkCourseAccess`" note + the slice-2 deferral). ADR-0005.
+- **Doc store lives on `main` only.** Feature branches are cut off `origin/staging`, which does NOT have
+  the doc commits — so `.agent-docs`/CLAUDE.md show OLD content on a feature branch. NEVER edit docs on a
+  feature branch (stale base). ADR-0004/0005 + CLAUDE.md updates are on `main`.
+- **Multi-tenancy design**: ADR-0004. RLS enforcement + `NOT NULL` on `org_id` deliberately DEFERRED to
+  pre-Phase-2 (one org today → zero value, risks NULL-org rows vanishing). `getManagedSpaceIds`,
+  `ensureOrgMembership`, `addUserToCourseSpace` in `lib/org.ts` are the seams.
+- **Phase 2 deferred** (`memories/phase-2-multi-tenant-gtm-deferred.md`): domains/billing/white-label;
+  needs 2 decisions — neutral base domain, who collects payment in another org's storefront.
+- Gate = **`tsc --noEmit`** (no eslint/prettier configured, no active pre-commit hook). `next build`
+  OOMs — full build needs `NODE_OPTIONS=--max-old-space-size=8192`.
+- Standing invariants unchanged: `handle_new_user()` trigger (CLAUDE.md §Auth), read own role via
+  `createAdminClient()`, migrations idempotent + hand-applied (`memories/migrations-applied-by-hand.md`).
 
-## ⚠️ Anti-assumptions / traps (load-bearing)
-1. **Staging is NOT a mirror of prod — it's missing the ENTIRE groups feature.** `course_groups`,
-   `course_group_members`, `moderator_cohort_assignments` do not exist on staging (only
-   courses/lessons/assignments/submissions/profiles do). Any migration touching them fails on staging with
-   `42P01`. This is why phases shipped to prod. VERIFY live schema (table existence, not just policies)
-   before any migration — repo ≠ live, staging ≠ prod. (OQ-008 sharpened; LP-005/LP-006 proposed.)
-2. **ADR-0003 + `course_phases.sql` are on `origin/main`/`origin/staging`, NOT on this local branch.**
-   `ls .agent-docs/decisions/` here shows only 0001, 0002. The local tree
-   (`fix/rls-recursion-and-auth-hardening`) never received the phases merge. Don't "re-add" 0003 locally
-   thinking it's missing — it's on prod.
-3. **Do NOT PR this local branch to main.** It's based on the timetable branch (`614abc3`); merging it
-   drags the timetable feature. All phases work was done in **separate worktrees off `origin/main` /
-   `origin/staging`**, already merged + removed. Future prod work: branch off `origin/main`, cherry-pick,
-   PR to main (that's what #273 did).
-4. **`next build` OOM-crashed (SIGABRT) in the env-less worktree** — an environment artifact of running
-   the Next build from a nested worktree resolving modules upward, NOT a code error. Use `tsc --noEmit`
-   for the local gate; the real build runs on the Vercel deploy.
-5. **Timetable is hidden, not hard-gated** — pages still resolve by direct URL; only nav links removed.
-   Once a learner is in two groups, `resolved_timetable()`'s `LIMIT 1` picks arbitrarily. OQ-010.
-6. **Client-component `useState` doesn't reset on `router.refresh()`** — derive effective values from
-   props with a fallback (fixed `selectedPhase` in `groups-manager.tsx`). LP-005 proposed.
+## ⚠️ Anti-assumptions / traps
+1. **Adding a role touches MORE than the obvious 3 spots.** The `space_manager` role-assign bug (prod):
+   I updated the toggle, the CHECK constraint, and the create-route — but MISSED the zod enum in
+   `app/api/admin/users/route.ts` (the role-UPDATE endpoint) → the toggle POST 400'd. Grep for the role
+   ENUM everywhere (`z.enum([...roles...])`) AND the users-list role FILTER (`.in("role", [...])`) when
+   adding a role, not just the UI + DB.
+2. **staging ≠ prod schema (OQ-008).** Staging was missing 11 whole tables + ~30 columns vs prod. A
+   migration guarded by `to_regclass` **silently skips** a missing table (that's why phase0c added
+   `org_id` to everything on prod but skipped the 11 absent tables on staging). Verify the LIVE schema
+   (REST OpenAPI `/rest/v1/`) before assuming a migration covered a table.
+3. **A column-dependent page 500s if its migration hasn't run.** `/learn/profile` selects
+   avatar_url/region/… — deploy the code before `profiles_profile_fields` runs and the page errors. It's
+   a NEW route so nobody hits it until the nav link ships — but for column-adding features, migration
+   FIRST (or same window as the ~1–2 min deploy).
+4. **space_manager code is INERT until migration + assignment.** No existing user is `space_manager`, so
+   the `space_manager_access` query never runs until the role is assigned — deploying code before the
+   migration breaks nothing (but the role can't be assigned until the CHECK is updated).
+5. **Catalog behavior change now LIVE:** private courses no longer appear in the public `/courses`
+   (access_type filter). Intended (private = invite-only) but visible. Enrolled users still reach them
+   via `/learn`.
+6. **Scratchpad artifacts are EPHEMERAL** — the staging catch-up / finish SQL live in the session
+   scratchpad (see §Breadcrumbs); they'll clear. The committed migration files are the durable source.
 
-## Detour-chain (the side-quest stack)
-MAIN: "let TLA re-group learners for a 2nd phase (Regional Orientation) without losing phase-1 data" →
-design discussion (rejected separate-course + bare-smallint; chose `course_phases` table) → wrote ADR-0003
-→ built the feature in a worktree off staging (migration, phases API, groups tabs, lesson phase dropdown,
-phase-scoped submissions + reviewer-map, hid timetable) → merged to staging (#272) → **discovered staging
-lacks the groups feature entirely** (migration `42P01`) → pivoted to prod: verified prod schema, operator
-applied migration to prod, cherry-picked feature onto main (#273) → tagged lessons by title marker
-`ՏԿ | ԻՈՒ` (module numbers were unreliable) → answered operator Qs on moderator visibility (two-gate:
-course_manager_access + group moderator) → built multi-select add-members (#274) → this handoff. All
-resolved; operator mid-setup on prod. Open follow-ups: OQ-009 (move-learner control), OQ-010 (timetable).
+## Detour-chain
+- **MAIN:** "read the feature-list Google Doc, see what we have/don't, prioritize" → scoped to 6 items →
+  operator picked **multi-tenancy** first.
+  - **→ Multi-tenancy design** (long Shopify/Joomag-model conversation; published Artifact "dasavandir
+    Tenancy Flows") → **ADR-0004** → Phase 0 backbone + Phase 1 spaces → built, QA'd (data-level), shipped
+    to staging then **prod** (#287/#289). ✅
+  - **→ Space subtabs + retire course_type + `space_manager` role** (operator's next asks) → **ADR-0005**
+    → shipped to prod (#289). ✅
+    - **→ space_manager role-assign bug on prod** → hotfix (missed enum) → shipped (#291). ✅
+  - **→ Learner profile page (#2)** → built + shipped to prod (#293). ✅
+    - **→ name-in-nav links to profile** (operator tweak) → shipped (#295). ✅
+  - **→ OQ-008 staging schema rebuild** (side-quest): assembled + operator-applied `staging_full_catchup.sql`
+    (11 tables + 31 cols); **FINISH block still pending** (`scratchpad/staging_finish.sql`). Open.
 
 ## Immediate next steps
-No blocking dev work. Operator-side, on **prod**:
-1. For each **Regional Orientation moderator**: grant `course_manager_access` to the TLA course (admin
-   **Users** page → manage-courses for a `course_manager` / `AssignManagerCoursesModal`) BEFORE they'll
-   appear in the group moderator dropdown. Then Groups → **Regional Orientation** tab → create group →
-   pick moderator → add learners (multi-select).
-2. Verify a Regional moderator sees exactly Regional submissions from their group's learners (offered).
-3. Possible dev follow-up (OQ-009): a **"move learner between groups within a phase"** control — currently
-   remove-then-re-add. Offered, not built.
-4. Deferred: OQ-010 (timetable rework + hard-gate), OQ-008 (schema-drift ledger), OQ-007 (RLS stage 3).
+Nothing mid-flight. `main` is clean (`90041cf`). **Pick-next menu** (see `now/work-plan.md` §Immediate-next
+for detail):
+1. **Space_manager slice 2** — scope `/admin/submissions`, `/admin/learners`, `/admin/analytics`,
+   capstones to a manager's spaces (`getManagedSpaceIds`), then re-add to the space_manager nav. Seam:
+   `lib/assert-course-owner.ts` + `app/admin/courses/page.tsx` fetch-map. Most teed-up.
+2. **Certificates fully (#5)** — verify ID + public URL + PDF + per-org custom-design upload.
+3. **i18n string-list (#1)** — extract ~145 hardcoded components → `lib/i18n.ts` + CSV/Sheets roundtrip.
+4. **Payments (#4)** — BLOCKED on operator: gateway (local VPOS/ArCa/Idram vs Stripe) + billing scope.
+5. **Tech support (#3)**; **Phase 2 (WU-0009)** deferred.
 
-**Reusable recipe — prod deploy from this session (verbatim):**
+**Operator to-dos (no creds here to do them):** click-test on prod (assign a space_manager + space; sort
+real courses/learners into HR/Recruitment; try `/learn/profile` + avatar). Apply
+`scratchpad/staging_finish.sql` to staging + re-diff. Security: rotate the leaked service-role key (OQ-001).
+
+**Verify-a-migration recipe (VERBATIM):**
+```bash
+( set -a; . ./.env.local; set +a; /usr/bin/curl -s "$NEXT_PUBLIC_SUPABASE_URL/rest/v1/" \
+  -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" ) \
+  | python3 -c "import json,sys; print('col' in json.load(sys.stdin)['definitions']['TABLE']['properties'])"
 ```
-git worktree add -b <branch> <path> origin/main
-# implement, then:
-npx --no-install tsc --noEmit -p tsconfig.json    # the only local gate (no eslint/prettier)
-git push -u origin <branch> && gh pr create --base main ... && gh pr merge <n> --squash --delete-branch
-git worktree remove <path> --force
-```
-Cherry-pick path (when the commit already exists on staging): `git cherry-pick <sha>` onto a fresh
-`origin/main` worktree, tsc, PR to main.
+(`/usr/bin/curl` — the bare `curl` intermittently failed as "command not found" in this shell.)
 
 ## Recent decisions made
-| When | Decision | Rationale / ref |
+| When | Decision | Ref |
 |---|---|---|
-| 2026-08-13 | Phases modelled inside ONE course via a `course_phases` table | Per-course phase names; no-phase courses unchanged. Rejected: separate course, bare smallint. ADR-0003. |
-| 2026-08-13 | Moderator queue scoped per-phase (Option 2), untagged-lessons-visible-to-all | Operator chose clean handoff over see-everything; untagged fallback avoids migration-day blackout. |
-| 2026-08-13 | Ship phases straight to PROD, not staging-first | Staging lacks the whole groups feature; operator authorised the prod path. |
-| 2026-08-13 | Tag Regional lessons by title marker `ՏԿ \| ԻՈՒ`, not module number | Module numbers were unreliable ("something wrong with the list"). |
+| 2026-08-20 | Multi-tenancy = orgs + owner-named spaces, Shopify model, one identity + org_members/space_members, denormalized org_id + flat RLS; Phase 2 deferred | ADR-0004 |
+| 2026-08-20 | `space_manager` = dedicated role + `space_manager_access` (not space_members.role, not org-admin); access via `checkCourseAccess` | ADR-0005 |
+| 2026-08-20 | `course_type` retired — spaces categorise; no data migration | log 2026-08-20 |
+| 2026-08-21 | LinkedIn profile field is URL-only (no live import) | WU-0011 |
+| 2026-08-21 | Later features pushed DIRECTLY to prod (operator applies migrations) | this handoff |
 
 ## Breadcrumbs / artifacts
-- Worktrees used this session were removed after merge (`course-phases`, `course-phases-main`,
-  `groups-multi-add`). Nothing left in a non-git tree.
-- Scratch PR body: `<scratchpad>/pr-body.md` (ephemeral; content is captured in PR #272).
-- Operator-run prod SQL (not committed — instance data): TLA phase seed, group→phase backfill, and the
-  lesson tag update (`title LIKE 'ՏԿ | ԻՈՒ%'` → Regional, else TLA). Reproduced from this handoff if needed.
+- **Published Artifact** "dasavandir Tenancy Flows" (claude.ai/code/artifact/002ca0e2-…) — the multi-tenancy
+  flow design (console/storefront, identity/login, domains, spaces). Private to operator.
+- **Scratchpad (EPHEMERAL — will clear):** `staging_full_catchup.sql` (applied to staging),
+  `staging_finish.sql` (NOT yet applied — the OQ-008 closer), `staging_catchup_tables.sql`,
+  `prod_multitenancy.sql`, `tenancy-flows.html`. Durable equivalents = the committed `supabase/migrations/`.
+- **Asana:** the operator's real project is **"Dasavandir.org"** (gid 1214297568428160). An empty
+  duplicate project (gid 1217461584269019) was created by mistake early on — never populated; delete if it
+  bothers you.
 
 ## Reading order
-1. This handoff. 2. `now/status.md` (branch/drift detail). 3. `now/work-plan.md` (WU-0004 + immediate).
-4. `now/open-questions.md` (OQ-008 sharpened, OQ-009, OQ-010). 5. `CLAUDE.md` (invariants).
-6. ADR-0003 — **on `origin/main`** (`git show origin/main:.agent-docs/decisions/0003-course-phases-within-a-single-course.md`).
-No newer `checkpoints/` sitrep exists.
+1. This handoff → 2. `now/status.md` → 3. `now/work-plan.md` (pick-next menu + WU spine) →
+4. `now/open-questions.md` (OQ-008 staging finish; OQ-001/004 security) → 5. `decisions/0004`, `0005`;
+`memories/phase-2-multi-tenant-gtm-deferred.md` → 6. `CLAUDE.md` §Role-to-course-linking (now 5 roles).
+No `checkpoints/` sitrep post-dates this handoff.
 
-## Recent commits (origin/main)
-- `6ac0a2f` feat: multi-select add-members in the groups manager (#274)
-- `931a1bb` feat: course phases (TLA / Regional Orientation) with per-phase groups & review (#272) (#273)
-- `8a7f755` Merge #271 — RLS recursion fix (previous session)
-- `598700d` fix(rls): break profiles RLS infinite recursion via SECURITY DEFINER is_admin()
-- `566bd04` Merge #270 from staging
+## Recent commits (main)
+```
+90041cf Merge #295 — name links to profile
+637e540 Merge #294 — fix: name→profile, drop Profile tab
+97ffdbc Merge #293 — learner profile page
+6b16db2 Merge #291 — fix: space_manager role assignment (missed enum)
+01d4c1d Merge #287 — multi-tenancy Phase 0+1 to prod
+```
 
 ---
 *How to refresh this file: `/handoff`.*
