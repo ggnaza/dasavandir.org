@@ -18,16 +18,9 @@ create table if not exists pages (
   is_system boolean not null default false,                  -- home/terms/privacy: cannot be deleted
   seo jsonb not null default '{}'::jsonb,                     -- { title?, description? } bilingual
   created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
+  updated_at timestamptz not null default now(),
+  unique (org_id, slug)
 );
-
-do $$ begin
-  if not exists (
-    select 1 from pg_constraint where conname = 'pages_org_slug_unique'
-  ) then
-    alter table pages add constraint pages_org_slug_unique unique (org_id, slug);
-  end if;
-end $$;
 
 create index if not exists pages_org_id_idx on pages (org_id);
 
