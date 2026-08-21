@@ -30,6 +30,7 @@ export function Nav({ role, userName, unreadNotifications = 0, lang = "en" }: Na
           { href: "/admin", label: "Dashboard" },
           { href: "/admin/courses", label: "Courses" },
           { href: "/admin/spaces", label: "Spaces" },
+          { href: "/admin/pages", label: "Pages" },
           { href: "/admin/ai-builder", label: "✦ AI Builder" },
           { href: "/admin/submissions", label: "Submissions" },
           { href: "/admin/capstone-submissions", label: "Capstones" },
