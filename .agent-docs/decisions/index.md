@@ -74,14 +74,22 @@ here carry the claim-as-carry-away **plus status**. Route by status first (don't
   space-scoped (slice 2) → nav is Courses-only. *(status: proposed — operator-directed; shipped to prod
   foundation.)*
 
+- ⭐ `0006-landing-page-cms-structured-blocks.md` — **Open when:** editing the public marketing site,
+  adding a landing block type, or "how is the homepage rendered?" **Carry-away:** the public homepage/
+  pages/menu are DB-backed **structured blocks** (not freeform drag-drop), org-scoped, bilingual (en/hy),
+  Zod-validated (`lib/landing/blocks`). Public renderer (`app/page.tsx`, `app/[slug]`) **falls back to
+  `DEFAULT_HOME_BLOCKS`/`DEFAULT_MENU` when tables/rows are absent** → safe before the migration + zero
+  visual regression. Admin editor at `/admin/pages`; migration `landing_pages.sql` (`pages` + `menu_items`).
+  *(status: proposed — shipped to prod; homepage renders defaults until edited.)*
+
 - ⭐ `0007-course-payments-pluggable-provider.md` — **Open when:** working on payments/checkout/
   enrolment/subscription, or "why doesn't the pay button work?" **Carry-away:** paid course → order →
   `/checkout/[orderId]` → pay → `lib/enroll.enrollUserInCourse`; gated by `PAYMENTS_MODE` env (`disabled`
   default+prod-safe / `mock` staging-only / `arca`+`stripe` future seam). Fixes the free-paid hole (paid
   was self-enrollable free). **Revises ADR-0004's catalog rule** — public/paid courses are storefront-open
   (all registered users see them), space scoping is for private/assigned content only. `courses.subscription_available`
-  added for the later subscription phase. *(status: proposed — code on staging, not prod.)*
-  *(NB: ADR-0006 is reserved for an in-progress landing-page-CMS WIP, not yet committed.)*
+  added for the later subscription phase. *(status: proposed — shipped to prod; PAYMENTS_MODE=disabled
+  until a gateway is wired.)*
 
 ## Maintenance
 
