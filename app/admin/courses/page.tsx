@@ -2,8 +2,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentOrgId, getManagedSpaceIds } from "@/lib/org";
 import Link from "next/link";
-import { DeleteCourseButton } from "./delete-course-button";
-import { CloneCourseButton } from "./clone-course-button";
+import { CoursesBoard, type BoardCourse } from "./courses-board";
 
 export const dynamic = "force-dynamic";
 
@@ -87,79 +86,20 @@ export default async function CoursesPage({
     }
   }
 
-  // Which subtab is active. Default: "all". Special value "none" = courses with no space.
-  const selected = searchParams.space ?? "all";
-  const hasUnassigned = courses.some((c) => !c.space_id);
-  const countFor = (key: string) =>
-    key === "all"
-      ? courses.length
-      : key === "none"
-      ? courses.filter((c) => !c.space_id).length
-      : courses.filter((c) => c.space_id === key).length;
+  // course_managers get a read-only list (View cohort), so dragging is disabled for them.
+  const canMove = !isManager;
 
-  const tabs: { key: string; label: string }[] = [
-    { key: "all", label: "All" },
-    ...spaces.map((s) => ({ key: s.id as string, label: s.name as string })),
-    ...(hasUnassigned ? [{ key: "none", label: "No space" }] : []),
-  ];
+  const boardCourses: BoardCourse[] = courses.map((c) => ({
+    id: c.id as string,
+    title: c.title as string,
+    description: (c.description as string | null) ?? null,
+    published: Boolean(c.published),
+    space_id: (c.space_id as string | null) ?? null,
+    enrolled: enrollmentCounts[c.id] ?? 0,
+    creatorName: c.created_by ? creatorNames[c.created_by] ?? null : null,
+  }));
 
-  const visible =
-    selected === "all"
-      ? courses
-      : selected === "none"
-      ? courses.filter((c) => !c.space_id)
-      : courses.filter((c) => c.space_id === selected);
-
-  function CourseRow({ course }: { course: any }) {
-    return (
-      <div className="bg-white border rounded-xl p-5 flex items-center justify-between">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <Link
-              href={`/admin/courses/${course.id}/learners`}
-              className="font-semibold hover:text-brand-600 hover:underline"
-            >
-              {course.title}
-            </Link>
-            <span className={`text-xs px-2 py-0.5 rounded-full ${course.published ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
-              {course.published ? "Published" : "Draft"}
-            </span>
-            <span className="text-xs text-gray-400">
-              {enrollmentCounts[course.id] ?? 0} enrolled
-            </span>
-          </div>
-          {course.description && (
-            <p className="text-sm text-gray-500 mt-0.5 truncate">{course.description}</p>
-          )}
-          {creatorNames[course.created_by] && (
-            <p className="text-xs text-gray-400 mt-0.5">by {creatorNames[course.created_by]}</p>
-          )}
-        </div>
-        {!isManager && (
-          <div className="flex items-center ml-4 shrink-0">
-            <Link
-              href={`/admin/courses/${course.id}`}
-              className="text-sm text-brand-600 hover:underline"
-            >
-              Edit →
-            </Link>
-            <CloneCourseButton courseId={course.id} />
-            <DeleteCourseButton courseId={course.id} />
-          </div>
-        )}
-        {isManager && (
-          <div className="ml-4 shrink-0">
-            <Link
-              href={`/admin/courses/${course.id}/learners`}
-              className="text-sm text-brand-600 hover:underline font-medium"
-            >
-              View cohort →
-            </Link>
-          </div>
-        )}
-      </div>
-    );
-  }
+  const boardSpaces = spaces.map((s) => ({ id: s.id as string, label: s.name as string }));
 
   return (
     <div>
@@ -175,45 +115,13 @@ export default async function CoursesPage({
         )}
       </div>
 
-      {/* Space subtabs */}
-      {courses.length > 0 && tabs.length > 1 && (
-        <div className="flex gap-1 mb-6 border-b overflow-x-auto">
-          {tabs.map((tab) => {
-            const active = selected === tab.key;
-            return (
-              <Link
-                key={tab.key}
-                href={tab.key === "all" ? "/admin/courses" : `/admin/courses?space=${tab.key}`}
-                className={`px-4 py-2 text-sm font-medium whitespace-nowrap border-b-2 -mb-px transition ${
-                  active
-                    ? "border-brand-600 text-brand-700"
-                    : "border-transparent text-gray-500 hover:text-gray-800"
-                }`}
-              >
-                {tab.label}
-                <span className="ml-1.5 text-xs text-gray-400">{countFor(tab.key)}</span>
-              </Link>
-            );
-          })}
-        </div>
-      )}
-
-      {courses.length === 0 && (
-        <div className="bg-white border rounded-xl p-10 text-center text-gray-500">
-          No courses yet.{" "}
-          <Link href="/admin/courses/new" className="text-brand-600 hover:underline">
-            Create your first course →
-          </Link>
-        </div>
-      )}
-
-      {courses.length > 0 && visible.length === 0 && (
-        <p className="text-sm text-gray-500">No courses in this space yet.</p>
-      )}
-
-      <div className="space-y-3">
-        {visible.map((course) => <CourseRow key={course.id} course={course} />)}
-      </div>
+      <CoursesBoard
+        courses={boardCourses}
+        spaces={boardSpaces}
+        canMove={canMove}
+        isManager={isManager}
+        initialSpace={searchParams.space ?? "all"}
+      />
     </div>
   );
 }
