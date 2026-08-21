@@ -5,7 +5,7 @@ import Link from "next/link";
 import { CourseEditor } from "./course-editor";
 import { CourseResources } from "./course-resources";
 import { CourseReminders } from "./course-reminders";
-import { LessonReorderButtons } from "./lesson-reorder-buttons";
+import { LessonList } from "./lesson-list";
 import { BackfillDurationsButton } from "./backfill-durations-button";
 
 export const dynamic = "force-dynamic";
@@ -86,32 +86,10 @@ export default async function CoursePage({ params }: { params: { id: string } })
           </Link>
         </div>
 
-        {!lessons?.length && (
-          <p className="text-gray-500 text-sm">No lessons yet. Add your first lesson.</p>
-        )}
-
-        <div className="space-y-2">
-          {lessons?.map((lesson, i) => (
-            <div key={lesson.id} className="bg-white border rounded-lg px-4 py-3 flex items-center gap-3">
-              <LessonReorderButtons
-                lessonId={lesson.id}
-                courseId={course.id}
-                isFirst={i === 0}
-                isLast={i === (lessons.length - 1)}
-              />
-              <span className="text-sm flex-1">
-                <span className="text-gray-400 mr-2">{i + 1}.</span>
-                {lesson.title}
-              </span>
-              <Link
-                href={`/admin/courses/${course.id}/lessons/${lesson.id}`}
-                className="text-sm text-brand-600 hover:underline shrink-0"
-              >
-                Edit
-              </Link>
-            </div>
-          ))}
-        </div>
+        <LessonList
+          courseId={course.id}
+          lessons={(lessons ?? []).map((l) => ({ id: l.id as string, title: l.title as string }))}
+        />
       </div>
     </div>
   );
