@@ -176,13 +176,15 @@ export default async function CourseDetailPage({ params }: { params: { id: strin
             ) : (
               <div className="space-y-2">
                 <Link
-                  href="/"
+                  href={`/auth/login?next=/courses/${course.id}`}
                   className="block w-full text-center text-white px-6 py-3 rounded-xl font-semibold text-sm"
                   style={{ backgroundColor: "#EC5328" }}
                 >
                   {course.is_paid ? "Enroll now" : "Start for free"} →
                 </Link>
-                <p className="text-center text-xs text-gray-400">Sign in or create an account to enroll</p>
+                <p className="text-center text-xs text-gray-400">
+                  <Link href={`/auth/signup?next=/courses/${course.id}`} className="underline hover:text-gray-600">Create an account</Link> or sign in to enrol
+                </p>
               </div>
             )}
 

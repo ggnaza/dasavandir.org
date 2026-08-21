@@ -37,7 +37,10 @@ function LoginForm() {
       setError(text);
       setLoading(false);
     } else {
-      router.push("/");
+      // Honour a relative ?next= (e.g. return to a course/checkout after signing in); never an
+      // absolute URL, to avoid an open redirect.
+      const next = searchParams.get("next");
+      router.push(next && next.startsWith("/") && !next.startsWith("//") ? next : "/");
       router.refresh();
     }
   }
