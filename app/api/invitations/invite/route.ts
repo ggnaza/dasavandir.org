@@ -29,7 +29,16 @@ export async function POST(req: Request) {
   const admin = createAdminClient();
   const { data: profile } = await admin.from("profiles").select("role").eq("id", user.id).single();
   if (!profile) return new Response("Unauthorized", { status: 401 });
-  if (profile.role !== "admin" && profile.role !== "course_creator" && profile.role !== "course_manager") {
+  // Coarse role pre-filter. The authoritative per-course check is assertCourseOwner
+  // below (via checkCourseAccess) — keep this list in sync with the roles it grants,
+  // which includes space_manager. Omitting a role here blocks it before the real
+  // check ever runs (this dropped space_manager and produced spurious "Forbidden").
+  if (
+    profile.role !== "admin" &&
+    profile.role !== "course_creator" &&
+    profile.role !== "course_manager" &&
+    profile.role !== "space_manager"
+  ) {
     return new Response("Forbidden", { status: 403 });
   }
 
@@ -88,7 +97,14 @@ export async function DELETE(req: Request) {
   const admin = createAdminClient();
   const { data: profile } = await admin.from("profiles").select("role").eq("id", user.id).single();
   if (!profile) return new Response("Unauthorized", { status: 401 });
-  if (profile.role !== "admin" && profile.role !== "course_creator" && profile.role !== "course_manager") {
+  // Coarse pre-filter — keep in sync with checkCourseAccess (assertCourseOwner
+  // below), which grants space_manager. See the POST handler note above.
+  if (
+    profile.role !== "admin" &&
+    profile.role !== "course_creator" &&
+    profile.role !== "course_manager" &&
+    profile.role !== "space_manager"
+  ) {
     return new Response("Forbidden", { status: 403 });
   }
 
