@@ -13,7 +13,7 @@ export async function GET() {
 
   const admin = createAdminClient();
   const { data: profile } = await admin.from("profiles").select("role").eq("id", user.id).single();
-  const EDITOR_ROLES = ["admin", "course_creator", "course_manager"];
+  const EDITOR_ROLES = ["admin", "course_creator", "course_manager", "space_manager"];
   if (!EDITOR_ROLES.includes(profile?.role ?? "")) return new Response("Forbidden", { status: 403 });
 
   const state = randomBytes(32).toString("hex");

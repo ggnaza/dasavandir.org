@@ -24,7 +24,7 @@ export async function POST(req: Request) {
     .single();
 
   if (!senderProfile) return new Response("Unauthorized", { status: 401 });
-  const ALLOWED_ROLES = ["admin", "course_creator", "course_manager"];
+  const ALLOWED_ROLES = ["admin", "course_creator", "course_manager", "space_manager"];
   if (!ALLOWED_ROLES.includes(senderProfile.role)) {
     return new Response("Forbidden", { status: 403 });
   }

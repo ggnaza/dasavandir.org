@@ -21,7 +21,7 @@ export async function POST(req: Request) {
   const admin = createAdminClient();
   const { data: profile } = await admin.from("profiles").select("role").eq("id", user.id).single();
   if (!profile) return new Response("Unauthorized", { status: 401 });
-  const REVIEWER_ROLES = ["admin", "course_creator", "course_manager"];
+  const REVIEWER_ROLES = ["admin", "course_creator", "course_manager", "space_manager"];
   if (!REVIEWER_ROLES.includes(profile.role)) return new Response("Forbidden", { status: 403 });
 
   const parsed = schema.safeParse(await req.json());
