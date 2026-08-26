@@ -27,6 +27,7 @@ export default async function LearnLayout({ children }: { children: React.ReactN
   const lang = getLang(cookies().get("lang")?.value);
   const navRole =
     profile?.role === "admin" ? "admin"
+    : profile?.role === "space_manager" ? "space_manager"
     : profile?.role === "course_creator" || profile?.role === "course_manager" ? "creator"
     : "learner";
   const isPending = profile?.status === "pending";
@@ -34,7 +35,7 @@ export default async function LearnLayout({ children }: { children: React.ReactN
   return (
     <div className="min-h-screen">
       <PresencePing />
-      <Nav role={navRole as "learner" | "admin" | "creator"} userName={profile?.full_name} unreadNotifications={unreadCount ?? 0} lang={lang} />
+      <Nav role={navRole as "learner" | "admin" | "creator" | "space_manager"} userName={profile?.full_name} unreadNotifications={unreadCount ?? 0} lang={lang} />
       {isPending && (
         <div className="bg-amber-50 border-b border-amber-200 px-4 py-3 text-center text-sm text-amber-800">
           <strong>Check your email</strong> — we sent an activation link to <strong>{user.email}</strong>. Your account will be deleted if not activated within 24 hours.
