@@ -70,7 +70,7 @@ export async function POST(req: Request) {
       admin.from("profiles").select("role, full_name").eq("id", user.id).single(),
       admin.from("courses").select("ai_coach_enabled, ai_coach_instructions").eq("id", resolvedCourseId).single(),
     ]);
-    const isStaff = ["admin", "course_creator", "course_manager"].includes(profile?.role ?? "");
+    const isStaff = ["admin", "course_creator", "course_manager", "space_manager"].includes(profile?.role ?? "");
     if (!enrollment && !isStaff) return new Response("Not enrolled in this course", { status: 403 });
     // Block if AI Coach is disabled for this course (admins/creators can still test it)
     if (courseSettings?.ai_coach_enabled === false && !isStaff) {

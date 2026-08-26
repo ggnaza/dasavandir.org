@@ -7,7 +7,7 @@ import { cookies } from "next/headers";
 
 export const runtime = "nodejs";
 
-const EDITOR_ROLES = ["admin", "course_creator", "course_manager"];
+const EDITOR_ROLES = ["admin", "course_creator", "course_manager", "space_manager"];
 // Only allow alphanumeric Drive IDs or the literal "root"
 const FOLDER_ID_RE = /^[a-zA-Z0-9_-]{1,200}$|^root$/;
 

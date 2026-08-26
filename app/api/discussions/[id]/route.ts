@@ -28,7 +28,7 @@ export async function DELETE(
     .eq("id", user.id)
     .single();
 
-  const MODERATOR_ROLES = ["admin", "course_creator", "course_manager"];
+  const MODERATOR_ROLES = ["admin", "course_creator", "course_manager", "space_manager"];
   if (discussion.user_id !== user.id && !MODERATOR_ROLES.includes(profile?.role ?? ""))
     return new Response("Forbidden", { status: 403 });
 

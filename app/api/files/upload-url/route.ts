@@ -3,7 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { assertCourseOwner } from "@/lib/assert-course-owner";
 import { z } from "zod";
 
-const EDITOR_ROLES = ["admin", "course_creator", "course_manager"];
+const EDITOR_ROLES = ["admin", "course_creator", "course_manager", "space_manager"];
 
 const schema = z.object({
   lesson_id: z.string().uuid(),

@@ -1,9 +1,9 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getCurrentOrgId } from "@/lib/org";
+import { getCurrentOrgId, getManagedSpaceIds } from "@/lib/org";
 import { z } from "zod";
 
-const EDITOR_ROLES = ["admin", "course_creator", "course_manager"];
+const EDITOR_ROLES = ["admin", "course_creator", "course_manager", "space_manager"];
 
 const lessonSchema = z.object({
   title: z.string().min(1).max(300),
@@ -37,6 +37,16 @@ export async function POST(req: Request) {
 
   // Create the course, stamped with the current tenant org (ADR-0004).
   const orgId = await getCurrentOrgId(admin);
+  // A space manager's new course must land in one of their managed spaces, or
+  // checkCourseAccess (which scopes them by course.space_id) would immediately
+  // deny them access to the course they just generated. Mirrors POST
+  // /api/admin/courses (the manual "New course" flow).
+  let spaceId: string | null = null;
+  if (profile?.role === "space_manager") {
+    const managed = await getManagedSpaceIds(admin, user.id);
+    if (managed.length === 0) return new Response("You do not manage any space yet.", { status: 403 });
+    spaceId = managed[0] ?? null;
+  }
   const { data: course, error: courseError } = await admin
     .from("courses")
     .insert({
@@ -47,6 +57,7 @@ export async function POST(req: Request) {
       published: false,
       created_by: user.id,
       org_id: orgId,
+      space_id: spaceId,
     })
     .select("id")
     .single();
