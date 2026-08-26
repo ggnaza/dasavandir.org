@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { notFound, redirect } from "next/navigation";
+import { assertCoursePageAccess } from "@/lib/assert-course-page-access";
 import { CreateAnnouncementForm } from "./create-form";
 import { AnnouncementCard } from "@/components/announcement-card";
 
@@ -12,10 +13,11 @@ export default async function AnnouncementsPage({ params }: { params: { id: stri
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/auth/login");
 
+  // Per-course guard (grants admin, the creator, course_creator/manager_access and
+  // space managers by course.space_id). Replaces a coarse role list that both
+  // omitted space_manager and never scoped per-course.
+  await assertCoursePageAccess(params.id, user.id);
   const { data: profile } = await admin.from("profiles").select("role").eq("id", user.id).single();
-  if (!profile || !["admin", "course_creator", "course_manager"].includes(profile.role)) {
-    redirect("/learn");
-  }
 
   const { data: course } = await admin
     .from("courses")
@@ -95,7 +97,7 @@ export default async function AnnouncementsPage({ params }: { params: { id: stri
         </p>
       </div>
 
-      <CreateAnnouncementForm courseId={params.id} isCourseManager={profile.role === "course_manager"} />
+      <CreateAnnouncementForm courseId={params.id} isCourseManager={profile?.role === "course_manager"} />
 
       <div className="mt-8 space-y-4">
         {!items.length && (

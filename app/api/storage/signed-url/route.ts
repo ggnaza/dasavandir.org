@@ -3,7 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { assertCourseOwner } from "@/lib/assert-course-owner";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const STAFF_ROLES = ["admin", "course_creator", "course_manager"];
+const STAFF_ROLES = ["admin", "course_creator", "course_manager", "space_manager"];
 
 export async function GET(req: Request) {
   const supabase = createClient();

@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { notFound, redirect } from "next/navigation";
+import { assertCoursePageAccess } from "@/lib/assert-course-page-access";
 import { AttendanceTracker } from "./attendance-tracker";
 
 export const dynamic = "force-dynamic";
@@ -11,10 +12,11 @@ export default async function AttendancePage({ params }: { params: { id: string 
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/auth/login");
 
+  // Per-course guard (grants admin, the creator, course_creator/manager_access and
+  // space managers by course.space_id). Replaces a coarse role list that both
+  // omitted space_manager and never scoped per-course.
+  await assertCoursePageAccess(params.id, user.id);
   const { data: profile } = await admin.from("profiles").select("role").eq("id", user.id).single();
-  if (!profile || !["admin", "course_creator", "course_manager"].includes(profile.role)) {
-    redirect("/learn");
-  }
 
   const { data: course } = await admin
     .from("courses")
@@ -43,7 +45,7 @@ export default async function AttendancePage({ params }: { params: { id: string 
           <a href={`/admin/courses/${params.id}/timetable`} className="underline font-medium">Timetable tab</a>.
         </div>
       ) : (
-        <AttendanceTracker courseId={params.id} entries={entries} isManager={profile.role === "course_manager"} />
+        <AttendanceTracker courseId={params.id} entries={entries} isManager={profile?.role === "course_manager"} />
       )}
     </div>
   );

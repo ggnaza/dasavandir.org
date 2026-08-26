@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { getManagedSpaceIds } from "@/lib/org";
 
 export type TimetableAccess = {
   /** May edit the shared base agenda and set the moderator-adjustable tick. */
@@ -18,6 +19,10 @@ export type TimetableAccess = {
  * group, in which case they may override the ticked slots for that group only.
  * TLA 2026 has 9 managers but only 5 group moderators, so the distinction is real.
  *
+ * A space_manager IS granted base ownership (like admin/course_creator) for a
+ * course whose space_id is in their managed set — they are the space-level admin
+ * over every course in that space, a strictly higher tier than a course_manager.
+ *
  * Reads via the admin client on purpose: RLS on profiles recurses (OQ-003), so a
  * user-auth read of a role returns an error, not a role. See ADR-0002.
  */
@@ -28,7 +33,7 @@ export async function getTimetableAccess(
 ): Promise<TimetableAccess> {
   const [{ data: profile }, { data: course }, { data: groups }] = await Promise.all([
     admin.from("profiles").select("role").eq("id", userId).single(),
-    admin.from("courses").select("created_by").eq("id", courseId).single(),
+    admin.from("courses").select("created_by, space_id").eq("id", courseId).single(),
     admin.from("course_groups").select("id, name").eq("course_id", courseId).eq("moderator_id", userId),
   ]);
 
@@ -44,6 +49,11 @@ export async function getTimetableAccess(
       .eq("course_id", courseId)
       .maybeSingle();
     canEditBase = !!data;
+  }
+
+  if (!canEditBase && profile?.role === "space_manager" && course?.space_id) {
+    const managedSpaceIds = await getManagedSpaceIds(admin, userId);
+    canEditBase = managedSpaceIds.includes(course.space_id);
   }
 
   return {

@@ -41,7 +41,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   const { data: profile } = await admin.from("profiles").select("role").eq("id", user.id).single();
   if (!profile) return new Response("Unauthorized", { status: 401 });
 
-  const ALLOWED_ROLES = ["admin", "course_creator", "course_manager"];
+  const ALLOWED_ROLES = ["admin", "course_creator", "course_manager", "space_manager"];
   if (!ALLOWED_ROLES.includes(profile.role)) return new Response("Forbidden", { status: 403 });
 
   const ownerErr = await assertCourseOwner(params.id, user.id);

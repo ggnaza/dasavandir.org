@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { NextRequest, NextResponse } from "next/server";
 import { createNotification } from "@/lib/notifications";
 import { sendAnnouncementEmail } from "@/lib/email";
+import { checkCourseAccess } from "@/lib/assert-course-owner";
 
 export async function POST(req: NextRequest) {
   const supabase = createClient();
@@ -11,7 +12,7 @@ export async function POST(req: NextRequest) {
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { data: profile } = await admin.from("profiles").select("role").eq("id", user.id).single();
-  if (!profile || !["admin", "course_creator", "course_manager"].includes(profile.role)) {
+  if (!profile || !["admin", "course_creator", "course_manager", "space_manager"].includes(profile.role)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -21,15 +22,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
   }
 
-  // Verify access to this specific course (unless admin)
-  if (profile.role !== "admin") {
-    const [{ data: creatorAccess }, { data: managerAccess }] = await Promise.all([
-      admin.from("course_creator_access").select("id").eq("creator_id", user.id).eq("course_id", course_id).single(),
-      admin.from("course_manager_access").select("id").eq("manager_id", user.id).eq("course_id", course_id).single(),
-    ]);
-    if (!creatorAccess && !managerAccess) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+  // Verify access to this specific course. checkCourseAccess is the single source
+  // of truth for per-course scope: admin, the creator, course_creator_access,
+  // course_manager_access, and space managers (course.space_id ∈ their managed
+  // spaces). The previous inline creator/manager lookups omitted space_manager,
+  // producing a spurious 403 for a space manager on a course in their own space.
+  if ((await checkCourseAccess(course_id, user.id)) !== "ok") {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   // If cohort_only, tag announcement with this moderator's ID

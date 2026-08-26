@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { redirect } from "next/navigation";
+import { getManagedSpaceCourseIds } from "@/lib/org";
 import { CohortDashboard, type CohortLearner } from "./cohort-dashboard";
 
 export const dynamic = "force-dynamic";
@@ -15,8 +16,9 @@ export default async function CohortPage() {
 
   // Admins and creators can see a cohort view too — they see all learners across all their courses
   // course_managers see only their assigned cohort
+  // space_managers see all learners across the courses in the spaces they manage
   const role = profile?.role ?? "";
-  if (!["admin", "course_creator", "course_manager"].includes(role)) redirect("/learn");
+  if (!["admin", "course_creator", "course_manager", "space_manager"].includes(role)) redirect("/learn");
 
   // Step 1: Get all courses this user has access to + their cohort assignments
   let courseIds: string[] = [];
@@ -28,6 +30,9 @@ export default async function CohortPage() {
       .select("course_id")
       .eq("moderator_id", user.id);
     courseIds = Array.from(new Set((assignments ?? []).map((a) => a.course_id)));
+  } else if (role === "space_manager") {
+    // Scoped to the courses in the spaces they manage — never all courses.
+    courseIds = await getManagedSpaceCourseIds(admin, user.id);
   } else if (role === "course_creator") {
     const { data: courses } = await admin
       .from("courses")

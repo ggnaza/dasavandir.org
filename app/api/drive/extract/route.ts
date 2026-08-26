@@ -8,7 +8,7 @@ import { z } from "zod";
 
 export const runtime = "nodejs";
 
-const EDITOR_ROLES = ["admin", "course_creator", "course_manager"];
+const EDITOR_ROLES = ["admin", "course_creator", "course_manager", "space_manager"];
 
 const SUPPORTED_MIME_TYPES: Record<string, string> = {
   "application/vnd.google-apps.document": "text/plain",
