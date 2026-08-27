@@ -3,11 +3,8 @@ import { NextResponse, type NextRequest } from "next/server";
 
 const MAX_BODY_BYTES = 1_048_576; // 1 MB
 
-// content-length is client-supplied and untrustworthy, but it stops casual
-// misuse early. Vercel enforces a hard 4.5 MB function limit as the backstop.
 function bodySizeGuard(request: NextRequest): NextResponse | null {
   if (!["POST", "PUT", "PATCH"].includes(request.method)) return null;
-  // Skip for file uploads — they use multipart/form-data and are larger by design
   const contentType = request.headers.get("content-type") ?? "";
   if (contentType.startsWith("multipart/form-data")) return null;
   const contentLength = parseInt(request.headers.get("content-length") ?? "0", 10);
@@ -17,19 +14,28 @@ function bodySizeGuard(request: NextRequest): NextResponse | null {
   return null;
 }
 
-// Reject cross-origin mutation requests (CSRF protection).
+const SAME_DEPLOY_HOSTS = new Set([
+  "dasavandir.org",
+  "staging.dasavandir.org",
+  "efficacy.dasavandir.org",
+  "efficacy.staging.dasavandir.org",
+]);
+
 function csrfGuard(request: NextRequest): NextResponse | null {
   const method = request.method;
   if (!["POST", "PUT", "PATCH", "DELETE"].includes(method)) return null;
   if (!request.nextUrl.pathname.startsWith("/api/")) return null;
 
   const origin = request.headers.get("origin");
-  if (!origin) return null; // server-to-server or direct calls — allow
+  if (!origin) return null;
 
   const host = request.headers.get("host");
   try {
     const originHost = new URL(origin).host;
     if (host && originHost !== host) {
+      // Allow cross-subdomain requests within the same deployment
+      if (SAME_DEPLOY_HOSTS.has(originHost) && SAME_DEPLOY_HOSTS.has(host)) return null;
+      if (originHost.includes("localhost") && host.includes("localhost")) return null;
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
   } catch {
@@ -38,12 +44,42 @@ function csrfGuard(request: NextRequest): NextResponse | null {
   return null;
 }
 
+function isEfficacySubdomain(host: string): boolean {
+  return (
+    host === "efficacy.dasavandir.org" ||
+    host === "efficacy.staging.dasavandir.org" ||
+    host.startsWith("efficacy.localhost")
+  );
+}
+
 export async function middleware(request: NextRequest) {
   const size = bodySizeGuard(request);
   if (size) return size;
 
   const csrf = csrfGuard(request);
   if (csrf) return csrf;
+
+  const host = request.headers.get("host") ?? "";
+  const path = request.nextUrl.pathname;
+
+  // Subdomain routing: efficacy.dasavandir.org/* → /efficacy/*
+  if (isEfficacySubdomain(host)) {
+    if (!path.startsWith("/api/") && !path.startsWith("/auth/") && !path.startsWith("/_next/") && !path.startsWith("/efficacy")) {
+      const url = request.nextUrl.clone();
+      url.pathname = `/efficacy${path === "/" ? "" : path}`;
+      return NextResponse.rewrite(url);
+    }
+  }
+
+  // Only run Supabase auth for protected routes
+  const needsAuth =
+    path.startsWith("/admin") ||
+    path.startsWith("/learn") ||
+    path.startsWith("/efficacy") ||
+    path === "/auth/login" ||
+    path === "/auth/signup";
+
+  if (!needsAuth) return NextResponse.next();
 
   let supabaseResponse = NextResponse.next({ request });
 
@@ -61,7 +97,6 @@ export async function middleware(request: NextRequest) {
           );
           supabaseResponse = NextResponse.next({ request });
           cookiesToSet.forEach(({ name, value, options }) => {
-            // Strip maxAge/expires → session cookies cleared when browser closes
             const { maxAge: _m, expires: _e, ...sessionOpts } = (options ?? {}) as Record<string, unknown>;
             supabaseResponse.cookies.set(name, value, sessionOpts as any);
           });
@@ -71,14 +106,11 @@ export async function middleware(request: NextRequest) {
   );
 
   const { data: { user } } = await supabase.auth.getUser();
-  const path = request.nextUrl.pathname;
 
-  // Redirect unauthenticated users away from protected routes
-  if (!user && (path.startsWith("/admin") || path.startsWith("/learn"))) {
+  if (!user && (path.startsWith("/admin") || path.startsWith("/learn") || path.startsWith("/efficacy"))) {
     return NextResponse.redirect(new URL("/auth/login", request.url));
   }
 
-  // Redirect authenticated users away from auth pages
   if (user && (path === "/auth/login" || path === "/auth/signup")) {
     return NextResponse.redirect(new URL("/", request.url));
   }
@@ -87,5 +119,8 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/admin/:path*", "/learn/:path*", "/auth/login", "/auth/signup", "/auth/set-password", "/api/:path*"],
+  matcher: [
+    // Exclude static files — match everything else
+    "/((?!_next/static|_next/image|favicon.ico|icon.svg|opengraph-image).*)",
+  ],
 };
