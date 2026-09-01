@@ -38,7 +38,7 @@ export async function POST(req: Request) {
   ]);
 
   if (!profile) return new Response("Unauthorized", { status: 401 });
-  const STAFF_ROLES = ["admin", "course_creator", "course_manager"];
+  const STAFF_ROLES = ["admin", "course_creator", "course_manager", "space_manager"];
   if (!enrollment && !STAFF_ROLES.includes(profile.role))
     return new Response("Not enrolled", { status: 403 });
 

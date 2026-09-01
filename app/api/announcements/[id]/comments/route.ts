@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { NextRequest, NextResponse } from "next/server";
+import { checkCourseAccess } from "@/lib/assert-course-owner";
 
 async function checkAccess(userId: string, announcementId: string, admin: ReturnType<typeof createAdminClient>) {
   const { data: announcement } = await admin
@@ -11,14 +12,19 @@ async function checkAccess(userId: string, announcementId: string, admin: Return
 
   if (!announcement) return null;
 
-  const [{ data: enrollment }, { data: creatorAccess }, { data: managerAccess }, { data: profile }] = await Promise.all([
-    admin.from("enrollments").select("id").eq("user_id", userId).eq("course_id", announcement.course_id).single(),
-    admin.from("course_creator_access").select("id").eq("creator_id", userId).eq("course_id", announcement.course_id).single(),
-    admin.from("course_manager_access").select("id").eq("manager_id", userId).eq("course_id", announcement.course_id).single(),
-    admin.from("profiles").select("role").eq("id", userId).single(),
-  ]);
+  // Enrolled learners may comment; so may course staff. checkCourseAccess covers
+  // admin, the creator, course_creator_access, course_manager_access and space
+  // managers (by course.space_id) — the inline creator/manager lookups this
+  // replaced omitted space_manager, 403-ing them on their own space's course.
+  const { data: enrollment } = await admin
+    .from("enrollments")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("course_id", announcement.course_id)
+    .maybeSingle();
 
-  return enrollment || creatorAccess || managerAccess || profile?.role === "admin" ? announcement : null;
+  if (enrollment) return announcement;
+  return (await checkCourseAccess(announcement.course_id, userId)) === "ok" ? announcement : null;
 }
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {

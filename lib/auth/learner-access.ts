@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { getManagedSpaceCourseIds } from "@/lib/org";
 
 /**
  * Can this staff member act on this learner (message them, edit their profile)?
@@ -7,6 +8,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
  * they actually share a course/cohort with, never every learner in the system:
  *
  *   - admin          → any learner
+ *   - space_manager  → learners enrolled in any course in a space they manage
  *   - course_manager → learners assigned to them in moderator_cohort_assignments
  *   - course_creator → learners enrolled in a course the creator owns/is linked to
  *   - anyone else    → no access
@@ -21,6 +23,22 @@ export async function staffCanAccessLearner(
   learnerId: string,
 ): Promise<boolean> {
   if (role === "admin") return true;
+
+  if (role === "space_manager") {
+    // Learners the space manager oversees = anyone enrolled in a course whose
+    // space_id is in their managed set (getManagedSpaceCourseIds already resolves
+    // spaces → courses). No cross-space reach.
+    const courseIds = await getManagedSpaceCourseIds(admin, staffId);
+    if (courseIds.length === 0) return false;
+    const { data: enrollment } = await admin
+      .from("enrollments")
+      .select("id")
+      .eq("user_id", learnerId)
+      .in("course_id", courseIds)
+      .limit(1)
+      .maybeSingle();
+    return !!enrollment;
+  }
 
   if (role === "course_manager") {
     const { data } = await admin

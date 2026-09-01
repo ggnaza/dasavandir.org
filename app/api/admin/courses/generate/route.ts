@@ -5,7 +5,7 @@ import { getAIModel, callLLM } from "@/lib/llm";
 export const runtime = "nodejs";
 export const maxDuration = 120;
 
-const EDITOR_ROLES = ["admin", "course_creator", "course_manager"];
+const EDITOR_ROLES = ["admin", "course_creator", "course_manager", "space_manager"];
 
 const GOOGLE_DOCS_RE = /^https:\/\/docs\.google\.com\/document\/d\/([a-zA-Z0-9_-]+)/;
 const GOOGLE_SLIDES_RE = /^https:\/\/docs\.google\.com\/presentation\/d\/([a-zA-Z0-9_-]+)/;

@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getCurrentOrgId } from "@/lib/org";
+import { getCurrentOrgId, getManagedSpaceIds } from "@/lib/org";
 import { z } from "zod";
 
 const quizQuestionSchema = z.object({
@@ -28,7 +28,10 @@ export async function POST(req: Request) {
 
   const admin = createAdminClient();
   const { data: profile } = await admin.from("profiles").select("role").eq("id", user.id).single();
-  if (!["admin", "course_creator"].includes(profile?.role ?? "")) return new Response("Forbidden", { status: 403 });
+  // Course creation is open to admin, course_creator and space_manager (a space
+  // manager creates into their own space — see POST /api/admin/courses). Not
+  // course_manager: managers edit existing courses, they don't create.
+  if (!["admin", "course_creator", "space_manager"].includes(profile?.role ?? "")) return new Response("Forbidden", { status: 403 });
 
   const parsed = saveSchema.safeParse(await req.json());
   if (!parsed.success) return new Response("Invalid input", { status: 400 });
@@ -36,9 +39,17 @@ export async function POST(req: Request) {
   const { title, description, lessons } = parsed.data;
 
   const orgId = await getCurrentOrgId(admin);
+  // A space manager's new course must land in one of their managed spaces, or
+  // checkCourseAccess would deny them access to the course they just created.
+  let spaceId: string | null = null;
+  if (profile?.role === "space_manager") {
+    const managed = await getManagedSpaceIds(admin, user.id);
+    if (managed.length === 0) return new Response("You do not manage any space yet.", { status: 403 });
+    spaceId = managed[0] ?? null;
+  }
   const { data: course, error: courseError } = await admin
     .from("courses")
-    .insert({ title, description, created_by: user.id, published: false, org_id: orgId })
+    .insert({ title, description, created_by: user.id, published: false, org_id: orgId, space_id: spaceId })
     .select("id")
     .single();
 

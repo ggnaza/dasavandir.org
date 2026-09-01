@@ -28,7 +28,10 @@ export default async function TimetablePage({ params }: { params: { id: string }
   if (!user) redirect("/auth/login");
 
   const { data: profile } = await admin.from("profiles").select("role").eq("id", user.id).single();
-  if (!profile || !["admin", "course_creator", "course_manager"].includes(profile.role)) {
+  // Coarse "is this staff at all" gate; getTimetableAccess below decides the real
+  // capability (base-edit vs group-only vs read-only). space_manager is included
+  // so they reach that check — it grants them base-edit for courses in their space.
+  if (!profile || !["admin", "course_creator", "course_manager", "space_manager"].includes(profile.role)) {
     redirect("/learn");
   }
 

@@ -4,7 +4,7 @@ import { assertCourseOwner } from "@/lib/assert-course-owner";
 import { sendModeratorAddedEmail } from "@/lib/email";
 import { z } from "zod";
 
-const EDITOR_ROLES = ["admin", "course_creator", "course_manager"];
+const EDITOR_ROLES = ["admin", "course_creator", "course_manager", "space_manager"];
 
 export async function GET(req: Request) {
   const supabase = createClient();

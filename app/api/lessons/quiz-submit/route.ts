@@ -43,7 +43,7 @@ export async function POST(req: Request) {
     admin.from("enrollments").select("id").eq("user_id", user.id).eq("course_id", courseId).maybeSingle(),
     admin.from("profiles").select("role").eq("id", user.id).single(),
   ]);
-  const isStaff = ["admin", "course_creator", "course_manager"].includes(profile?.role ?? "");
+  const isStaff = ["admin", "course_creator", "course_manager", "space_manager"].includes(profile?.role ?? "");
   if (!enrollment && !isStaff) return new Response("Not enrolled", { status: 403 });
 
   // Enforce max_attempts if set
