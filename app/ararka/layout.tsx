@@ -16,15 +16,22 @@ export default async function ArarkaLayout({ children }: { children: React.React
   const admin = createAdminClient();
   const { data: profile } = await admin
     .from("profiles")
-    .select("role, full_name")
+    .select("role, full_name, modules")
     .eq("id", user.id)
     .single();
 
   if (!profile) redirect("/learn");
 
+  const userModules: string[] = profile.modules ?? ["courses"];
+  const isAdmin = profile.role === "admin";
+
+  if (!isAdmin && !userModules.includes("ararka")) {
+    redirect("/learn");
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
-      <ArarkaNav userName={profile.full_name ?? undefined} />
+      <ArarkaNav userName={profile.full_name ?? undefined} modules={userModules} isAdmin={isAdmin} />
       <main className="max-w-6xl mx-auto px-4 py-8">{children}</main>
     </div>
   );

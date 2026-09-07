@@ -3,7 +3,7 @@ import { ararkaDb } from "@/lib/ararka/db";
 import { scoreFromScan } from "@/lib/ararka/scorer";
 import type { AnswerKeyItem } from "@/lib/ararka/constants";
 
-export const maxDuration = 60;
+export const maxDuration = 120;
 
 export async function POST(request: Request) {
   const user = await getArarkaUser();
@@ -14,13 +14,15 @@ export async function POST(request: Request) {
   const file = formData.get("file") as File | null;
   const testId = formData.get("test_id") as string | null;
   const studentName = (formData.get("student_name") as string | null) ?? null;
+  const batchId = (formData.get("batch_id") as string | null) ?? null;
+  const modelId = (formData.get("model_id") as string | null) ?? undefined;
 
   if (!file || !testId) {
     return Response.json({ error: "file and test_id are required" }, { status: 400 });
   }
 
-  if (file.size > 10 * 1024 * 1024) {
-    return Response.json({ error: "File too large (max 10MB)" }, { status: 400 });
+  if (file.size > 25 * 1024 * 1024) {
+    return Response.json({ error: "File too large (max 25MB)" }, { status: 400 });
   }
 
   const allowedTypes = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
@@ -48,16 +50,19 @@ export async function POST(request: Request) {
   const imageBase64 = buffer.toString("base64");
   const mediaType = file.type as "image/jpeg" | "image/png" | "image/webp" | "application/pdf";
 
+  const scanInsert: Record<string, unknown> = {
+    test_id: testId,
+    student_name: studentName,
+    teacher_id: user!.id,
+    file_path: `scans/${testId}/${Date.now()}_${file.name}`,
+    file_url: "",
+    status: "processing",
+  };
+  if (batchId) scanInsert.batch_id = batchId;
+
   const { data: scan, error: scanErr } = await db
     .from("scans")
-    .insert({
-      test_id: testId,
-      student_name: studentName,
-      teacher_id: user!.id,
-      file_path: `scans/${testId}/${Date.now()}_${file.name}`,
-      file_url: null,
-      status: "processing",
-    })
+    .insert(scanInsert)
     .select("id")
     .single();
 
@@ -71,7 +76,19 @@ export async function POST(request: Request) {
       mediaType,
       test.answer_key as AnswerKeyItem[],
       test.scoring_notes,
+      modelId,
     );
+
+    const finalStudentName = studentName ?? scoringResult.studentName;
+
+    if (finalStudentName || scoringResult.teacherName) {
+      const scanUpdate: Record<string, unknown> = {};
+      if (finalStudentName && !studentName) scanUpdate.student_name = finalStudentName;
+      if (scoringResult.teacherName) scanUpdate.teacher_name = scoringResult.teacherName;
+      if (Object.keys(scanUpdate).length > 0) {
+        await db.from("scans").update(scanUpdate).eq("id", scan.id);
+      }
+    }
 
     const { data: result, error: resultErr } = await db
       .from("results")
@@ -96,8 +113,11 @@ export async function POST(request: Request) {
 
     return Response.json({
       resultId: result.id,
+      scanId: scan.id,
       totalScore: scoringResult.totalScore,
       items: scoringResult.items,
+      studentName: finalStudentName,
+      teacherName: scoringResult.teacherName,
     });
   } catch (err) {
     await db.from("scans").update({ status: "error" }).eq("id", scan.id);

@@ -1,7 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { POINT_DISTRIBUTION, type AnswerKeyItem, type ScoredItem } from "./constants";
-
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
+import { getCurrentModel, type ScoringModel } from "./models";
 
 function buildScoringPrompt(answerKey: AnswerKeyItem[], scoringNotes?: string | null): string {
   const keyDescription = answerKey.map((q) => {
@@ -33,25 +32,37 @@ SCORING RULES:
 - If the answer is illegible, note it and award 0 points
 
 TASK:
-Look at the uploaded scan of a filled-in test. For EACH question (1-15):
-1. Extract what the student wrote/marked as their answer
-2. Compare to the correct answer
-3. Award points according to the rules
+Look at the uploaded scan of a filled-in test.
 
-Respond with ONLY a valid JSON array of 15 objects, one per question:
-[
-  {
-    "number": 1,
-    "max_points": 0.5,
-    "awarded_points": 0.5,
-    "extracted_answer": "what the student wrote",
-    "correct_answer": "the correct answer",
-    "is_correct": true,
-    "confidence": 0.95,
-    "explanation": "brief note if needed"
-  },
-  ...
-]
+FIRST, extract the student's name and teacher's name from the top of the first page.
+The header typically has:
+- Date line
+- Student name/surname line
+- Teacher name line
+
+THEN, for EACH question (1-15):
+1. Extract what the student wrote/marked as their answer
+2. Compare to the correct answer from the answer key above
+3. Award points according to the rules
+4. IGNORE any teacher scoring marks (red ink annotations) visible on the scan — score independently
+
+Respond with ONLY valid JSON in this exact format:
+{
+  "student_name": "extracted student name or null if unreadable",
+  "teacher_name": "extracted teacher name or null if unreadable",
+  "items": [
+    {
+      "number": 1,
+      "max_points": 0.5,
+      "awarded_points": 0.5,
+      "extracted_answer": "what the student wrote",
+      "correct_answer": "the correct answer",
+      "is_correct": true,
+      "confidence": 0.95,
+      "explanation": "brief note if needed"
+    }
+  ]
+}
 
 confidence is 0-1 representing how sure you are about reading the student's handwriting.
 If you cannot read a question's answer, set confidence to a low value and explain why.`;
@@ -59,13 +70,22 @@ If you cannot read a question's answer, set confidence to a low value and explai
 
 type ImageMediaType = "image/jpeg" | "image/png" | "image/webp" | "image/gif";
 
-export async function scoreFromScan(
+export interface ScoringResult {
+  items: ScoredItem[];
+  totalScore: number;
+  studentName: string | null;
+  teacherName: string | null;
+  modelUsed: string;
+  raw: unknown;
+}
+
+async function scoreWithAnthropic(
   imageBase64: string,
   mediaType: "image/jpeg" | "image/png" | "image/webp" | "application/pdf",
-  answerKey: AnswerKeyItem[],
-  scoringNotes?: string | null,
-): Promise<{ items: ScoredItem[]; totalScore: number; raw: unknown }> {
-  const prompt = buildScoringPrompt(answerKey, scoringNotes);
+  prompt: string,
+  model: ScoringModel,
+): Promise<{ text: string; raw: unknown }> {
+  const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
 
   const contentBlock =
     mediaType === "application/pdf"
@@ -87,27 +107,85 @@ export async function scoreFromScan(
         };
 
   const response = await anthropic.messages.create({
-    model: "claude-sonnet-4-20250514",
+    model: model.model,
     max_tokens: 4096,
-    messages: [
-      {
-        role: "user",
-        content: [contentBlock, { type: "text", text: prompt }],
-      },
-    ],
+    messages: [{ role: "user", content: [contentBlock, { type: "text", text: prompt }] }],
   });
 
   const textBlock = response.content.find((b) => b.type === "text");
-  if (!textBlock || textBlock.type !== "text") {
-    throw new Error("No text response from scoring model");
+  if (!textBlock || textBlock.type !== "text") throw new Error("No text response from scoring model");
+  return { text: textBlock.text, raw: response };
+}
+
+async function scoreWithGemini(
+  imageBase64: string,
+  mediaType: string,
+  prompt: string,
+  model: ScoringModel,
+): Promise<{ text: string; raw: unknown }> {
+  const apiKey = process.env.GOOGLE_AI_API_KEY;
+  if (!apiKey) throw new Error("GOOGLE_AI_API_KEY is not configured");
+
+  const parts: Array<Record<string, unknown>> = [
+    { inline_data: { mime_type: mediaType, data: imageBase64 } },
+    { text: prompt },
+  ];
+
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${model.model}:generateContent?key=${apiKey}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [{ parts }],
+        generationConfig: { maxOutputTokens: 4096, temperature: 0.1 },
+      }),
+    },
+  );
+
+  if (!response.ok) {
+    const err = await response.text();
+    throw new Error(`Gemini API error: ${response.status} ${err}`);
   }
 
-  const jsonMatch = textBlock.text.match(/\[[\s\S]*\]/);
-  if (!jsonMatch) {
-    throw new Error("Could not parse scoring response as JSON array");
+  const data = await response.json();
+  const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!text) throw new Error("No text response from Gemini");
+  return { text, raw: data };
+}
+
+export async function scoreFromScan(
+  imageBase64: string,
+  mediaType: "image/jpeg" | "image/png" | "image/webp" | "application/pdf",
+  answerKey: AnswerKeyItem[],
+  scoringNotes?: string | null,
+  modelOverride?: string,
+): Promise<ScoringResult> {
+  const model = modelOverride
+    ? (await import("./models")).SCORING_MODELS.find((m) => m.id === modelOverride) ?? getCurrentModel()
+    : getCurrentModel();
+
+  const prompt = buildScoringPrompt(answerKey, scoringNotes);
+
+  let result: { text: string; raw: unknown };
+  if (model.provider === "anthropic") {
+    result = await scoreWithAnthropic(imageBase64, mediaType, prompt, model);
+  } else if (model.provider === "google") {
+    result = await scoreWithGemini(imageBase64, mediaType, prompt, model);
+  } else {
+    throw new Error(`Unsupported provider: ${model.provider}`);
   }
 
-  const rawItems = JSON.parse(jsonMatch[0]) as ScoredItem[];
+  const jsonMatch = result.text.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) throw new Error("Could not parse scoring response as JSON");
+
+  const parsed = JSON.parse(jsonMatch[0]) as {
+    student_name?: string | null;
+    teacher_name?: string | null;
+    items: ScoredItem[];
+  };
+
+  const rawItems = parsed.items ?? [];
 
   const items: ScoredItem[] = rawItems.map((item) => {
     const maxPts = POINT_DISTRIBUTION[item.number] ?? 0;
@@ -120,5 +198,12 @@ export async function scoreFromScan(
 
   const totalScore = items.reduce((sum, i) => sum + i.awarded_points, 0);
 
-  return { items, totalScore, raw: response };
+  return {
+    items,
+    totalScore,
+    studentName: parsed.student_name ?? null,
+    teacherName: parsed.teacher_name ?? null,
+    modelUsed: model.id,
+    raw: result.raw,
+  };
 }

@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { ModuleSwitcher } from "@/components/module-switcher";
 
 interface NavLink {
   href: string;
@@ -15,7 +16,7 @@ const LINKS: NavLink[] = [
   { href: "/ararka/calibrate", label: "Calibrate" },
 ];
 
-export function ArarkaNav({ userName }: { userName?: string }) {
+export function ArarkaNav({ userName, modules, isAdmin }: { userName?: string; modules?: string[]; isAdmin?: boolean }) {
   const pathname = usePathname();
 
   return (
@@ -25,6 +26,7 @@ export function ArarkaNav({ userName }: { userName?: string }) {
           <Link href="/ararka" className="text-xl font-bold shrink-0" style={{ color: "#2563EB" }}>
             Ararka
           </Link>
+          <ModuleSwitcher modules={modules ?? ["courses", "ararka"]} isAdmin={isAdmin} />
           <div className="flex items-center gap-1 overflow-x-auto">
             {LINKS.map((link) => {
               const isActive = link.exact ? pathname === link.href : pathname.startsWith(link.href);

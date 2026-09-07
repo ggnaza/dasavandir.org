@@ -20,7 +20,7 @@ export default async function LearnLayout({ children }: { children: React.ReactN
     // Must use the admin (service-role) client: RLS on `profiles` has no
     // "read own row" policy, so the user-auth client returns null here and the
     // nav silently falls back to the learner role.
-    admin.from("profiles").select("role, full_name, status").eq("id", user.id).single(),
+    admin.from("profiles").select("role, full_name, status, modules").eq("id", user.id).single(),
     admin.from("notifications").select("*", { count: "exact", head: true }).eq("user_id", user.id).eq("read", false),
   ]);
 
@@ -35,7 +35,7 @@ export default async function LearnLayout({ children }: { children: React.ReactN
   return (
     <div className="min-h-screen">
       <PresencePing />
-      <Nav role={navRole as "learner" | "admin" | "creator" | "space_manager"} userName={profile?.full_name} unreadNotifications={unreadCount ?? 0} lang={lang} />
+      <Nav role={navRole as "learner" | "admin" | "creator" | "space_manager"} userName={profile?.full_name} unreadNotifications={unreadCount ?? 0} lang={lang} modules={profile?.modules ?? ["courses"]} />
       {isPending && (
         <div className="bg-amber-50 border-b border-amber-200 px-4 py-3 text-center text-sm text-amber-800">
           <strong>Check your email</strong> — we sent an activation link to <strong>{user.email}</strong>. Your account will be deleted if not activated within 24 hours.
