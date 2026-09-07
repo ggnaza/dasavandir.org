@@ -1,41 +1,64 @@
 import { getArarkaUser, requireAuth } from "@/lib/ararka/auth";
 import { ararkaDb } from "@/lib/ararka/db";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { scoreFromScan } from "@/lib/ararka/scorer";
 import type { AnswerKeyItem } from "@/lib/ararka/constants";
+import {
+  SCAN_BUCKET,
+  MAX_SCAN_BYTES,
+  isAllowedScanType,
+  isOwnedBy,
+} from "@/lib/ararka/storage";
 
 export const maxDuration = 120;
 
+interface ScoreRequest {
+  test_id?: string;
+  storage_path?: string;
+  student_name?: string | null;
+  batch_id?: string | null;
+  model_id?: string;
+  on_behalf_of?: string | null;
+}
+
+/**
+ * Score one scan that the browser has already uploaded to Supabase Storage.
+ *
+ * The file is fetched server-side rather than posted here: Vercel rejects any
+ * request body over 4.5MB with a 413 raised before this handler runs, and a
+ * scanned test is routinely bigger than that. The client uploads via a signed
+ * URL (see /api/ararka/upload-url) and sends only the object key.
+ */
 export async function POST(request: Request) {
   const user = await getArarkaUser();
   const denied = requireAuth(user);
   if (denied) return denied;
 
-  const formData = await request.formData();
-  const file = formData.get("file") as File | null;
-  const testId = formData.get("test_id") as string | null;
-  const studentName = (formData.get("student_name") as string | null) ?? null;
-  const batchId = (formData.get("batch_id") as string | null) ?? null;
-  const modelId = (formData.get("model_id") as string | null) ?? undefined;
-  const onBehalfOf = (formData.get("on_behalf_of") as string | null) ?? null;
-
-  if (!file || !testId) {
-    return Response.json({ error: "file and test_id are required" }, { status: 400 });
+  let body: ScoreRequest;
+  try {
+    body = (await request.json()) as ScoreRequest;
+  } catch {
+    return Response.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  // Vercel rejects a request body over 4.5MB with 413 before this handler even
-  // runs, so a 25MB ceiling here was fiction: oversized uploads failed with a
-  // non-JSON gateway error and no scan row. The client shrinks scans before
-  // upload; this stays as a truthful backstop.
-  if (file.size > 4.5 * 1024 * 1024) {
+  const { test_id: testId, storage_path: storagePath } = body;
+  const studentName = body.student_name ?? null;
+  const batchId = body.batch_id ?? null;
+  const modelId = body.model_id ?? undefined;
+  const onBehalfOf = body.on_behalf_of ?? null;
+
+  if (!testId || !storagePath) {
     return Response.json(
-      { error: "File too large — the upload limit is 4.5MB after compression" },
-      { status: 413 },
+      { error: "test_id and storage_path are required" },
+      { status: 400 },
     );
   }
 
-  const allowedTypes = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
-  if (!allowedTypes.includes(file.type)) {
-    return Response.json({ error: "Unsupported file type" }, { status: 400 });
+  // The path arrives from the client, so ownership must be re-checked here.
+  // Without this, any authenticated user could name another user's object and
+  // have its contents scored and returned to them.
+  if (!isOwnedBy(storagePath, user!.id)) {
+    return Response.json({ error: "Not your upload" }, { status: 403 });
   }
 
   const db = ararkaDb();
@@ -54,16 +77,38 @@ export async function POST(request: Request) {
     return Response.json({ error: "No answer key configured for this test" }, { status: 400 });
   }
 
-  const buffer = Buffer.from(await file.arrayBuffer());
-  const imageBase64 = buffer.toString("base64");
-  const mediaType = file.type as "image/jpeg" | "image/png" | "image/webp" | "application/pdf";
+  const admin = createAdminClient();
+  const { data: fileBlob, error: downloadErr } = await admin.storage
+    .from(SCAN_BUCKET)
+    .download(storagePath);
+
+  if (downloadErr || !fileBlob) {
+    return Response.json(
+      { error: `Could not read the uploaded scan: ${downloadErr?.message ?? "not found"}` },
+      { status: 404 },
+    );
+  }
+
+  if (fileBlob.size > MAX_SCAN_BYTES) {
+    return Response.json(
+      { error: "Scan is too large to score (max 32MB)" },
+      { status: 413 },
+    );
+  }
+
+  const mediaType = fileBlob.type;
+  if (!isAllowedScanType(mediaType)) {
+    return Response.json({ error: `Unsupported file type: ${mediaType}` }, { status: 400 });
+  }
+
+  const imageBase64 = Buffer.from(await fileBlob.arrayBuffer()).toString("base64");
 
   const teacherId = onBehalfOf ?? user!.id;
   const scanInsert: Record<string, unknown> = {
     test_id: testId,
     student_name: studentName,
     teacher_id: teacherId,
-    file_path: `scans/${testId}/${Date.now()}_${file.name}`,
+    file_path: storagePath,
     file_url: "",
     status: "processing",
   };
@@ -77,7 +122,11 @@ export async function POST(request: Request) {
     .single();
 
   if (scanErr || !scan) {
-    return Response.json({ error: "Failed to create scan record" }, { status: 500 });
+    console.error("[ararka/score] scan insert failed", scanErr?.message);
+    return Response.json(
+      { error: `Failed to create scan record: ${scanErr?.message ?? "unknown error"}` },
+      { status: 500 },
+    );
   }
 
   try {
@@ -125,6 +174,7 @@ export async function POST(request: Request) {
       resultId: result.id,
       scanId: scan.id,
       totalScore: scoringResult.totalScore,
+      maxScore: test.total_points ?? 15,
       items: scoringResult.items,
       studentName: finalStudentName,
       teacherName: scoringResult.teacherName,
