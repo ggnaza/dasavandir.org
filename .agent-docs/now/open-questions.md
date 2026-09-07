@@ -206,6 +206,13 @@ last-modified: 2026-09-07
   `access_type='private'` so self-enroll is impossible (`/api/enrollments/enroll` 403s private courses).
   The 11 stray enrollments were admin-created; operator unenrolled them. Durable fix shipped as WU-0005.
 
+- **OQ-016** — Should `profiles.modules` and `profiles.is_ldm` be dropped now that
+  `public.module_access` is the single source of truth? Both are still read only by the 42P01 legacy
+  fallback in `lib/access/module-access.ts`. Dropping them means deleting that fallback first, and
+  the fallback is what stops a deploy-before-migration from locking every non-admin out. Sequence:
+  confirm `module_access` exists on every project that serves traffic → delete the fallback → drop
+  the columns. Not urgent; the columns are inert.
+
 <!-- EXAMPLE (move resolved items here with their closure ref):
 - **OQ-000** — <the question> → RESOLVED <YYYY-MM-DD> by <commit / ADR-NNNN / log entry>.
 -->

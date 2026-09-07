@@ -17,7 +17,18 @@ last-modified: 2026-09-07
 - Security audit follow-through (2026-07) — open, operator-owned (OQ-001..003).
 - (Optional) AI PR-review agent — proposed, not built (OQ-006).
 
+## Immediate next step
+- Operator click-test on staging (per-module dropdowns; Efficacy AI coach), then promotion PR
+  `staging → main` — 30 commits, also brings up `efficacy.dasavandir.org` + `gnahatum.dasavandir.org`.
+
 ## Locked decisions (this cycle)
+- **Module access is `public.module_access`**, not `profiles.modules`/`is_ldm` (2026-09-07, #326).
+  Per-module `member`/`ldm`, so "LDM in Efficacy only" is expressible. Old columns kept but inert →
+  OQ-016.
+- **Ararka is renamed Gnahatum in every user-visible surface; the Postgres schema and storage bucket
+  keep the `ararka` name** (2026-09-07, #326) — invisible to users, and renaming live storage would
+  orphan every existing object.
+
 - Role→course access uses three role-specific link tables, never one shared table — `ADR-0001`.
 - Only the `.agent-docs/` memory is git-tracked; the `.claude/` engine stays local (protects a token).
 - Fieldbook changes ship on their own branch/PR, separate from feature work.
