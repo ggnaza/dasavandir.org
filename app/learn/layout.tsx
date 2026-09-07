@@ -31,11 +31,16 @@ export default async function LearnLayout({ children }: { children: React.ReactN
     : profile?.role === "course_creator" || profile?.role === "course_manager" ? "creator"
     : "learner";
   const isPending = profile?.status === "pending";
+  const isLdm = profile?.role === "course_manager" || profile?.role === "space_manager";
+  const userModules = profile?.modules ?? ["courses"];
+  const navModules = isLdm && !userModules.includes("ararka")
+    ? [...userModules, "ararka"]
+    : userModules;
 
   return (
     <div className="min-h-screen">
       <PresencePing />
-      <Nav role={navRole as "learner" | "admin" | "creator" | "space_manager"} userName={profile?.full_name} unreadNotifications={unreadCount ?? 0} lang={lang} modules={profile?.modules ?? ["courses"]} />
+      <Nav role={navRole as "learner" | "admin" | "creator" | "space_manager"} userName={profile?.full_name} unreadNotifications={unreadCount ?? 0} lang={lang} modules={navModules} />
       {isPending && (
         <div className="bg-amber-50 border-b border-amber-200 px-4 py-3 text-center text-sm text-amber-800">
           <strong>Check your email</strong> — we sent an activation link to <strong>{user.email}</strong>. Your account will be deleted if not activated within 24 hours.

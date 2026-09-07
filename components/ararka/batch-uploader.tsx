@@ -49,7 +49,21 @@ interface ModelInfo {
   description: string;
 }
 
-export function BatchUploader({ subjects, tests }: { subjects: Subject[]; tests: Test[] }) {
+interface TeacherInfo {
+  id: string;
+  full_name: string | null;
+  email: string;
+}
+
+export function BatchUploader({
+  subjects,
+  tests,
+  teachers,
+}: {
+  subjects: Subject[];
+  tests: Test[];
+  teachers?: TeacherInfo[];
+}) {
   const [subjectId, setSubjectId] = useState("");
   const [testId, setTestId] = useState("");
   const [modelId, setModelId] = useState("");
@@ -60,6 +74,7 @@ export function BatchUploader({ subjects, tests }: { subjects: Subject[]; tests:
   const [splitting, setSplitting] = useState(false);
   const [scoring, setScoring] = useState(false);
   const [batchId] = useState(() => crypto.randomUUID());
+  const [onBehalfOf, setOnBehalfOf] = useState("");
   const [expandedStudent, setExpandedStudent] = useState<number | null>(null);
   const [editingResult, setEditingResult] = useState<string | null>(null);
   const [editedScores, setEditedScores] = useState<Record<number, number>>({});
@@ -153,6 +168,7 @@ export function BatchUploader({ subjects, tests }: { subjects: Subject[]; tests:
         formData.append("test_id", testId);
         formData.append("batch_id", batchId);
         if (modelId) formData.append("model_id", modelId);
+        if (onBehalfOf) formData.append("on_behalf_of", onBehalfOf);
 
         const res = await fetch("/api/ararka/score", { method: "POST", body: formData });
         if (!res.ok) {
@@ -344,6 +360,28 @@ export function BatchUploader({ subjects, tests }: { subjects: Subject[]; tests:
             </select>
             <p className="text-xs text-gray-400 mt-1">
               {models.find((m) => m.id === modelId)?.description}
+            </p>
+          </div>
+        )}
+        {teachers && teachers.length > 0 && (
+          <div className="mt-4 pt-4 border-t">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Upload on behalf of teacher
+            </label>
+            <select
+              value={onBehalfOf}
+              onChange={(e) => setOnBehalfOf(e.target.value)}
+              className="rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm p-2 border"
+            >
+              <option value="">Myself (default)</option>
+              {teachers.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.full_name ?? t.email}
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-gray-400 mt-1">
+              As an LDM, you can upload and score tests on behalf of your teachers.
             </p>
           </div>
         )}
