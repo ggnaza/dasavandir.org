@@ -35,7 +35,7 @@ CREATE TABLE IF NOT EXISTS ararka.tests (
   id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   subject_id  text NOT NULL REFERENCES ararka.subjects(id),
   grade       int  NOT NULL CHECK (grade BETWEEN 1 AND 12),
-  test_type   text NOT NULL CHECK (test_type IN ('diagnostic', 'summative')),
+  test_type   text NOT NULL CHECK (test_type IN ('diagnostic', 'diagnostic_base', 'diagnostic_target', 'summative')),
   year        text NOT NULL DEFAULT '2025-2026',
   total_points numeric(4,2) NOT NULL DEFAULT 15,
   answer_key  jsonb NOT NULL DEFAULT '[]'::jsonb,
