@@ -16,6 +16,7 @@ export async function POST(request: Request) {
   const studentName = (formData.get("student_name") as string | null) ?? null;
   const batchId = (formData.get("batch_id") as string | null) ?? null;
   const modelId = (formData.get("model_id") as string | null) ?? undefined;
+  const onBehalfOf = (formData.get("on_behalf_of") as string | null) ?? null;
 
   if (!file || !testId) {
     return Response.json({ error: "file and test_id are required" }, { status: 400 });
@@ -50,15 +51,17 @@ export async function POST(request: Request) {
   const imageBase64 = buffer.toString("base64");
   const mediaType = file.type as "image/jpeg" | "image/png" | "image/webp" | "application/pdf";
 
+  const teacherId = onBehalfOf ?? user!.id;
   const scanInsert: Record<string, unknown> = {
     test_id: testId,
     student_name: studentName,
-    teacher_id: user!.id,
+    teacher_id: teacherId,
     file_path: `scans/${testId}/${Date.now()}_${file.name}`,
     file_url: "",
     status: "processing",
   };
   if (batchId) scanInsert.batch_id = batchId;
+  if (onBehalfOf) scanInsert.uploaded_by = user!.id;
 
   const { data: scan, error: scanErr } = await db
     .from("scans")

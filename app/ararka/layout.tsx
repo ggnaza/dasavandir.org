@@ -24,14 +24,20 @@ export default async function ArarkaLayout({ children }: { children: React.React
 
   const userModules: string[] = profile.modules ?? ["courses"];
   const isAdmin = profile.role === "admin";
+  const isLdm =
+    profile.role === "course_manager" || profile.role === "space_manager";
 
-  if (!isAdmin && !userModules.includes("ararka")) {
+  if (!isAdmin && !isLdm && !userModules.includes("ararka")) {
     redirect("/learn");
   }
 
+  const navModules = isLdm && !userModules.includes("ararka")
+    ? [...userModules, "ararka"]
+    : userModules;
+
   return (
     <div className="min-h-screen bg-gray-50">
-      <ArarkaNav userName={profile.full_name ?? undefined} modules={userModules} isAdmin={isAdmin} />
+      <ArarkaNav userName={profile.full_name ?? undefined} modules={navModules} isAdmin={isAdmin} />
       <main className="max-w-6xl mx-auto px-4 py-8">{children}</main>
     </div>
   );
