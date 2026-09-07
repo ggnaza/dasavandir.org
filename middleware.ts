@@ -74,7 +74,7 @@ export async function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname;
 
   // Redirect unauthenticated users away from protected routes
-  if (!user && (path.startsWith("/admin") || path.startsWith("/learn"))) {
+  if (!user && (path.startsWith("/admin") || path.startsWith("/learn") || path.startsWith("/ararka"))) {
     return NextResponse.redirect(new URL("/auth/login", request.url));
   }
 
@@ -87,5 +87,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/admin/:path*", "/learn/:path*", "/auth/login", "/auth/signup", "/auth/set-password", "/api/:path*"],
+  matcher: ["/admin/:path*", "/learn/:path*", "/ararka/:path*", "/auth/login", "/auth/signup", "/auth/set-password", "/api/:path*"],
 };
