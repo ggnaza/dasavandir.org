@@ -1,7 +1,7 @@
 ---
 provenance: kit-template
 created: 2026-07-03
-last-modified: 2026-07-03
+last-modified: 2026-09-07
 tags: [meta, index, routing, memories]
 related: [CONVENTIONS]
 ---
@@ -67,3 +67,10 @@ anti-actions) · See also (related docs, upstream issues, commit refs).
 
 UPDATE-IN-PLACE; adding/retiring a memory updates this index in the same change. Carry-away claims
 must be traceable to the source memory.
+
+- **`staging-shares-the-production-database.md`** — `staging.dasavandir.org` and `www.dasavandir.org`
+  both read the SAME Supabase project (`mmkmsudwtrqdzehnfctx`); the project in `.env.staging` is used by
+  no deployment. *Open when:* about to apply a migration "for staging", click-test on staging, or reason
+  about which database a host uses. *Carry-away:* there is no separate staging database — a staging
+  migration is a production migration, and the deployed JS bundle (not any repo file) is the authority
+  on which project a host uses.

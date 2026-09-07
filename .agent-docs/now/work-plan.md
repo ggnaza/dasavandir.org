@@ -4,7 +4,7 @@ created: 2026-07-03
 last-modified: 2026-08-13
 tags: [current, work-plan, decisions]
 related: [status, open-questions]
-last-modified: 2026-08-21
+last-modified: 2026-09-07
 ---
 
 # Work plan — dasavandir.org
@@ -25,26 +25,25 @@ last-modified: 2026-08-21
 - Asana Build Agent (`build-agent.yml`) is OFF — `memories/asana-build-agent-is-disabled.md`.
 
 ## Immediate next
-> **✅ Multi-tenancy + spaces + space_manager + learner profile — ALL LIVE ON PROD (2026-08-21).**
-> Nothing is mid-flight; the tree is clean on `main`. The operator has been shipping directly to prod
-> and applying each migration. **Operator should click-test on prod** (no creds here to verify authed
-> flows): assign a `space_manager` + a space, sort real courses/learners into HR/Recruitment spaces, and
-> try `/learn/profile` (edit + avatar upload).
+
+> **FIX BUG FIRST:** `middleware.ts:50` has `efficacy.staging.dasavandir.org` — must be
+> `staging.efficacy.dasavandir.org`. One-line change, PR to staging.
+>
+> **Then: operator tests efficacy on `staging.efficacy.dasavandir.org`** — log in → role-based
+> redirect → LDM/teacher dashboards → observation wizard → competency evaluation.
+>
+> **On operator go:** promotion PR `staging → main` (26+ commits: Ararka fixes #318–#324 + efficacy
+> #310, #311, #325 + the middleware fix).
 >
 > **Pick-next menu (all self-contained unless noted):**
-> - **Space_manager slice 2 (WU-0010 follow-up)** — scope the GLOBAL views (`/admin/submissions`,
->   `/admin/learners`, `/admin/analytics`, capstones) to a manager's spaces via `getManagedSpaceIds`,
->   then re-add them to the space_manager nav. Pattern seam: `checkCourseAccess` + the fetch-map in
->   `app/admin/courses/page.tsx`. CLAUDE.md §Role-to-course-linking has the deferral note.
-> - **Certificates fully (#5)** — verifiable ID + public verify URL + PDF export + per-org custom-design
->   upload. Self-contained.
-> - **i18n string-list (#1)** — extract ~145 hardcoded components into `lib/i18n.ts` keys + a CSV/Sheets
->   export-reimport script. Mechanical, large.
-> - **Payments (#4)** — BLOCKED on operator decision: gateway (local VPOS/ArCa/Idram vs Stripe) +
->   billing scope (learner vs org). Spec first, then build.
-> - **Tech support (#3)** — in-app support form → ticket + email; FAQ/help.
-> - **Multi-tenancy Phase 2 (WU-0009)** — domains/billing/white-label; DEFERRED, needs 2 decisions
->   (neutral base domain; who collects payment in another org's storefront).
+> - **Efficacy Phase 4** — Correlation dashboard (SQL view joining practice scores to LMS learning
+>   scores). Deferred.
+> - **Efficacy remaining features** — AI evaluations (video processing + RAG), knowledge base (Drive
+>   sync), PDF export, voice-to-text, growth chart (SVG). All deferred.
+> - **Space_manager slice 2 (WU-0010 follow-up)** — scope global views to manager's spaces.
+> - **Certificates (#5)** — verifiable ID + public verify URL + PDF export.
+> - **i18n (#1)** — extract ~145 hardcoded components into `lib/i18n.ts` keys.
+> - **Payments (#4)** — BLOCKED on operator decision: gateway + billing scope.
 >
 > **OQ-008 loose end:** staging catch-up (`staging_full_catchup.sql`) was applied, but the FINISH block
 > (`scratchpad/staging_finish.sql` = org_id on the 11 newly-created staging tables + `timetable_entries.source_key`
@@ -66,3 +65,7 @@ last-modified: 2026-08-21
 | WU-0009 | **Multi-tenancy Phase 2 — go-to-market machinery. DEFERRED** (not built now). Console/storefront domain split, tenant-resolution middleware, neutral-base subdomains, custom domains + SSO hand-off, per-org storefront editor, org signup/provisioning, subscription billing + coupons, white-label. Come back only when onboarding the first external customer. | WU-0008 | 🅿️ DEFER — memorized in `memories/phase-2-multi-tenant-gtm-deferred.md` |
 | WU-0010 | **Space subtabs + retire course_type + `space_manager` role** (ADR-0005). Admin courses split by space subtabs; course_type toggle removed (column kept, invite-only via access_type=private); new role `space_manager` + `space_manager_access(manager_id, space_id)` → sees/creates/manages courses in their space via `checkCourseAccess`; assign-managed-spaces UI. | WU-0008 | ✅ **LIVE ON PROD** — code #288→#289 (staging→main), role-assign hotfix #290→#291 (missed the `/api/admin/users` zod enum), `space_manager_access.sql` applied to prod. **Slice 2 DEFERRED:** global aggregate views (submissions/learners/analytics/capstones) not yet space-scoped → nav is Courses-only. ADR-0005 (proposed). |
 | WU-0011 | **Learner profile page** `/learn/profile` — name/avatar(public `avatars` bucket)/region/LinkedIn(URL only)/bio/language/password; own-row writes via service-role (no role/status/email → no self-escalation); name in nav links to it (standalone tab removed). | — | ✅ **LIVE ON PROD** — #292→#293 (profile) + #294→#295 (name→profile link). `profiles_profile_fields.sql` applied to prod (4 cols + avatars bucket). tsc clean; authed click-through NOT done here (no creds). |
+| WU-0012 | **Landing-page CMS: structured block editor.** Admin edits the public marketing site through a typed block schema, not a freeform drag-and-drop canvas. ADR-0006. | — | 📋 proposed — ADR `status: proposed`, not started. |
+| WU-0013 | **Course payments: order → checkout → enrol behind a pluggable, env-gated provider** (mock now, real gateway later). ADR-0007. | — | 📋 proposed — ADR `status: proposed`, not started; gateway choice still an operator decision (see §Immediate next "Payments"). |
+| WU-0014 | **Ararka brought up on staging** — 7 defects fixed (PRs #318–#324): OAuth redirect origin, upload UX + multi-PDF, AI key env-var names, the 4.5MB Vercel body limit (removed via direct-to-Supabase-Storage upload), model-picker selection, and stale Gemini model ids. | — | ✅ merged to `staging` (`348e1f5`); ⏳ pending operator retest + promotion to `main`. Follow-ups: OQ-015…OQ-020. |
+| WU-0015 | **Teacher Efficacy Tool — Phase 2 (frontend) + Phase 3 (subdomain routing).** 16 new page/component files (~2750 lines): LDM dashboard + 6-step observation wizard + competency evaluation + behavior classification chat + teacher dashboard + reflection wizard + AI coaching chat + admin management + AI config. Subdomain routing via middleware rewrite (`efficacy.dasavandir.org` → `/efficacy`), CSRF cross-subdomain allowlist, nav prefix stripping. | — | ✅ merged to `staging` (PRs #310, #311, #325); ⚠️ **BUG:** `middleware.ts:50` still has wrong staging subdomain — must fix before testing. ⏳ pending operator test + promotion to `main`. |

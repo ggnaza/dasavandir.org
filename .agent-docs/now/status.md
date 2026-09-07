@@ -1,45 +1,50 @@
 ---
 provenance: llm-reviewed
 created: 2026-07-03
-last-modified: 2026-08-21
-tags: [current, status, multi-tenancy, spaces, space-manager, profile]
+last-modified: 2026-09-07
+tags: [current, status, efficacy, subdomain, staging]
 related: [work-plan, open-questions, handoff]
 ---
 
-# Status — dasavandir.org · Multi-tenancy + spaces + space_manager + learner profile ALL SHIPPED TO PROD · 2026-08-21
+# Status — dasavandir.org · Efficacy tool frontend + subdomain routing shipped to staging · 2026-09-07
 
 ## TL;DR
-A long build session took the multi-tenancy roadmap from design to **production**. Everything below is
-**live on `main`/prod** (verified: prod HTTP 200, schema introspected via service-role REST):
-- **Multi-tenancy Phase 0 + Phase 1** (ADR-0004): `organizations` + `spaces` + `org_members` +
-  `space_members`; AEI seeded as org #1; `org_id` on all tenant tables; space-scoped `/courses`;
-  learner→space assignment; org/space write-stamping. Prod backfill verified (144 users → org+Learning
-  space; 10 courses → org+Learning; 0 nulls).
-- **Admin courses split by space subtabs**; **`course_type` retired** (toggle removed, column kept).
-- **`space_manager` role** (ADR-0005) — "admin of a space": `space_manager_access(manager_id, space_id)`;
-  sees/creates/manages courses in their space via the shared `checkCourseAccess` guard. **Foundation
-  only** — global aggregate views (Submissions/Learners/Analytics/Capstones) NOT yet space-scoped (their
-  nav is Courses-only). = **slice 2, deferred.**
-- **Learner profile page** `/learn/profile` — name/avatar/region/LinkedIn/bio/language/password; the
-  user's **name in the nav links to it** (the standalone Profile tab was removed).
+This session ported the **Teacher Efficacy Tool** (TFA lesson observation tool) from its original
+Node/Express+MongoDB stack onto the LMS stack. Phase 2 (16 frontend page/component files, ~2750 lines)
+and Phase 3 (subdomain routing for `efficacy.dasavandir.org`) were built and merged to staging.
+**A bug remains:** `middleware.ts:50` still has the wrong staging subdomain (`efficacy.staging…` vs
+`staging.efficacy…`), so subdomain routing won't work on `staging.efficacy.dasavandir.org`.
 
-## Migrations applied to PROD this session (all idempotent, operator-run)
-`multitenancy_phase0a/0b/0c/phase1`, `space_manager_access.sql`, `profiles_profile_fields.sql`
-(profiles: avatar_url/region/linkedin_url/bio + public `avatars` bucket). All verified present via REST.
+## Branch
+`fix/efficacy-subdomain-name` @ `1f14960`, 1 commit ahead of `origin/staging` (local only — PR #325
+was already merged on GitHub via squash). `origin/staging` @ `6970ba4`. 26 commits ahead of `origin/main`.
 
-## Branch / working tree
-- On **`main`** (`90041cf`), up to date with `origin/main`. Working tree clean except
-  `tsconfig.tsbuildinfo` (build artifact — ignore/discard). All feature branches merged.
-- Doc store (ADR-0004, ADR-0005, CLAUDE.md role-linking update, memory) committed to `main`.
+## What shipped (all to `staging`)
+| PR | What |
+|----|------|
+| #310 | Phase 2 — 16 frontend files: LDM dashboard, 6-step observation wizard, competency evaluation, behavior classification chat, teacher dashboard, reflection wizard, AI coaching chat, admin management, AI config, nav, score/stepper/rubric components |
+| #311 | Phase 3 — Subdomain routing: middleware rewrites `efficacy.dasavandir.org/*` → `/efficacy/*`, CSRF cross-subdomain allowlist, auth guard for `/efficacy` paths, nav link prefix stripping |
+| #325 | Fix staging subdomain name in CSRF allowlist + layout (missed middleware `isEfficacySubdomain`) |
+
+## Known bug (live on staging)
+`middleware.ts:50` — `isEfficacySubdomain()` still checks `efficacy.staging.dasavandir.org` instead of
+`staging.efficacy.dasavandir.org`. The CSRF guard (line 21) and layout (line 12) were fixed in PR #325
+but this occurrence was missed. **Consequence:** `staging.efficacy.dasavandir.org` requests bypass the
+subdomain rewrite — visitors see the main LMS, not the efficacy tool. Must fix before testing.
+
+## Architecture (efficacy integration)
+- **Database isolation:** same Supabase project, separate `efficacy` Postgres schema, scoped `efficacy_rw` role
+- **Identity:** `is_ldm` boolean on `profiles` (NOT a new role enum value)
+- **Supabase client:** `lib/efficacy/db.ts` — `createClient()` with `db: { schema: "efficacy" }`, service role, typed as `any`
+- **Subdomain:** Next.js middleware `NextResponse.rewrite()` maps `efficacy.dasavandir.org/*` → `/efficacy/*`
+- **Auth gating:** layout checks `is_ldm` + role via `createAdminClient()` (per CLAUDE.md rules)
+- **Rubric computation:** planning (flat), teaching (3 categories × 5 criteria), overall expectations (flat), grand average
 
 ## Gates
-- `tsc --noEmit` is THE gate (no eslint/prettier configured, no active pre-commit hook; `next build`
-  OOMs — use `NODE_OPTIONS=--max-old-space-size=8192 npm run build` only for a full build). Every feature
-  this session was tsc-clean before merge. No automated test coverage added (no behavior tests exist).
+- `tsc --noEmit` — clean (with `NODE_OPTIONS=--max-old-space-size=4096 npm run build` for full build)
+- Pre-existing `.next/types` errors for deleted routes (`dnd-harness`) — NOT from efficacy changes
 
 ## What this means for next steps
-The multi-tenancy + spaces foundation is DONE and in prod. Open threads: **space_manager slice 2**
-(scope global views), **Phase 2** (domains/billing/white-label — deferred, needs 2 decisions), and the
-**4 un-started roadmap items** (i18n string-list, tech support, payments, certificates). Staging is a
-weak test bed (OQ-008) — the catch-up was applied but the finish block may be pending. Verification of
-authed admin flows was NOT possible from here (no creds) — operator must click-test on prod.
+1. Fix the `middleware.ts:50` bug (one-line change)
+2. Operator tests on `staging.efficacy.dasavandir.org`
+3. On operator go: promotion PR `staging → main` (26+ commits)

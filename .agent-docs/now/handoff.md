@@ -1,150 +1,145 @@
 ---
 provenance: llm-reviewed
-created: 2026-08-21
-last-modified: 2026-08-21
+created: 2026-09-07
+last-modified: 2026-09-07
 tags: [current, handoff, session-state]
 related: [status, work-plan, open-questions]
 generator: /handoff
 ---
 
-# Session handoff — READ FIRST (2026-08-21) · 🎯 Multi-tenancy + spaces + space_manager + learner profile ALL shipped to PROD
+# Session handoff — READ FIRST (2026-09-07) · Efficacy tool frontend + subdomain routing → staging
 
 ## Project in one paragraph
-`dasavandir.org` — a Next.js (App Router) + Supabase LMS. Prod DB = `mmkmsudwtrqdzehnfctx`
-(`.env.local`, real data); staging DB = `zzaiyqvlkdjiqnuluznl` (`.env.staging`, ~empty + schema-behind).
-Deploy: Claude PRs to `staging` → operator tests on `staging.dasavandir.org` → "push to main" → promotion
-PR `staging → main`. Migrations are **hand-applied by the operator** in the Supabase SQL editor (no
-auto-runner; Claude has REST only, cannot run DDL). This session designed + shipped the whole
-multi-tenancy roadmap to **production**; nothing is mid-flight.
+`dasavandir.org` — a Next.js (App Router) + Supabase LMS, plus **Ararka** (AI test scoring) and now
+**Teacher Efficacy Tool** (TFA lesson observation tool, ported from Node/Express+MongoDB). Deploy flow:
+Claude opens PRs to `staging` → operator tests on `staging.dasavandir.org` / `staging.efficacy.dasavandir.org`
+→ operator says "push to main" → promotion PR `staging → main`. Migrations are **hand-applied by the
+operator** in the Supabase SQL editor (no auto-runner). **Read `⚠️ Anti-assumptions` before touching
+anything.**
 
 ## Current state summary
-Everything below is **LIVE on `main`/prod** (verified: prod HTTP 200; schema + backfill introspected via
-service-role REST). The operator applied every migration and, for the later features, pushed directly to
-prod.
-- **Multi-tenancy Phase 0+1** (ADR-0004): `organizations`+`spaces`+`org_members`+`space_members`; AEI =
-  org #1; `org_id` on all tenant tables; space-scoped `/courses`; learner→space assignment; org/space
-  write-stamping (`lib/org.ts`, `ensureProfile`). Prod backfill verified (144 users→org+Learning space;
-  10 courses→org+Learning; 0 nulls).
-- **Admin courses by space subtabs** + **`course_type` retired** (toggle gone, column kept).
-- **`space_manager` role** (ADR-0005): `space_manager_access(manager_id, space_id)`; sees/creates/manages
-  courses in their space via the shared `checkCourseAccess`. **Foundation only** — slice 2 (scope the
-  GLOBAL views) deferred; their nav is Courses-only.
-- **Learner profile** `/learn/profile` (name/avatar/region/LinkedIn-URL/bio/language/password); the user's
-  **name in the nav links to it** (standalone tab removed).
+This session built **Phase 2** (16 frontend pages/components, ~2750 lines) and **Phase 3** (subdomain
+routing for `efficacy.dasavandir.org`) of the efficacy tool integration. Three PRs merged to staging
+(#310, #311, #325). **A bug was found at handoff time:** `middleware.ts:50` still has the wrong staging
+subdomain, so subdomain routing won't work on `staging.efficacy.dasavandir.org` until fixed (OQ-021).
 
-Migrations applied to PROD this session: `multitenancy_phase0a/0b/0c/phase1`, `space_manager_access`,
-`profiles_profile_fields` (all verified present via REST).
+| Area | State |
+|------|-------|
+| Efficacy Phase 0 (SQL schema) | ✅ committed (prior sessions); ❓ NOT confirmed applied to Supabase (OQ-022) |
+| Efficacy Phase 1 (API routes) | ✅ committed (prior sessions) |
+| Efficacy Phase 2 (frontend) | ✅ merged to staging (#310) |
+| Efficacy Phase 3 (subdomain) | ✅ merged to staging (#311, #325); ⚠️ **BUG** in middleware routing (OQ-021) |
+| Efficacy Phase 4 (correlation) | ❌ deferred |
+| Middleware staging subdomain fix | ❌ one-line change needed (`middleware.ts:50`) |
+| Promotion `staging → main` | ❌ not started, needs explicit go |
 
 ## Important context
-- **Roles are now 5**: admin, course_creator, course_manager, **space_manager**, learner. CLAUDE.md
-  §Role-to-course-linking updated (the row + fetch branch + the "route new admin views through
-  `checkCourseAccess`" note + the slice-2 deferral). ADR-0005.
-- **Doc store lives on `main` only.** Feature branches are cut off `origin/staging`, which does NOT have
-  the doc commits — so `.agent-docs`/CLAUDE.md show OLD content on a feature branch. NEVER edit docs on a
-  feature branch (stale base). ADR-0004/0005 + CLAUDE.md updates are on `main`.
-- **Multi-tenancy design**: ADR-0004. RLS enforcement + `NOT NULL` on `org_id` deliberately DEFERRED to
-  pre-Phase-2 (one org today → zero value, risks NULL-org rows vanishing). `getManagedSpaceIds`,
-  `ensureOrgMembership`, `addUserToCourseSpace` in `lib/org.ts` are the seams.
-- **Phase 2 deferred** (`memories/phase-2-multi-tenant-gtm-deferred.md`): domains/billing/white-label;
-  needs 2 decisions — neutral base domain, who collects payment in another org's storefront.
-- Gate = **`tsc --noEmit`** (no eslint/prettier configured, no active pre-commit hook). `next build`
-  OOMs — full build needs `NODE_OPTIONS=--max-old-space-size=8192`.
-- Standing invariants unchanged: `handle_new_user()` trigger (CLAUDE.md §Auth), read own role via
-  `createAdminClient()`, migrations idempotent + hand-applied (`memories/migrations-applied-by-hand.md`).
+- **Deploy/branch contract:** default PR base is `staging`; never `--base main` without explicit
+  "push to main" (CLAUDE.md).
+- **Efficacy identity model:** `is_ldm` boolean on `profiles` — NOT a new role enum. Admin sees all;
+  `is_ldm=true` sees LDM features; everyone else sees teacher features.
+- **Efficacy DB client** (`lib/efficacy/db.ts`): uses `createClient()` with `db: { schema: "efficacy" }`
+  and service-role key, typed as `any` (no generated types for the efficacy schema).
+- **Subdomain routing:** middleware `NextResponse.rewrite()` maps `efficacy.dasavandir.org/*` → `/efficacy/*`.
+  Auth guard extended to protect `/efficacy` paths. Nav uses `stripPrefix()` to remove `/efficacy` when
+  on subdomain.
+- **CSRF cross-subdomain:** `SAME_DEPLOY_HOSTS` set in middleware allows API calls between
+  `efficacy.dasavandir.org` and `dasavandir.org` (same Vercel deployment).
+- Existing memories still apply: `migrations-applied-by-hand`, `current-user-role-read-needs-admin-client`,
+  `auth-trigger-must-swallow-errors`, `staging-shares-the-production-database`.
 
 ## ⚠️ Anti-assumptions / traps
-1. **Adding a role touches MORE than the obvious 3 spots.** The `space_manager` role-assign bug (prod):
-   I updated the toggle, the CHECK constraint, and the create-route — but MISSED the zod enum in
-   `app/api/admin/users/route.ts` (the role-UPDATE endpoint) → the toggle POST 400'd. Grep for the role
-   ENUM everywhere (`z.enum([...roles...])`) AND the users-list role FILTER (`.in("role", [...])`) when
-   adding a role, not just the UI + DB.
-2. **staging ≠ prod schema (OQ-008).** Staging was missing 11 whole tables + ~30 columns vs prod. A
-   migration guarded by `to_regclass` **silently skips** a missing table (that's why phase0c added
-   `org_id` to everything on prod but skipped the 11 absent tables on staging). Verify the LIVE schema
-   (REST OpenAPI `/rest/v1/`) before assuming a migration covered a table.
-3. **A column-dependent page 500s if its migration hasn't run.** `/learn/profile` selects
-   avatar_url/region/… — deploy the code before `profiles_profile_fields` runs and the page errors. It's
-   a NEW route so nobody hits it until the nav link ships — but for column-adding features, migration
-   FIRST (or same window as the ~1–2 min deploy).
-4. **space_manager code is INERT until migration + assignment.** No existing user is `space_manager`, so
-   the `space_manager_access` query never runs until the role is assigned — deploying code before the
-   migration breaks nothing (but the role can't be assigned until the CHECK is updated).
-5. **Catalog behavior change now LIVE:** private courses no longer appear in the public `/courses`
-   (access_type filter). Intended (private = invite-only) but visible. Enrolled users still reach them
-   via `/learn`.
-6. **Scratchpad artifacts are EPHEMERAL** — the staging catch-up / finish SQL live in the session
-   scratchpad (see §Breadcrumbs); they'll clear. The committed migration files are the durable source.
+1. **`middleware.ts` has TWO `isEfficacySubdomain()` functions — and only the layout's is correct.**
+   PR #325 fixed 3 of 4 occurrences of the staging subdomain. The middleware routing function at line 50
+   still says `efficacy.staging.dasavandir.org`. The CSRF guard (line 21) says the correct
+   `staging.efficacy.dasavandir.org`. Symptom: `staging.efficacy.dasavandir.org` loads the main LMS
+   instead of the efficacy tool. → OQ-021.
+
+2. **The efficacy `isEfficacySubdomain()` is duplicated in TWO files** — `middleware.ts:47` and
+   `app/efficacy/layout.tsx:9`. They must stay in sync. A refactor to a shared util was not done because
+   middleware runs in the Edge runtime and layout in Node.
+
+3. **`staging.dasavandir.org` reads the PRODUCTION database.** Both hosts inline `mmkmsudwtrqdzehnfctx`.
+   A "staging" migration is a production migration. → `memories/staging-shares-the-production-database.md`.
+
+4. **Efficacy Phase 0 SQL may not be applied yet.** The schema (`efficacy` Postgres schema + tables +
+   `efficacy_rw` role) was committed in prior sessions but the operator applying it was not confirmed.
+   Without it, every efficacy API call fails. → OQ-022.
+
+5. **`npm run build` OOMs (SIGABRT) at default heap.** Use
+   `NODE_OPTIONS="--max-old-space-size=4096" npm run build`. `tsc --noEmit` is the cheap gate.
+
+6. **The `.next/types` errors for `dnd-harness` are pre-existing** — stale generated types for a deleted
+   route. Filter with `grep -v ".next/types"` when checking tsc output.
+
+7. **The TypeScript type for the efficacy Supabase client is `any`.** No generated types exist for the
+   `efficacy` schema. `lib/efficacy/db.ts` types the client as `any` deliberately. Don't try to generate
+   types from the schema until the schema is stable.
 
 ## Detour-chain
-- **MAIN:** "read the feature-list Google Doc, see what we have/don't, prioritize" → scoped to 6 items →
-  operator picked **multi-tenancy** first.
-  - **→ Multi-tenancy design** (long Shopify/Joomag-model conversation; published Artifact "dasavandir
-    Tenancy Flows") → **ADR-0004** → Phase 0 backbone + Phase 1 spaces → built, QA'd (data-level), shipped
-    to staging then **prod** (#287/#289). ✅
-  - **→ Space subtabs + retire course_type + `space_manager` role** (operator's next asks) → **ADR-0005**
-    → shipped to prod (#289). ✅
-    - **→ space_manager role-assign bug on prod** → hotfix (missed enum) → shipped (#291). ✅
-  - **→ Learner profile page (#2)** → built + shipped to prod (#293). ✅
-    - **→ name-in-nav links to profile** (operator tweak) → shipped (#295). ✅
-  - **→ OQ-008 staging schema rebuild** (side-quest): assembled + operator-applied `staging_full_catchup.sql`
-    (11 tables + 31 cols); **FINISH block still pending** (`scratchpad/staging_finish.sql`). Open.
+**MAIN:** port the Teacher Efficacy Tool onto the LMS stack.
+1. → *Phase 2 frontend (16 files)* — built all pages and components. **Resolved** (PR #310).
+2. → *Phase 3 subdomain routing* — added middleware rewrite, CSRF allowlist, auth guard. **Resolved**
+   (PR #311).
+3. → *User said staging subdomain is `staging.efficacy.dasavandir.org`* — fixed in layout + CSRF guard.
+   **Partially resolved** (PR #325) — missed middleware routing function.
+4. → *Build OOM* — fixed with `NODE_OPTIONS="--max-old-space-size=4096"`. **Resolved.**
+5. → *Duplicate `const path` in middleware* — removed second declaration. **Resolved.**
+6. → *TypeScript error in observation form* — changed `as Record` to `as unknown as Record`. **Resolved.**
 
 ## Immediate next steps
-Nothing mid-flight. `main` is clean (`90041cf`). **Pick-next menu** (see `now/work-plan.md` §Immediate-next
-for detail):
-1. **Space_manager slice 2** — scope `/admin/submissions`, `/admin/learners`, `/admin/analytics`,
-   capstones to a manager's spaces (`getManagedSpaceIds`), then re-add to the space_manager nav. Seam:
-   `lib/assert-course-owner.ts` + `app/admin/courses/page.tsx` fetch-map. Most teed-up.
-2. **Certificates fully (#5)** — verify ID + public URL + PDF + per-org custom-design upload.
-3. **i18n string-list (#1)** — extract ~145 hardcoded components → `lib/i18n.ts` + CSV/Sheets roundtrip.
-4. **Payments (#4)** — BLOCKED on operator: gateway (local VPOS/ArCa/Idram vs Stripe) + billing scope.
-5. **Tech support (#3)**; **Phase 2 (WU-0009)** deferred.
-
-**Operator to-dos (no creds here to do them):** click-test on prod (assign a space_manager + space; sort
-real courses/learners into HR/Recruitment; try `/learn/profile` + avatar). Apply
-`scratchpad/staging_finish.sql` to staging + re-diff. Security: rotate the leaked service-role key (OQ-001).
-
-**Verify-a-migration recipe (VERBATIM):**
-```bash
-( set -a; . ./.env.local; set +a; /usr/bin/curl -s "$NEXT_PUBLIC_SUPABASE_URL/rest/v1/" \
-  -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" ) \
-  | python3 -c "import json,sys; print('col' in json.load(sys.stdin)['definitions']['TABLE']['properties'])"
+**1. Fix `middleware.ts:50` bug (OQ-021):**
 ```
-(`/usr/bin/curl` — the bare `curl` intermittently failed as "command not found" in this shell.)
+middleware.ts line 50: change "efficacy.staging.dasavandir.org" to "staging.efficacy.dasavandir.org"
+```
+One-line edit → PR to staging → merge.
+
+**2. Confirm efficacy schema is applied (OQ-022):**
+Operator must apply the `efficacy` Postgres schema migrations in the Supabase SQL editor for
+`mmkmsudwtrqdzehnfctx`. Check `supabase/migrations/efficacy_*.sql` for the files.
+
+**3. Operator tests on `staging.efficacy.dasavandir.org`:**
+Log in → role-based redirect (admin→/efficacy/admin, LDM→/efficacy/ldm, teacher→/efficacy/teacher) →
+dashboards → observation wizard → competency evaluation → reflection → AI coaching.
+
+**4. On explicit operator go:** promotion PR `staging → main` (26+ commits).
+
+### RECIPE — build gate
+```
+NODE_OPTIONS="--max-old-space-size=4096" npm run build > /tmp/build.log 2>&1; echo "exit: $?"
+```
 
 ## Recent decisions made
-| When | Decision | Ref |
-|---|---|---|
-| 2026-08-20 | Multi-tenancy = orgs + owner-named spaces, Shopify model, one identity + org_members/space_members, denormalized org_id + flat RLS; Phase 2 deferred | ADR-0004 |
-| 2026-08-20 | `space_manager` = dedicated role + `space_manager_access` (not space_members.role, not org-admin); access via `checkCourseAccess` | ADR-0005 |
-| 2026-08-20 | `course_type` retired — spaces categorise; no data migration | log 2026-08-20 |
-| 2026-08-21 | LinkedIn profile field is URL-only (no live import) | WU-0011 |
-| 2026-08-21 | Later features pushed DIRECTLY to prod (operator applies migrations) | this handoff |
+| When | Decision | Rationale / reference |
+|------|----------|----------------------|
+| 2026-09-07 | Efficacy tool on subdomain `efficacy.dasavandir.org` | Operator chose subdomain over path; Vercel domains configured by operator |
+| 2026-09-07 | Staging subdomain: `staging.efficacy.dasavandir.org` | Operator created this format (not `efficacy.staging.dasavandir.org`) |
+| 2026-09-07 | `is_ldm` boolean on profiles, not a new role enum | Avoids changing the role system; efficacy access is a capability, not a role |
+| 2026-09-07 | Efficacy DB in separate `efficacy` Postgres schema | Isolation from LMS tables; shared identity via `profiles` |
 
 ## Breadcrumbs / artifacts
-- **Published Artifact** "dasavandir Tenancy Flows" (claude.ai/code/artifact/002ca0e2-…) — the multi-tenancy
-  flow design (console/storefront, identity/login, domains, spaces). Private to operator.
-- **Scratchpad (EPHEMERAL — will clear):** `staging_full_catchup.sql` (applied to staging),
-  `staging_finish.sql` (NOT yet applied — the OQ-008 closer), `staging_catchup_tables.sql`,
-  `prod_multitenancy.sql`, `tenancy-flows.html`. Durable equivalents = the committed `supabase/migrations/`.
-- **Asana:** the operator's real project is **"Dasavandir.org"** (gid 1214297568428160). An empty
-  duplicate project (gid 1217461584269019) was created by mistake early on — never populated; delete if it
-  bothers you.
+- **No scratch artifacts from this session.** All work is in git (PRs #310, #311, #325).
+- **Stash entries exist** (`git stash list`): `stash@{0}` = agent-docs WIP on staging,
+  `stash@{1}` = agent-docs WIP before efficacy phase 2. These may contain prior session's agent-docs
+  state — inspect before popping.
 
 ## Reading order
-1. This handoff → 2. `now/status.md` → 3. `now/work-plan.md` (pick-next menu + WU spine) →
-4. `now/open-questions.md` (OQ-008 staging finish; OQ-001/004 security) → 5. `decisions/0004`, `0005`;
-`memories/phase-2-multi-tenant-gtm-deferred.md` → 6. `CLAUDE.md` §Role-to-course-linking (now 5 roles).
+1. This file.
+2. `now/status.md` — what shipped, the known bug, architecture summary.
+3. `now/work-plan.md` — §Immediate next + WU-0015.
+4. `now/open-questions.md` — OQ-021 (middleware bug), OQ-022 (schema not confirmed applied).
+5. `memories/staging-shares-the-production-database.md` — read before any DB work.
+6. `CLAUDE.md` — invariants (auth trigger, role→course link tables, migration hand-off format).
 No `checkpoints/` sitrep post-dates this handoff.
 
-## Recent commits (main)
+## Recent commits (`staging`)
 ```
-90041cf Merge #295 — name links to profile
-637e540 Merge #294 — fix: name→profile, drop Profile tab
-97ffdbc Merge #293 — learner profile page
-6b16db2 Merge #291 — fix: space_manager role assignment (missed enum)
-01d4c1d Merge #287 — multi-tenancy Phase 0+1 to prod
+6970ba4 fix(efficacy): use staging.efficacy.dasavandir.org subdomain name (#325)
+348e1f5 fix(ararka): use current Gemini model ids and give thinking its own budget (#324)
+99aafe5 fix(ararka): honour the selected model instead of defaulting to Anthropic (#323)
+a8bfe10 feat(ararka): upload scans direct to Supabase Storage, lifting the 4.5MB cap (#322)
+452239a fix(ararka): surface the 4.5MB upload limit instead of "Scoring failed" (#321)
 ```
 
 ---
-*How to refresh this file: `/handoff`.*
+*How to refresh this file:* run `/handoff`.

@@ -18,6 +18,84 @@ tags: [log, journal]
 
      A rejected lesson proposal logs its one-line reason here (see now/lessons/proposals.md). -->
 
+## 2026-09-07 lesson | LP-010, LP-011, LP-012 accepted (promoted to lessons/)
+
+Operator accepted all three candidates from this session's reflection: LP-010 (capture a gate's exit
+status directly — both `| tail -N` and a post-pipe `$?` fail OPEN), LP-011 (probe an unfamiliar runtime
+capability with a minimal case before building on it), LP-012 (verify a doc's environment claims against
+the deployed artifact). Promoted to `lessons/`, indexed, and removed from `now/lessons/proposals.md`.
+LP-007 (build OOM at default heap) re-confirmed a third time this session and stays staged.
+
+## 2026-09-07 handoff | Efficacy tool Phase 2+3 shipped to staging; middleware subdomain bug found
+
+Built the Teacher Efficacy Tool frontend (16 files, ~2750 lines) + subdomain routing for
+`efficacy.dasavandir.org`. PRs #310, #311, #325 merged to staging. **Found bug:** `middleware.ts:50`
+`isEfficacySubdomain()` still has the wrong staging subdomain — PR #325 missed it (fixed CSRF + layout
+but not the routing function). Tracked as OQ-021. WU-0015 added. Awaiting operator test + promotion.
+
+## 2026-09-07 decision | Efficacy tool on its own subdomain (`efficacy.dasavandir.org`)
+Operator chose the efficacy tool to be accessible at `efficacy.dasavandir.org` (production) and
+`staging.efficacy.dasavandir.org` (staging), rather than as a path under the main domain. Implemented
+via Next.js middleware `NextResponse.rewrite()`. Vercel domains configured by operator.
+
+## 2026-09-07 decision | Staging subdomain format: `staging.efficacy.dasavandir.org`
+Operator created the staging subdomain as `staging.efficacy.dasavandir.org` (not
+`efficacy.staging.dasavandir.org`). This is the format used in all code.
+
+## 2026-09-07 lint | Fixed two dangling ADR work-unit refs (pre-existing drift)
+
+`lint-docs` reported ADR-0006 -> `WU-0012` and ADR-0007 -> `WU-0013` with no matching rows in
+`now/work-plan.md`. Added both rows (marked proposed / not started, matching each ADR's own
+`status: proposed`) plus `WU-0014` for this session's Ararka work. Lint now clean across 52 files.
+
+
+## 2026-09-07 handoff | Ararka brought up on staging — 7 defects fixed (PRs #318–#324)
+
+Took Ararka from "nothing works on staging" to a working upload→score path. Root causes, in the order
+they surfaced: Vercel Authentication gating the staging domain (operator disabled it); OAuth redirect
+built from build-time `NEXT_PUBLIC_SITE_URL` (#318); the 5 ararka migrations applied to the WRONG
+Supabase project, which left `profiles.modules` missing and silently downgraded admins to learner;
+upload UX assuming one multi-student PDF (#319); AI keys checked under an ararka-only env var name
+(#320); Vercel's 4.5MB request-body limit surfacing as a bare "Scoring failed" (#321), then removed
+outright by uploading direct to Supabase Storage (#322); a controlled-`<select>` value mismatch that
+silently sent Claude while Gemini appeared selected (#323); and stale Gemini preview model ids plus the
+Gemini-2.5 thinking-budget trap (#324). All on `staging`; `main` untouched at #312 with 25 commits
+waiting. Created the `ararka-scans` storage bucket. Next: operator retest, then the two config gates
+(OQ-019, and the teacher `modules` backfill). WU-0014.
+
+## 2026-09-07 decision | Staging shares production's database — migrations "for staging" hit prod
+
+Established by reading `NEXT_PUBLIC_SUPABASE_URL` out of the deployed JS bundles: both
+`staging.dasavandir.org` and `www.dasavandir.org` use `mmkmsudwtrqdzehnfctx`. The project named in
+`.env.staging` (`zzaiyqvlkdjiqnuluznl`) is migrated but empty and read by no deployment — Vercel never
+reads that file. The prior handoff asserted the opposite, which is exactly how five migrations went to a
+database nothing reads. Operator chose to apply them to the shared project (additive only; `origin/main`
+references neither `modules` nor `ararka`, so production behaviour is unchanged). Structural fix tracked
+as OQ-015; durable claim in `memories/staging-shares-the-production-database.md`.
+
+## 2026-09-07 decision | Ararka teachers are the active learners on @dasavandir.org
+
+Operator ruling: there is no separate teacher record and nothing to create at import time — the 48
+active `learner` profiles on the school domain ARE the Ararka teachers. Replaces the previous
+`modules @> {ararka}` filter, which matched nobody (the column defaults to `{courses}`) and left the
+dropdown empty while the UI hid itself. Rule lives in `lib/ararka/teachers.ts`.
+
+## 2026-09-07 decision | Scans upload direct to Supabase Storage; client-side rasterisation rejected
+
+Client-side PDF rasterisation (pdfjs → JPEG → rebuilt PDF) was implemented and then backed out: it could
+not be verified here, because pdfjs `page.render()` never settles in the embedded browser pane —
+reproduced down to a 760-byte vector-only PDF on a 200x200 canvas. Shipping an unverified, CPU-heavy
+path that would run on teachers' machines was judged worse than the alternative. Chose signed-URL upload
+straight to Supabase Storage instead: no rasterisation, no storage RLS policy, verifiable server-side,
+and it preserves scan fidelity. Neither the rasteriser nor its harness was ever committed to git.
+
+## 2026-09-07 memory | A Supabase select fails whole when one column is missing
+
+`.select("role, full_name, status, modules")` against a table lacking `modules` returns error 42703 and
+`data: null` — not a partial row. Every downstream default then fires at once, so the visible symptom is
+an unrelated-looking one: admins rendering as learners and being redirected out of a module. When a role
+looks wrong, check the column list before suspecting auth.
+
 ## 2026-08-17 handoff | WU-0006 — invitation-accept-before-enroll bug fixed → staging
 Operator report: tatev@teachforarmenia.org invited, email received, but not in the enrolled list + no
 access. Forensics (Supabase REST, service-role, prod `mmkmsudwtrqdzehnfctx`) found the auto-enroll-on-
