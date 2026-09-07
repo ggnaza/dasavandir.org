@@ -5,8 +5,11 @@ import { createAdminClient } from "@/lib/supabase/admin";
 export { AI_MODELS, VALID_MODEL_IDS } from "@/lib/ai-models";
 export type { AIModelId } from "@/lib/ai-models";
 
-// Google Gemini API key — supports both naming conventions
-export const GEMINI_API_KEY = process.env.GOOGLE_GEMINI_API_KEY ?? process.env.GOOGLE_API_KEY;
+// Google Gemini API key — resolved from every accepted name in lib/ai-keys.ts,
+// which is the single source of truth for provider keys. Re-exported here so
+// the existing `import { GEMINI_API_KEY } from "@/lib/llm"` call sites keep working.
+import { GEMINI_API_KEY } from "@/lib/ai-keys";
+export { GEMINI_API_KEY };
 
 // Retired model IDs → current replacements
 const DEPRECATED_MODELS: Record<string, string> = {

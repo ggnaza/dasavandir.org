@@ -1,14 +1,19 @@
 import { getArarkaUser, requireAuth } from "@/lib/ararka/auth";
 import { getAvailableModels, getCurrentModel, setCurrentModel } from "@/lib/ararka/models";
+import { providerKeyStatus, PROVIDER_ENV_NAMES } from "@/lib/ai-keys";
 
 export async function GET() {
   const user = await getArarkaUser();
   const denied = requireAuth(user);
   if (denied) return denied;
 
+  // providers is presence-only (booleans), so an operator can see which key is
+  // missing without anyone having to read server logs. Never key material.
   return Response.json({
     current: getCurrentModel().id,
     models: getAvailableModels(),
+    providers: providerKeyStatus(),
+    providerEnvNames: PROVIDER_ENV_NAMES,
   });
 }
 

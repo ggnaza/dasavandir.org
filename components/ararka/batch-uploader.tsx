@@ -69,6 +69,7 @@ export function BatchUploader({
   const [testId, setTestId] = useState("");
   const [modelId, setModelId] = useState("");
   const [models, setModels] = useState<ModelInfo[]>([]);
+  const [providerEnvNames, setProviderEnvNames] = useState<Record<string, string[]> | null>(null);
   const [pagesPerTest, setPagesPerTest] = useState(6);
   const [files, setFiles] = useState<File[]>([]);
   // Only meaningful when a single PDF holds several students' tests back to back.
@@ -89,10 +90,17 @@ export function BatchUploader({
   useEffect(() => {
     fetch("/api/ararka/models")
       .then((r) => r.json())
-      .then((data: { current: string; models: ModelInfo[] }) => {
-        setModels(data.models ?? []);
-        if (!modelId && data.current) setModelId(data.current);
-      })
+      .then(
+        (data: {
+          current: string;
+          models: ModelInfo[];
+          providerEnvNames?: Record<string, string[]>;
+        }) => {
+          setModels(data.models ?? []);
+          setProviderEnvNames(data.providerEnvNames ?? null);
+          if (!modelId && data.current) setModelId(data.current);
+        },
+      )
       .catch(() => {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -364,9 +372,20 @@ export function BatchUploader({
           <label className="block text-sm font-medium text-gray-700 mb-1">AI Scoring Model</label>
           {models.length === 0 ? (
             <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-              <strong>No AI model is configured.</strong> Scoring will fail until an API key is
-              set on the server — <code>ANTHROPIC_API_KEY</code> for the Claude models, or{" "}
-              <code>GOOGLE_AI_API_KEY</code> for Gemini.
+              <strong>No AI model is configured on this deployment.</strong> Scoring will fail until
+              one of these environment variables is set for the environment this site runs in
+              (on Vercel, a variable scoped only to Production is not visible to a Preview build):
+              <ul className="mt-1 list-disc list-inside">
+                <li>
+                  Claude models — <code>{(providerEnvNames?.anthropic ?? ["ANTHROPIC_API_KEY"]).join(", ")}</code>
+                </li>
+                <li>
+                  Gemini models —{" "}
+                  <code>
+                    {(providerEnvNames?.google ?? ["GOOGLE_GEMINI_API_KEY"]).join(", ")}
+                  </code>
+                </li>
+              </ul>
             </div>
           ) : (
             <>
