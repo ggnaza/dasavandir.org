@@ -7,6 +7,7 @@ import { DeleteUserDialog } from "./delete-user-dialog";
 import { AssignCoursesModal } from "./assign-courses-modal";
 import { AssignManagerCoursesModal } from "./assign-manager-courses-modal";
 import { ManageSpacesModal } from "./manage-spaces-modal";
+import { ModuleAccessToggle } from "./module-access-toggle";
 import Link from "next/link";
 
 type User = {
@@ -215,6 +216,7 @@ export default function UsersPage() {
                                   }
                                 }}
                               />
+                              <ModuleAccessToggle userId={user.id} userName={user.full_name || "User"} />
                               <Link href={`/admin/users/${user.id}/activity`} className="text-blue-600 hover:underline text-sm">
                                 Activity
                               </Link>

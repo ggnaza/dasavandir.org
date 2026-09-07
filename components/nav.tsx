@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { LanguageToggle } from "@/components/language-toggle";
+import { ModuleSwitcher } from "@/components/module-switcher";
 import type { Lang } from "@/lib/i18n";
 import { translations } from "@/lib/i18n";
 
@@ -11,9 +12,10 @@ type NavProps = {
   userName?: string;
   unreadNotifications?: number;
   lang?: Lang;
+  modules?: string[];
 };
 
-export function Nav({ role, userName, unreadNotifications = 0, lang = "en" }: NavProps) {
+export function Nav({ role, userName, unreadNotifications = 0, lang = "en", modules = ["courses"] }: NavProps) {
   const router = useRouter();
   const T = translations[lang];
   const [menuOpen, setMenuOpen] = useState(false);
@@ -39,6 +41,7 @@ export function Nav({ role, userName, unreadNotifications = 0, lang = "en" }: Na
           { href: "/admin/users", label: "Users" },
           { href: "/admin/audit", label: "Activity" },
           { href: "/admin/settings", label: "Settings" },
+          { href: "/ararka", label: "Ararka" },
         ]
       : role === "creator"
       ? [
@@ -83,6 +86,7 @@ export function Nav({ role, userName, unreadNotifications = 0, lang = "en" }: Na
             </span>
             <span className="text-xs text-gray-400 mt-1">.org</span>
           </Link>
+          <ModuleSwitcher modules={modules} isAdmin={role === "admin"} />
           {/* Desktop nav */}
           <div className="hidden md:flex gap-4 text-sm">
             {links.map((l) => (
