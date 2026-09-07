@@ -2,7 +2,7 @@
  * Canonical AI provider API keys.
  *
  * The codebase accumulated three different names for the same Google key
- * (GOOGLE_GEMINI_API_KEY, GOOGLE_API_KEY, GOOGLE_AI_API_KEY). Ararka checked
+ * (GOOGLE_GEMINI_API_KEY, GOOGLE_API_KEY, GOOGLE_AI_API_KEY). Gnahatum checked
  * only GOOGLE_AI_API_KEY — a name nothing else used — so its model list came
  * back empty on a deployment that had a perfectly good Gemini key under one of
  * the other names, and the UI then hid the model picker entirely. Resolve every

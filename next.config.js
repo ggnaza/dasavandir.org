@@ -14,6 +14,14 @@ const nextConfig = {
     return config;
   },
 
+  async redirects() {
+    // The module was renamed Ararka -> Gnahatum. Keep old links working.
+    return [
+      { source: "/ararka", destination: "/gnahatum", permanent: true },
+      { source: "/ararka/:path*", destination: "/gnahatum/:path*", permanent: true },
+    ];
+  },
+
   async headers() {
     return [
       {
@@ -36,7 +44,7 @@ const nextConfig = {
               "media-src 'self' blob: *.supabase.co https://drive.google.com",
               "font-src 'self'",
               "frame-src 'self' https://www.youtube.com https://player.vimeo.com https://drive.google.com https://docs.google.com https://www.canva.com https://challenges.cloudflare.com https://*.supabase.co",
-              "connect-src 'self' *.supabase.co wss://*.supabase.co https://api.openai.com https://challenges.cloudflare.com",
+              "connect-src 'self' *.supabase.co wss://*.supabase.co https://api.openai.com https://generativelanguage.googleapis.com https://api.anthropic.com https://challenges.cloudflare.com",
             ].join("; "),
           },
         ],

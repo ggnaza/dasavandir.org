@@ -3,34 +3,33 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useRef, useEffect } from "react";
+import { MODULES, type ModuleId } from "@/lib/modules";
 
-interface Module {
-  id: string;
-  label: string;
-  href: string;
-  color: string;
-}
-
-const ALL_MODULES: Module[] = [
-  { id: "courses", label: "Courses", href: "/learn", color: "#2563EB" },
-  { id: "ararka", label: "Ararka", href: "/ararka", color: "#2563EB" },
-  { id: "efficacy", label: "Efficacy", href: "/efficacy", color: "#059669" },
-];
-
-export function ModuleSwitcher({ modules, isAdmin }: { modules: string[]; isAdmin?: boolean }) {
+/**
+ * Cross-module switcher.
+ *
+ * `modules` is the list of module ids the signed-in user may enter, computed
+ * server-side from `module_access`. When the user is on a module subdomain the
+ * other modules live on different hosts, so those links must be absolute —
+ * a relative `/efficacy` from gnahatum.dasavandir.org would 404.
+ */
+export function ModuleSwitcher({
+  modules,
+  isAdmin,
+  onSubdomain = false,
+}: {
+  modules: ModuleId[] | string[];
+  isAdmin?: boolean;
+  onSubdomain?: boolean;
+}) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const [origin, setOrigin] = useState("");
   const ref = useRef<HTMLDivElement>(null);
 
-  const available = isAdmin
-    ? ALL_MODULES
-    : ALL_MODULES.filter((m) => modules.includes(m.id));
-
-  const current = available.find(
-    (m) =>
-      pathname.startsWith(m.href) ||
-      (m.id === "courses" && (pathname.startsWith("/learn") || pathname.startsWith("/admin"))),
-  ) ?? available[0];
+  useEffect(() => {
+    setOrigin(window.location.origin);
+  }, []);
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -39,6 +38,36 @@ export function ModuleSwitcher({ modules, isAdmin }: { modules: string[]; isAdmi
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
+
+  const available = isAdmin ? MODULES : MODULES.filter((m) => modules.includes(m.id));
+
+  const current =
+    available.find(
+      (m) =>
+        pathname.startsWith(m.href) ||
+        (m.id === "courses" && (pathname.startsWith("/learn") || pathname.startsWith("/admin"))),
+    ) ?? available[0];
+
+  /**
+   * On a module subdomain the app's own routes are served from `/`, so the
+   * main-host paths have to be rebuilt against the parent domain.
+   * `gnahatum.dasavandir.org` -> `dasavandir.org`;
+   * `staging.gnahatum.dasavandir.org` -> `staging.dasavandir.org`.
+   */
+  function hrefFor(href: string): string {
+    if (!onSubdomain || !origin) return href;
+    try {
+      const url = new URL(origin);
+      const parts = url.hostname.split(".");
+      const moduleSegment = MODULES.findIndex((m) => parts.includes(m.id));
+      if (moduleSegment === -1) return href;
+      url.hostname = parts.filter((p) => !MODULES.some((m) => m.id === p)).join(".");
+      url.pathname = href;
+      return url.toString();
+    } catch {
+      return href;
+    }
+  }
 
   if (available.length <= 1) return null;
 
@@ -50,7 +79,12 @@ export function ModuleSwitcher({ modules, isAdmin }: { modules: string[]; isAdmi
       >
         <span className="w-2 h-2 rounded-full" style={{ backgroundColor: current?.color }} />
         <span className="font-medium text-gray-700">{current?.label}</span>
-        <svg className={`w-3.5 h-3.5 text-gray-400 transition-transform ${open ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg
+          className={`w-3.5 h-3.5 text-gray-400 transition-transform ${open ? "rotate-180" : ""}`}
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
         </svg>
       </button>
@@ -61,9 +95,11 @@ export function ModuleSwitcher({ modules, isAdmin }: { modules: string[]; isAdmi
             return (
               <Link
                 key={m.id}
-                href={m.href}
+                href={hrefFor(m.href)}
                 onClick={() => setOpen(false)}
-                className={`flex items-center gap-2 px-3 py-2 text-sm hover:bg-gray-50 ${isActive ? "bg-gray-50 font-medium text-gray-900" : "text-gray-600"}`}
+                className={`flex items-center gap-2 px-3 py-2 text-sm hover:bg-gray-50 ${
+                  isActive ? "bg-gray-50 font-medium text-gray-900" : "text-gray-600"
+                }`}
               >
                 <span className="w-2 h-2 rounded-full" style={{ backgroundColor: m.color }} />
                 {m.label}
@@ -74,7 +110,7 @@ export function ModuleSwitcher({ modules, isAdmin }: { modules: string[]; isAdmi
             <>
               <div className="border-t my-1" />
               <Link
-                href="/admin"
+                href={hrefFor("/admin")}
                 onClick={() => setOpen(false)}
                 className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 hover:bg-gray-50"
               >
