@@ -1,3 +1,5 @@
+import { anthropicApiKey, geminiApiKey, PROVIDER_ENV_NAMES } from "@/lib/ai-keys";
+
 import Anthropic from "@anthropic-ai/sdk";
 import { POINT_DISTRIBUTION, type AnswerKeyItem, type ScoredItem } from "./constants";
 import { getCurrentModel, type ScoringModel } from "./models";
@@ -85,7 +87,13 @@ async function scoreWithAnthropic(
   prompt: string,
   model: ScoringModel,
 ): Promise<{ text: string; raw: unknown }> {
-  const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
+  const anthropicKey = anthropicApiKey();
+  if (!anthropicKey) {
+    throw new Error(
+      `No Anthropic API key is configured — set ${PROVIDER_ENV_NAMES.anthropic.join(", ")}`,
+    );
+  }
+  const anthropic = new Anthropic({ apiKey: anthropicKey });
 
   const contentBlock =
     mediaType === "application/pdf"
@@ -123,8 +131,12 @@ async function scoreWithGemini(
   prompt: string,
   model: ScoringModel,
 ): Promise<{ text: string; raw: unknown }> {
-  const apiKey = process.env.GOOGLE_AI_API_KEY;
-  if (!apiKey) throw new Error("GOOGLE_AI_API_KEY is not configured");
+  const apiKey = geminiApiKey();
+  if (!apiKey) {
+    throw new Error(
+      `No Gemini API key is configured — set one of ${PROVIDER_ENV_NAMES.google.join(", ")}`,
+    );
+  }
 
   const parts: Array<Record<string, unknown>> = [
     { inline_data: { mime_type: mediaType, data: imageBase64 } },

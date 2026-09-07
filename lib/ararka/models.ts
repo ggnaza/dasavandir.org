@@ -1,3 +1,5 @@
+import { hasProviderKey } from "@/lib/ai-keys";
+
 export interface ScoringModel {
   id: string;
   name: string;
@@ -33,14 +35,14 @@ export const SCORING_MODELS: ScoringModel[] = [
     name: "Gemini 2.5 Flash",
     provider: "google",
     model: "gemini-2.5-flash-preview-05-20",
-    description: "Google's fast model. Requires GOOGLE_AI_API_KEY.",
+    description: "Google's fast model.",
   },
   {
     id: "gemini-pro",
     name: "Gemini 2.5 Pro",
     provider: "google",
     model: "gemini-2.5-pro-preview-06-05",
-    description: "Google's most capable model. Requires GOOGLE_AI_API_KEY.",
+    description: "Google's most capable model.",
   },
 ];
 
@@ -58,10 +60,5 @@ export function setCurrentModel(modelId: string): void {
 }
 
 export function getAvailableModels(): ScoringModel[] {
-  return SCORING_MODELS.filter((m) => {
-    if (m.provider === "anthropic") return !!process.env.ANTHROPIC_API_KEY;
-    if (m.provider === "google") return !!process.env.GOOGLE_AI_API_KEY;
-    if (m.provider === "openai") return !!process.env.OPENAI_API_KEY;
-    return false;
-  });
+  return SCORING_MODELS.filter((m) => hasProviderKey(m.provider));
 }
