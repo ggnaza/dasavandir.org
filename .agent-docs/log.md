@@ -286,4 +286,38 @@ Tenancy Flows"). Phase 2 (domains/billing/white-label) deferred → `memories/ph
 a rebuild-from-prod remediation. **OQ-011 RESOLVED** — prod introspection confirms `enrollments.status`
 exists on prod. Not on prod yet (Phase 0/1 is staging-only pending operator test + "push to main").
 
+## 2026-09-07 | feat — per-module access, Gnahatum rename, module subdomain routing (staging)
+
+Unified three products behind one deployment: Courses (LMS), Efficacy, Gnahatum (ex-Ararka).
+**#326** — subdomain registry (`lib/modules.ts`) as the single source for host->module mapping;
+fixed `middleware.ts` checking `efficacy.staging.…` when the real host is `staging.efficacy.…`
+(the reason the efficacy subdomain silently served the main LMS); added the two gnahatum hosts.
+Renamed Ararka -> Gnahatum across routes/files/components/labels with a 308 from `/ararka/*`;
+the Postgres schema stays `ararka` and the bucket stays `ararka-scans` (renaming live storage would
+orphan every object). Replaced three overlapping access mechanisms (`profiles.modules`, global
+`is_ldm`, "course_manager implies Ararka LDM") with `public.module_access(user_id, module, access)`
+— access = member|ldm, enforced in layouts AND API auth helpers, admin UI is a per-module dropdown.
+`lib/efficacy/gemini.ts` no longer reads one env-var name and pins `gemini-2.0-flash`; it goes
+through `lib/ai-keys.ts` + the platform model setting, so one key serves all three modules.
+**#328** — `efficacy_schema.sql` granted only a scoped `efficacy_rw` role that nothing connects as;
+the app uses the service-role key, so every efficacy table 403'd with 42501. Granted `service_role`
+(the same fix `ararka_batch_corrections.sql` made for the ararka schema — which is why Gnahatum
+worked and Efficacy did not). **#329** — the module panel was clipped by the users table's
+`overflow-hidden` wrapper; now portalled to `document.body`, viewport-clamped, flips up, scrolls
+internally. Verified in-browser.
+
+**Operator actions completed:** `efficacy_schema.sql`, `module_access.sql`, `efficacy_grants.sql`
+applied to `mmkmsudwtrqdzehnfctx`; `efficacy` added to Exposed schemas; both staging module
+subdomains re-pointed from Production to the `staging` branch in Vercel.
+
+**Verified live on staging:** both module subdomains rewrite + auth-gate; `/efficacy`, `/gnahatum`,
+`/ararka`->`/gnahatum` all correct; 11/11 efficacy tables reachable; gnahatum data intact (16
+subjects, 30 tests); grants backfilled 214 courses / 19 gnahatum-ldm / 1 gnahatum-member.
+**Not verified** (no local credentials): authed admin UI click-through and the Efficacy AI coach
+round-trip. Not on `main` — staging is 30 commits ahead.
+
+**Trap recurred (2nd time):** migrations were first applied to `zzaiyqvlkdjiqnuluznl` (the project
+`.env.staging` names) rather than `mmkmsudwtrqdzehnfctx` (what both hosts actually read). Memory
+updated in #327 with the rule: name the project *ref*, never the word "staging".
+
 <!-- newest entries appended above this line -->
