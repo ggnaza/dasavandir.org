@@ -1,0 +1,19 @@
+{"subject":"russian","grade":3,"doc":"1WTQhyIilnQEAviPdYRi977yJaFhCmPFH_iX0gyQxFT4",
+ "notes":"2025-2026 edition. Russian is the one subject where the general guide says spelling errors DO cost points (-0,1 per error); everywhere else they are marked but not deducted. Q2, Q3, Q4, Q9, Q13 and Q15 are picture-based. SOURCE TYPO: Q1 asks students to underline the Armenian letter «Վ,վ» in two Russian words — it means the Cyrillic «В,в».",
+ "key":[
+ {"number":1,"points":0.5,"type":"short_answer","answer":"Со(в)а, (В)ладимир — ընդգծված է в/В տառը","scoring_notes":"2 x 0,25 միավոր. Աղբյուրում սխալմամբ գրված է հայերեն Վ,վ՝ ռուսերեն В,в-ի փոխարեն"},
+ {"number":2,"points":0.5,"type":"matching","answer":"«Я читаю книгу» → գրքով նկարը; «Я рисую бабочку» → թիթեռ նկարողի նկարը","scoring_notes":"2 x 0,25 միավոր. Նկարից կախված"},
+ {"number":3,"points":1,"type":"matching","answer":"Большая рука; Маленький нос; Добрый мальчик; Длинный карандаш — յուրաքանչյուրի դիմաց նշվում է համապատասխան նկարը","scoring_notes":"4 x 0,25 միավոր. Նկարից կախված"},
+ {"number":4,"points":1,"type":"short_answer","answer":"Առաջին նկար՝ кто?; երկրորդ նկար՝ что?","scoring_notes":"2 x 0,5 միավոր. Նկարից կախված"},
+ {"number":5,"points":1,"type":"short_answer","answer":"мама, папа, друг, дедушка → друг; брат, собака, сестра, мама → собака","scoring_notes":"2 x 0,5 միավոր"},
+ {"number":6,"points":1,"type":"fill_blank","answer":"1. книга; 2. ручка; 3. пенал; 4. карандаш","scoring_notes":"4 x 0,25 միավոր"},
+ {"number":7,"points":1,"type":"true_false","answer":"У Максима есть мама, папа и брат — нет; Мама готовит суп — да; Папа читает книгу — да; Папа читает газету — нет","scoring_notes":"4 x 0,25 միավոր (աղբյուրում գրված է 2 x 0,5)"},
+ {"number":8,"points":0.5,"type":"fill_blank","answer":"ежик → ежики; слон → слоны","scoring_notes":"2 x 0,25 միավոր"},
+ {"number":9,"points":0.5,"type":"short_answer","answer":"маленький","accepted_variants":["маленький","добрый","весёлый"],"scoring_notes":"Ընդունվում է ցանկացած ճիշտ ածական, որը պատասխանում է какой?/какая? հարցին. Նկարից կախված"},
+ {"number":10,"points":1,"type":"short_answer","answer":"Книга лежала на столе."},
+ {"number":11,"points":1,"type":"short_answer","answer":"Բառով կազմված ցանկացած ճիշտ նախադասություն, օր.՝ Бабушка готовит.","accepted_variants":["Бабушка готовит.","Моя бабушка добрая.","Бабушка читает книгу."]},
+ {"number":12,"points":1,"type":"fill_blank","answer":"Папа читает."},
+ {"number":13,"points":1.5,"type":"short_answer","answer":"Я читаю; Я играю; Я пою","scoring_notes":"3 x 0,5 միավոր. Նկարից կախված"},
+ {"number":14,"points":1.5,"type":"short_answer","answer":"1. Меня зовут … (օր.՝ Меня зовут Анна); 2. У меня есть мама, папа, брат; 3. У меня маленькая (կամ большая) семья","scoring_notes":"3 x 0,5 միավոր՝ ընդունվում է ցանկացած քերականորեն ճիշտ անձնական պատասխան"},
+ {"number":15,"points":2,"type":"essay","answer":"Մոդելային պատասխան՝ «Мне нравится вторая семья, потому что папа читает книгу. Мальчик слушает.» Ընդունվում է առաջին կամ երկրորդ ընտանիքի ընտրությունը՝ ռուսերենով ձևակերպված հիմնավորմամբ","scoring_notes":"Նկարից կախված՝ երկու ընտանիքի պատկեր"}
+]}

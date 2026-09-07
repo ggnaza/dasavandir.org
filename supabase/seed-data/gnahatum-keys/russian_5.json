@@ -1,0 +1,19 @@
+{"subject":"russian","grade":5,"doc":"1ErHd5QZO06xBhfVq0DHpzvKCvAzT0-M9-pRM3w3VVcU",
+ "notes":"Header says 2026-2027. Russian is the one subject where the general guide says spelling errors DO cost points (-0,1 per error). Q3, Q5 and Q9 are picture-based.",
+ "key":[
+ {"number":1,"points":0.5,"type":"multiple_choice","answer":"а. высокая (Гора высокая)"},
+ {"number":2,"points":0.5,"type":"multiple_choice","answer":"читает"},
+ {"number":3,"points":1,"type":"short_answer","answer":"1. кто?; 2. что?; 3. кто?; 4. что?","scoring_notes":"4 x 0,25 միավոր. Նկարից կախված"},
+ {"number":4,"points":1,"type":"short_answer","answer":"Родина (Армения)","accepted_variants":["Армения","Родина","моя Родина"]},
+ {"number":5,"points":1,"type":"short_answer","answer":"Горы, фонтан, виноград, абрикос","scoring_notes":"4 x 0,25 միավոր. Նկարից կախված"},
+ {"number":6,"points":1,"type":"short_answer","answer":"озеро Севан, гора Арарат — ընդգծվում են փոքրատառ «о» և «г», մեծատառ «С» և «А»","scoring_notes":"4 x 0,25 միավոր"},
+ {"number":7,"points":1,"type":"true_false","answer":"1. Олег занимается хоккеем — нет; 2. Зимой команда Олега играет в зале — да; 3. Папа Олега хоккеист — да; 4. Летом вся семья купается в море или в озере — да","scoring_notes":"4 x 0,25 միավոր"},
+ {"number":8,"points":0.5,"type":"short_answer","answer":"Кто научился считать?","accepted_variants":["Кто научился считать?","Что сделал козленок?"]},
+ {"number":9,"points":0.5,"type":"short_answer","answer":"маленький; большая","accepted_variants":["маленький","большая","добрый","весёлая"],"scoring_notes":"2 x 0,25 միավոր՝ ցանկացած ճիշտ ածական. Նկարից կախված"},
+ {"number":10,"points":1,"type":"short_answer","answer":"Моя Родина — Армения. Ереван — столица Армении.","scoring_notes":"2 x 0,5 միավոր՝ ընդունվում է ցանկացած քերականորեն ճիշտ նախադասություն տրված բառերով"},
+ {"number":11,"points":1,"type":"fill_blank","answer":"Арман играл в футбол. Анна читала. Мальчик слушал музыку. Они делали уроки.","scoring_notes":"4 x 0,25 միավոր"},
+ {"number":12,"points":1,"type":"fill_blank","answer":"Мама сегодня купила сметану, творог, кресло, машину.","scoring_notes":"4 x 0,25 միավոր՝ հայցական հոլով"},
+ {"number":13,"points":1.5,"type":"short_answer","answer":"Подушка на кровати. Книги на столе. Сумки на полу.","scoring_notes":"3 x 0,5 միավոր՝ նախդրային հոլով"},
+ {"number":14,"points":1.5,"type":"short_answer","answer":"— Я люблю футбол. А ты? — Я сам тоже играю. — Зимой я люблю играть в хоккей.","scoring_notes":"3 x 0,5 միավոր՝ ընդունվում է ցանկացած քերականորեն ճիշտ երկխոսության պատասխան"},
+ {"number":15,"points":2,"type":"essay","answer":"Չորս փաստ Հայաստանի մասին, օր.՝ 1. Армения — маленькая, но красивая страна; 2. Ереван — столица Армении; 3. В Армении растут вкусные абрикосы, гранаты; 4. В Армении находится озеро Севан","scoring_notes":"4 x 0,5 միավոր՝ յուրաքանչյուր վավեր փաստի համար"}
+]}
