@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import { oauthCallbackUrl } from "@/lib/auth/oauth-redirect";
 import { Turnstile } from "@marsidev/react-turnstile";
 import type { Lang } from "@/lib/i18n";
 import { translations } from "@/lib/i18n";
@@ -110,7 +111,7 @@ export function AuthModal({ defaultTab = "login", onClose, lang = "en" }: Props)
     const { error } = await supabase.auth.signInWithOAuth({
       provider,
       options: {
-        redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL ?? window.location.origin}/auth/callback`,
+        redirectTo: oauthCallbackUrl(),
       },
     });
     if (error) {
