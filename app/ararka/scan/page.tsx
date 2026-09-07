@@ -1,5 +1,5 @@
 import { ararkaDb } from "@/lib/ararka/db";
-import { ScanUploader } from "@/components/ararka/scan-uploader";
+import { BatchUploader } from "@/components/ararka/batch-uploader";
 
 export default async function ScanPage() {
   const db = ararkaDb();
@@ -17,8 +17,13 @@ export default async function ScanPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-gray-900 mb-6">Upload & Score</h1>
-      <ScanUploader subjects={subjects ?? []} tests={tests ?? []} />
+      <h1 className="text-2xl font-bold text-gray-900 mb-6">Upload & Score Tests</h1>
+      <p className="text-gray-600 mb-6">
+        Upload a PDF containing all student test scans. The system will split
+        the PDF by pages-per-student, extract names, and score each test
+        automatically.
+      </p>
+      <BatchUploader subjects={subjects ?? []} tests={tests ?? []} />
     </div>
   );
 }

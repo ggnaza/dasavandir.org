@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { ararkaDb } from "@/lib/ararka/db";
 import { COGNITIVE_LEVELS, POINT_DISTRIBUTION } from "@/lib/ararka/constants";
 import type { ScoredItem } from "@/lib/ararka/constants";
+import { ResultEditor } from "@/components/ararka/result-editor";
 
 export default async function ResultDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -15,13 +16,18 @@ export default async function ResultDetailPage({ params }: { params: Promise<{ i
       total_score,
       max_score,
       items,
+      teacher_total,
+      teacher_items,
       reviewed,
       reviewed_by,
       reviewed_at,
+      corrected_by,
+      corrected_at,
       created_at,
       scans:scan_id (
         id,
         student_name,
+        teacher_name,
         teacher_id,
         status,
         tests:test_id (
@@ -44,16 +50,27 @@ export default async function ResultDetailPage({ params }: { params: Promise<{ i
   const test = scan?.tests as any;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const subject = test?.subjects as any;
-  const items = (result.items ?? []) as ScoredItem[];
-  const pct = result.max_score > 0 ? (result.total_score / result.max_score) * 100 : 0;
+
+  const currentItems = ((result.teacher_items ?? result.items) ?? []) as ScoredItem[];
+  const aiItems = (result.items ?? []) as ScoredItem[];
+  const finalScore = result.teacher_total ?? result.total_score;
+  const pct = result.max_score > 0 ? (finalScore / result.max_score) * 100 : 0;
+  const wasCorrected = result.teacher_total !== null;
 
   const levelScores = Object.entries(COGNITIVE_LEVELS).map(([key, level]) => {
-    const levelItems = items.filter((i) => (level.questions as readonly number[]).includes(i.number));
+    const levelItems = currentItems.filter((i) => (level.questions as readonly number[]).includes(i.number));
     const earned = levelItems.reduce((s, i) => s + i.awarded_points, 0);
     return { key, ...level, earned, max: level.points };
   });
 
-  const lowConfidence = items.filter((i) => i.confidence < 0.7);
+  const lowConfidence = currentItems.filter((i) => i.confidence < 0.7);
+
+  // Fetch correction history
+  const { data: corrections } = await db
+    .from("corrections")
+    .select("id, question_number, ai_score, teacher_score, reason, created_at")
+    .eq("result_id", id)
+    .order("created_at", { ascending: false });
 
   return (
     <div className="space-y-6">
@@ -74,17 +91,29 @@ export default async function ResultDetailPage({ params }: { params: Promise<{ i
               {subject?.name_hy} ({subject?.name_en}) — Grade {test?.grade} — {test?.test_type}{" "}
               {test?.year}
             </p>
+            {scan?.teacher_name && (
+              <p className="text-sm text-gray-500 mt-1">Teacher: {scan.teacher_name}</p>
+            )}
             <p className="text-sm text-gray-400 mt-1">
               Scored {new Date(result.created_at).toLocaleString()}
             </p>
           </div>
           <div className="text-right">
             <div className={`text-4xl font-bold ${pct >= 70 ? "text-green-600" : pct >= 40 ? "text-yellow-600" : "text-red-600"}`}>
-              {result.total_score.toFixed(1)}
+              {finalScore.toFixed(1)}
             </div>
             <div className="text-gray-400">/ {result.max_score} ({pct.toFixed(0)}%)</div>
+            {wasCorrected && (
+              <div className="text-xs text-gray-400 mt-1">
+                AI score: {result.total_score.toFixed(1)} | Corrected: {new Date(result.corrected_at!).toLocaleDateString()}
+              </div>
+            )}
             <div className="mt-2">
-              {result.reviewed ? (
+              {wasCorrected ? (
+                <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-700">
+                  Teacher Corrected
+                </span>
+              ) : result.reviewed ? (
                 <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-green-50 text-green-700">
                   Reviewed
                 </span>
@@ -134,74 +163,35 @@ export default async function ResultDetailPage({ params }: { params: Promise<{ i
         </div>
       )}
 
-      {/* Per-question table */}
-      <div className="bg-white rounded-lg border overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b bg-gray-50 text-left">
-                <th className="py-3 px-4 font-medium text-gray-500">Q#</th>
-                <th className="py-3 px-4 font-medium text-gray-500">Level</th>
-                <th className="py-3 px-4 font-medium text-gray-500">Student Answer</th>
-                <th className="py-3 px-4 font-medium text-gray-500">Correct Answer</th>
-                <th className="py-3 px-4 font-medium text-gray-500">Points</th>
-                <th className="py-3 px-4 font-medium text-gray-500">Confidence</th>
-                <th className="py-3 px-4 font-medium text-gray-500">Note</th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((item) => {
-                const level = Object.entries(COGNITIVE_LEVELS).find(([, l]) =>
-                  (l.questions as readonly number[]).includes(item.number),
-                );
-                const maxPts = POINT_DISTRIBUTION[item.number] ?? 0;
+      {/* Per-question table with inline editing */}
+      <ResultEditor
+        resultId={result.id}
+        items={currentItems}
+        aiItems={aiItems}
+        wasCorrected={wasCorrected}
+      />
 
-                return (
-                  <tr
-                    key={item.number}
-                    className={`border-b ${item.awarded_points === maxPts ? "" : item.awarded_points > 0 ? "bg-yellow-50" : "bg-red-50"}`}
-                  >
-                    <td className="py-3 px-4 font-medium">{item.number}</td>
-                    <td className="py-3 px-4 text-gray-500 text-xs">
-                      {level ? level[1].label_en : "—"}
-                    </td>
-                    <td className="py-3 px-4 max-w-[200px]">
-                      <span className="whitespace-pre-wrap break-words">{item.extracted_answer}</span>
-                    </td>
-                    <td className="py-3 px-4 max-w-[200px]">
-                      <span className="whitespace-pre-wrap break-words">{item.correct_answer}</span>
-                    </td>
-                    <td className="py-3 px-4">
-                      <span
-                        className={`font-medium ${item.awarded_points === maxPts ? "text-green-600" : item.awarded_points > 0 ? "text-yellow-600" : "text-red-600"}`}
-                      >
-                        {item.awarded_points}
-                      </span>
-                      <span className="text-gray-400"> / {maxPts}</span>
-                    </td>
-                    <td className="py-3 px-4">
-                      <div className="flex items-center gap-1.5">
-                        <div className="w-14 h-2 bg-gray-200 rounded-full overflow-hidden">
-                          <div
-                            className={`h-full rounded-full ${item.confidence >= 0.8 ? "bg-green-500" : item.confidence >= 0.5 ? "bg-yellow-500" : "bg-red-500"}`}
-                            style={{ width: `${item.confidence * 100}%` }}
-                          />
-                        </div>
-                        <span className="text-xs text-gray-400">
-                          {Math.round(item.confidence * 100)}%
-                        </span>
-                      </div>
-                    </td>
-                    <td className="py-3 px-4 text-xs text-gray-500 max-w-[250px]">
-                      {item.explanation}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+      {/* Correction history */}
+      {corrections && corrections.length > 0 && (
+        <div className="bg-white rounded-lg border p-6">
+          <h2 className="text-lg font-semibold mb-4">Correction History</h2>
+          <div className="space-y-2">
+            {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+            {corrections.map((c: any) => (
+              <div key={c.id} className="flex items-center gap-4 text-sm border-b pb-2">
+                <span className="font-medium text-gray-700">Q{c.question_number}</span>
+                <span className="text-red-500 line-through">{c.ai_score}</span>
+                <span className="text-gray-400">&rarr;</span>
+                <span className="text-green-600 font-medium">{c.teacher_score}</span>
+                {c.reason && <span className="text-gray-500 italic">&quot;{c.reason}&quot;</span>}
+                <span className="text-gray-400 text-xs ml-auto">
+                  {new Date(c.created_at).toLocaleString()}
+                </span>
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
