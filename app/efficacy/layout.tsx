@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 function isEfficacySubdomain(host: string): boolean {
   return (
     host === "efficacy.dasavandir.org" ||
-    host === "efficacy.staging.dasavandir.org" ||
+    host === "staging.efficacy.dasavandir.org" ||
     host.startsWith("efficacy.localhost")
   );
 }

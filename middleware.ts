@@ -18,7 +18,7 @@ const SAME_DEPLOY_HOSTS = new Set([
   "dasavandir.org",
   "staging.dasavandir.org",
   "efficacy.dasavandir.org",
-  "efficacy.staging.dasavandir.org",
+  "staging.efficacy.dasavandir.org",
 ]);
 
 function csrfGuard(request: NextRequest): NextResponse | null {
