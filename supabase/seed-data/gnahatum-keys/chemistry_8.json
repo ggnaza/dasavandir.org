@@ -1,0 +1,19 @@
+{"subject":"chemistry","grade":8,"doc":"15cEc60cp9PRi7Ssp2cr0TkiRth-tF37BmMxqTe_nIMk",
+ "notes":"Source header table says 'ամփոփիչ' but the document H1 and the subject guide both place it as Հայտորոշիչ — treated as diagnostic.",
+ "key":[
+ {"number":1,"points":0.5,"type":"multiple_choice","answer":"ա. NaCl"},
+ {"number":2,"points":0.5,"type":"multiple_choice","answer":"O3, Na","scoring_notes":"2 x 0,25 միավոր"},
+ {"number":3,"points":1,"type":"short_answer","answer":"ա. Էներգետիկ մակարդակներ (էլեկտրոնային թաղանթներ); բ. 11","scoring_notes":"2 x 0,5 միավոր"},
+ {"number":4,"points":1,"type":"short_answer","answer":"ա. Տեղակալման ռեակցիա; բ. Ընթանում է պարզ և բարդ նյութերի միջև, որի արդյունքում պարզ նյութի ատոմները տեղակալում են բարդ նյութի ատոմներից մեկին","scoring_notes":"2 x 0,5 միավոր"},
+ {"number":5,"points":1,"type":"table","answer":"Մաքուր նյութ՝ թթվածին, սնդիկ; Խառնուրդ՝ գետի ջուր, կաթ","scoring_notes":"4 x 0,25 միավոր"},
+ {"number":6,"points":1,"type":"short_answer","answer":"ա. Քլոր (Cl); բ. 17","scoring_notes":"2 x 0,5 միավոր"},
+ {"number":7,"points":1,"type":"true_false","answer":"ա. այո; բ. ոչ; գ. այո; դ. ոչ","scoring_notes":"4 x 0,25 միավոր"},
+ {"number":8,"points":0.5,"type":"computation","answer":"2 x (2+1+4) = 14 ատոմ"},
+ {"number":9,"points":0.5,"type":"computation","answer":"18 գրամ"},
+ {"number":10,"points":1,"type":"multiple_choice","answer":"դ. 22"},
+ {"number":11,"points":1,"type":"computation","answer":"Բանաձև 1՝ NO; Բանաձև 2՝ N2O3; էլեկտրոնների թիվը՝ 7+8=15 և (7x2)+(8x3)=38","scoring_notes":"4 x 0,25 միավոր"},
+ {"number":12,"points":1,"type":"table","answer":"Ռեակցիայի տեսակը՝ քայքայման; Ելանյութի Mr՝ 100; Արգասիքներ՝ CaO, CO2; Գործակիցների գումարը՝ 3","scoring_notes":"4 x 0,25 միավոր"},
+ {"number":13,"points":1.5,"type":"short_answer","answer":"ա. Այրման համար անհրաժեշտ է թթվածին, փչելով ապահովվում է թթվածնի լրացուցիչ մուտք; բ. C + O2 → CO2, վերջանյութերը՝ ածխաթթու գազ և ջուր; գ. Թերի այրման ժամանակ առաջանում է շմոլ գազ (և ջուր), որը շնչահեղձության վտանգ է","scoring_notes":"3 x 0,5 միավոր"},
+ {"number":14,"points":1.5,"type":"short_answer","answer":"ա. Փչելիս փուչիկը լցվում է ածխաթթու գազով, որն օդից ծանր է, ուստի իջնում է; հելիումն օդից թեթև է, ուստի բարձրանում է; բ. Mr(CO2)=44 գ/մոլ > 29 գ/մոլ, Mr(He)=4 գ/մոլ < 29 գ/մոլ; գ. Հնարավոր է, եթե գազն օդից թեթև է — պետք է իմանալ նրա հարաբերական մոլեկուլային զանգվածը","scoring_notes":"3 x 0,5 միավոր"},
+ {"number":15,"points":2,"type":"essay","answer":"Մոդելային պատասխան՝ նոր տարրի նշան (գոյություն չունեցող), կարգային համար 118-ից բարձր, պրոտոն = էլեկտրոն = կարգային համար, Ar և նեյտրոնների թիվ, ֆիզիկական հատկություն, քիմիական հատկություն, նշանակություն/կիրառություն և ընտրության հիմնավորում","scoring_notes":"Յուրաքանչյուր լրացված պահանջին 0,25 միավոր"}
+]}

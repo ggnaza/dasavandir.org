@@ -41,8 +41,16 @@ export default async function GnahatumHome() {
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {(subjects ?? []).map((subject: { id: string; name_hy: string; name_en: string }) => {
-            const subjectTests = testsBySubject[subject.id] ?? [];
-            const grades = subjectTests.map((t: { grade: number }) => t.grade).sort((a: number, b: number) => a - b);
+            // Sort and render the tests themselves rather than a list of grade
+            // numbers. A grade can hold more than one test — algebra and
+            // geometry both have a հենքային (base) and a նպատակային (target)
+            // paper at grade 11 — and keying chips by grade rendered two
+            // identical links that both resolved to whichever test came first,
+            // leaving the other unreachable (and duplicating the React key).
+            const subjectTests = [...(testsBySubject[subject.id] ?? [])].sort(
+              (a: { grade: number; test_type: string }, b: { grade: number; test_type: string }) =>
+                a.grade - b.grade || a.test_type.localeCompare(b.test_type),
+            );
 
             return (
               <div
@@ -52,20 +60,19 @@ export default async function GnahatumHome() {
                 <h3 className="font-semibold text-gray-900">{subject.name_hy}</h3>
                 <p className="text-sm text-gray-500">{subject.name_en}</p>
 
-                {grades.length > 0 ? (
+                {subjectTests.length > 0 ? (
                   <div className="mt-3 flex flex-wrap gap-2">
-                    {grades.map((grade: number) => {
-                      const test = subjectTests.find((t: { grade: number }) => t.grade === grade);
-                      return (
-                        <Link
-                          key={grade}
-                          href={`/gnahatum/tests/${test.id}`}
-                          className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors"
-                        >
-                          Grade {grade}
-                        </Link>
-                      );
-                    })}
+                    {subjectTests.map((test: { id: string; grade: number; test_type: string }) => (
+                      <Link
+                        key={test.id}
+                        href={`/gnahatum/tests/${test.id}`}
+                        className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors"
+                      >
+                        Grade {test.grade}
+                        {test.test_type === "diagnostic_base" && " · հենքային"}
+                        {test.test_type === "diagnostic_target" && " · նպատակային"}
+                      </Link>
+                    ))}
                   </div>
                 ) : (
                   <p className="mt-3 text-sm text-gray-400 italic">No tests added yet</p>

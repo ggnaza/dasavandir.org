@@ -16,6 +16,7 @@ const LINKS: NavLink[] = [
   { href: "/gnahatum/scan", label: "Upload & Score" },
   { href: "/gnahatum/results", label: "Results" },
   { href: "/gnahatum/calibrate", label: "Calibrate", ldmOnly: true },
+  { href: "/gnahatum/training", label: "Training", ldmOnly: true },
 ];
 
 /** On gnahatum.dasavandir.org the app is served from `/`, so drop the prefix. */

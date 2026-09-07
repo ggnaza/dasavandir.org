@@ -1,0 +1,19 @@
+{"subject":"physics","grade":9,"doc":"1dgDmurUYTNW9QHFSqYAdD-jJe-Qx6bKO9WhDOIBFvxU",
+ "notes":"2024-2025 edition. Q3, Q4, Q5, Q7 and Q8 are figure-dependent (Q8's key works from a 41,3°C thermometer reading shown only in the figure). Source note on Q5: all-or-nothing scoring.",
+ "key":[
+ {"number":1,"points":0.5,"type":"fill_blank","answer":"Մոլեկուլը"},
+ {"number":2,"points":0.5,"type":"multiple_choice","answer":"Գազային, պինդ"},
+ {"number":3,"points":1,"type":"diagram","answer":"Սևացրած թիթեղը՝ ճառագայթման պատճառով","scoring_notes":"Նկարից կախված"},
+ {"number":4,"points":1,"type":"diagram","answer":"Երրորդ բաժակում՝ ջերմահաղորդականության պատճառով","scoring_notes":"Նկարից կախված"},
+ {"number":5,"points":1,"type":"matching","answer":"Հեղուկ, պինդ, գազային","scoring_notes":"Եթե նույնիսկ մեկը սխալ է, ամբողջը սխալ է"},
+ {"number":6,"points":1,"type":"fill_blank","answer":"Քաոսային, կինետիկ, փոխազդեցության, գումարն","scoring_notes":"4 x 0,25 միավոր"},
+ {"number":7,"points":1,"type":"diagram","answer":"Դիֆուզիա","scoring_notes":"Նկարից կախված"},
+ {"number":8,"points":0.5,"type":"computation","answer":"°F = (41,3 x 1,8) + 32 ≈ 106,3 °F","scoring_notes":"Ջերմաչափի ցուցմունքը տրված է նկարում"},
+ {"number":9,"points":0.5,"type":"computation","answer":"V = 0,0003 մ³; m = 800 x 0,0003 = 0,24 կգ; Q = 0,24 x 2500 x 46 = 27 600 Ջ"},
+ {"number":10,"points":1,"type":"computation","answer":"Q1 = m x 540 x 1160 = 626 400m; Q2 = 140 000m; Qընդ = 766 400m = 30 000 000 Ջ, որտեղից m ≈ 39,2 կգ"},
+ {"number":11,"points":1,"type":"computation","answer":"Q = 200 x 880 x 17 = 2 992 000 Ջ; W = Q/r = 2 992 000/2,3x10^6 ≈ 1,3 կգ"},
+ {"number":12,"points":1,"type":"computation","answer":"m1 = 60 կգ, m2 = 40 կգ; 60(tխ - 8) + 40(tխ - 90) = 0; 100tխ = 4080; tխ = 40,8 °C"},
+ {"number":13,"points":1.5,"type":"computation","answer":"M = 0,088 x 10^-3 կգ; N = M/m = 2,83 x 10^21; L = N x d = 2,83 x 10^21 x 2,91 x 10^-11 ≈ 8,23 x 10^10 մ"},
+ {"number":14,"points":1.5,"type":"computation","answer":"Qջուր = mջուր x 4200 x 12 = 50 400 mջուր; Qսառույց = λm + mc(t1-0) = 1 221 600 Ջ; mջուր = 1 221 600/50 400 ≈ 24,2 կգ"},
+ {"number":15,"points":2,"type":"essay","answer":"Ջերմահաղորդականության բացակայության դեպքում տաքացուցիչները չեն աշխատի; կոնվեկցիայի բացակայության դեպքում օդանավերը չէին կարողանա թռչել, քանի որ հոսանքներ չէին ստեղծվի; ճառագայթման բացակայության դեպքում արևից ջերմաքանակ մեզ չէր հասնի","scoring_notes":"Երկուական օրինակ յուրաքանչյուր ջերմափոխանակության տեսակից"}
+]}

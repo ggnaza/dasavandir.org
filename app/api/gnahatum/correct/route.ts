@@ -1,6 +1,7 @@
 import { getGnahatumUser, requireAuth } from "@/lib/gnahatum/auth";
 import { gnahatumDb } from "@/lib/gnahatum/db";
 import { POINT_DISTRIBUTION } from "@/lib/gnahatum/constants";
+import { recordCorrectionAsKnowledge } from "@/lib/gnahatum/learning";
 
 interface CorrectionPayload {
   result_id: string;
@@ -27,7 +28,7 @@ export async function POST(request: Request) {
 
   const { data: result, error: resultErr } = await db
     .from("results")
-    .select("id, items, total_score, max_score")
+    .select("id, test_id, items, total_score, max_score")
     .eq("id", result_id)
     .single();
 
@@ -39,6 +40,7 @@ export async function POST(request: Request) {
     number: number;
     max_points: number;
     awarded_points: number;
+    extracted_answer?: string;
     [key: string]: unknown;
   }>;
 
@@ -92,9 +94,26 @@ export async function POST(request: Request) {
     return Response.json({ error: "Failed to update result" }, { status: 500 });
   }
 
+  // Turn the correction into knowledge the next scan can use, whatever model
+  // scores it. This must never fail the correction itself — the teacher's
+  // grade is the product; the learning is a by-product.
+  let learned = 0;
+  if (result.test_id) {
+    learned = await recordCorrectionAsKnowledge({
+      testId: result.test_id as string,
+      correctedBy: user!.id,
+      corrections: corrections.map((c) => ({
+        question_number: c.question_number,
+        teacher_score: c.teacher_score,
+      })),
+      items,
+    });
+  }
+
   return Response.json({
     teacherTotal,
     teacherItems,
     correctionsCount: corrections.length,
+    variantsLearned: learned,
   });
 }

@@ -2,6 +2,7 @@ import { getGnahatumUser, requireAuth } from "@/lib/gnahatum/auth";
 import { gnahatumDb } from "@/lib/gnahatum/db";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { scoreFromScan } from "@/lib/gnahatum/scorer";
+import { fetchLearnedKnowledge, formatLearnedKnowledge } from "@/lib/gnahatum/learning";
 import type { AnswerKeyItem } from "@/lib/gnahatum/constants";
 import {
   SCAN_BUCKET,
@@ -130,12 +131,20 @@ export async function POST(request: Request) {
   }
 
   try {
+    // Everything teachers have already taught the system about this exact
+    // test. Stored as text keyed on the test, not on a model, so the current
+    // model — whichever it is — starts with the full history.
+    const answerKey = test.answer_key as AnswerKeyItem[];
+    const knowledge = await fetchLearnedKnowledge(testId);
+    const learnedBlock = formatLearnedKnowledge(knowledge, answerKey);
+
     const scoringResult = await scoreFromScan(
       imageBase64,
       mediaType,
-      test.answer_key as AnswerKeyItem[],
+      answerKey,
       test.scoring_notes,
       modelId,
+      learnedBlock,
     );
 
     const finalStudentName = studentName ?? scoringResult.studentName;

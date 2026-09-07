@@ -9,18 +9,22 @@ export interface ScoringModel {
 }
 
 export const SCORING_MODELS: ScoringModel[] = [
+  // Model ids are exact and carry no date suffix. A stale pinned id is how the
+  // Gemini scorer broke once already (see fix_deprecated_gemini_model_ids.sql)
+  // — when refreshing these, check them against current provider docs rather
+  // than from memory.
   {
     id: "claude-sonnet",
-    name: "Claude Sonnet 4",
+    name: "Claude Sonnet 5",
     provider: "anthropic",
-    model: "claude-sonnet-4-20250514",
+    model: "claude-sonnet-5",
     description: "Default. Best balance of accuracy and cost for test scoring.",
   },
   {
     id: "claude-haiku",
     name: "Claude Haiku 4.5",
     provider: "anthropic",
-    model: "claude-haiku-4-5-20251001",
+    model: "claude-haiku-4-5",
     description: "Faster and cheaper, good for high-volume scoring.",
   },
   {
@@ -28,7 +32,7 @@ export const SCORING_MODELS: ScoringModel[] = [
     name: "Claude Opus 5",
     provider: "anthropic",
     model: "claude-opus-5",
-    description: "Most capable. Best for complex or ambiguous answers.",
+    description: "Most capable. Best for complex or ambiguous handwriting.",
   },
   {
     id: "gemini-flash",
