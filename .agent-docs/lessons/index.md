@@ -1,7 +1,7 @@
 ---
 provenance: kit-template
 created: 2026-07-03
-last-modified: 2026-08-13
+last-modified: 2026-09-07
 tags: [meta, index, routing, lessons]
 related: [CONVENTIONS]
 ---
@@ -74,6 +74,24 @@ cost-of-recurrence can justify promotion on first sighting — it need not wait 
   routes) AND any `.in("role",[...])` read filter. `tsc` can't catch a missed one (the string is valid
   TS); it fails at runtime as a 400/empty-list. `grep -rn` the enum members across `app/api` before
   merging. *(seedling · medium · action.)*
+- `capture-gate-exit-status-directly.md` (LP-010) — **Open when:** about to report that a build,
+  type-check, lint, or test run passed, or piping any gate's output. **Carry-away:** both shortcuts FAIL
+  OPEN — `cmd | tail -N` can cut the failure summary off the top, and `$?` after a pipe is the last
+  stage's status (always 0 for `head`/`tail`), not the gate's. Redirect to a file and capture the exit
+  code (`cmd > log 2>&1; echo $?`); for test runners read the explicit `N passed / N failed` summary.
+  *(seedling · high · action.)*
+- `probe-a-runtime-capability-before-building-on-it.md` (LP-011) — **Open when:** about to write more
+  than a few lines against a runtime API whose behaviour in THIS environment is unverified (canvas,
+  workers, native modules). **Carry-away:** probe with a case small enough that failure implicates the
+  environment, not your code; a full pdfjs rasteriser was built before a 760-byte vector PDF showed
+  `page.render()` never settles in the embedded pane. Sunk cost then argues for shipping unverified.
+  *(seedling · medium · planning.)*
+- `verify-environment-claims-against-the-deployed-artifact.md` (LP-012) — **Open when:** acting on any
+  doc-sourced belief about which backend an environment uses, right before a migration or a "it's only
+  staging" judgement. **Carry-away:** a repo `.env.*` need not describe any real deployment (Vercel reads
+  its own dashboard vars) and docs decay; the deployed bundle inlines `NEXT_PUBLIC_*`, so grep the
+  shipped chunks for the real target. A stale handoff sent five migrations to a database nothing reads.
+  *(seedling · high · action.)*
 
 ## Maintenance
 

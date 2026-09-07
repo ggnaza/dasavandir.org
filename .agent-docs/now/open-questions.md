@@ -1,10 +1,10 @@
 ---
 provenance: llm-reviewed
 created: 2026-07-03
-last-modified: 2026-08-13
+last-modified: 2026-09-07
 tags: [current, open-questions, rls, security]
 related: [status, work-plan]
-last-modified: 2026-08-17
+last-modified: 2026-09-07
 ---
 
 # Open questions — dasavandir.org
@@ -14,6 +14,54 @@ last-modified: 2026-08-17
 > open-question beats a polished plan with a hidden assumption.
 
 ## Open
+
+- **OQ-015** (🔴 infra/risk; surfaced 2026-09-07) — **Staging has no database of its own.**
+  `staging.dasavandir.org` and `www.dasavandir.org` both read `mmkmsudwtrqdzehnfctx`; the separate
+  project named in `.env.staging` (`zzaiyqvlkdjiqnuluznl`) is migrated but empty and read by no
+  deployment. So "testing on staging" writes production data, and any migration applied "for staging"
+  hits prod. **Resolve:** point the Vercel `dasavandir-org-h82a` env at a real staging project and seed
+  it (users + courses), or accept the risk explicitly in writing. Evidence:
+  `NEXT_PUBLIC_SUPABASE_URL` read out of the deployed JS bundle of both hosts, 2026-09-07. Relates:
+  `../memories/staging-shares-the-production-database.md`. Owner: operator.
+- **OQ-016** (🟡 product/accuracy; surfaced 2026-09-07) — **Ararka results table hardcodes `/ 15`.**
+  Wrong for any test whose total differs — the seeded Grade-1 English attestation has 40 questions, so
+  its scores render against the wrong denominator. `/api/ararka/score` already returns `maxScore`;
+  `components/ararka/batch-uploader.tsx` needs to consume it. **Resolve:** small UI change.
+- **OQ-017** (🟢 product/UX; surfaced 2026-09-07) — **Admins can reach Ararka but get no nav link.**
+  `app/ararka/layout.tsx` lets `role === 'admin'` through the access guard, but `navModules` is only
+  augmented for `course_manager`/`space_manager`, so an admin sees no entry unless `ararka` is in their
+  own `modules`. **Resolve:** include admin in the nav augmentation (also `app/learn/layout.tsx`).
+- **OQ-018** (🟡 correctness; surfaced 2026-09-07) — **Ararka's Anthropic model ids are stale.**
+  `lib/ararka/models.ts` pins `claude-sonnet-4-20250514` (a year-old snapshot) while `lib/ai-models.ts`
+  names newer Claude models. Deliberately not changed this session: there is no `ANTHROPIC_API_KEY` in
+  the local env to verify against, and changing a possibly-working path blind was judged worse.
+  **Resolve:** confirm the current id against the account, then align. The Gemini equivalent of this bug
+  already bit us (PR #324).
+- **OQ-019** (🟠 config; surfaced 2026-09-07) — **Is `ANTHROPIC_API_KEY` scoped to `Preview` in Vercel?**
+  Staging deploys as a Preview; a Production-only variable is invisible to it, which would leave Claude
+  models unavailable on staging while working on prod. Not checkable from here. **Resolve:** operator
+  checks `dasavandir-org-h82a` → Settings → Environment Variables.
+- **OQ-020** (🟡 config; surfaced 2026-09-07) — **`GOOGLE_API_KEY` sits in the Gemini fallback chain but
+  is not a Gemini key.** The value in `.env.local` returns `API_KEY_SERVICE_BLOCKED` for
+  `generateContent` — it looks like the YouTube Data API key (used by `video-duration`).
+  `lib/ai-keys.ts` resolves `GOOGLE_GEMINI_API_KEY → GOOGLE_API_KEY → GOOGLE_AI_API_KEY` (a chain
+  inherited from `lib/llm.ts`), so an environment missing `GOOGLE_GEMINI_API_KEY` would resolve a key
+  that 403s while `hasProviderKey('google')` reports true. **Resolve:** confirm every environment sets
+  `GOOGLE_GEMINI_API_KEY` explicitly, or drop `GOOGLE_API_KEY` from the Gemini chain.
+
+- **OQ-021** (🔴 bug; surfaced 2026-09-07) — **`middleware.ts:50` `isEfficacySubdomain()` still checks
+  `efficacy.staging.dasavandir.org` instead of `staging.efficacy.dasavandir.org`.** PR #325 fixed the
+  CSRF `SAME_DEPLOY_HOSTS` (line 21) and `app/efficacy/layout.tsx` (line 12) but missed this occurrence.
+  **Consequence:** subdomain routing does NOT activate for `staging.efficacy.dasavandir.org` — visitors
+  see the main LMS instead of the efficacy tool. One-line fix. **Resolve:** change line 50 from
+  `efficacy.staging.dasavandir.org` to `staging.efficacy.dasavandir.org`, PR to staging.
+
+- **OQ-022** (🟢 product; surfaced 2026-09-07) — **Efficacy Phase 0 SQL schema has not been applied.**
+  The `efficacy` Postgres schema, tables, and `efficacy_rw` role (from Phase 0/1 work in prior sessions)
+  must be applied in the Supabase SQL editor before the efficacy frontend can function. Migration files
+  are in `supabase/migrations/efficacy_*.sql`. Without this, every API call returns empty data or errors.
+  **Resolve:** operator applies the efficacy migrations to the production Supabase project
+  (`mmkmsudwtrqdzehnfctx`) + exposes `efficacy` schema in PostgREST.
 
 - **OQ-001** (🔴 security; surfaced 2026-07-04 by the audit) — A live Supabase **service-role master
   key** was committed to git history (bypasses all RLS). **Resolve:** rotate the key, scrub it from
@@ -127,6 +175,24 @@ last-modified: 2026-08-17
   `accepted`, so auto-enroll never revisits them. Relates: WU-0006, `lib/invitations/accept-pending.ts`.
 
 ## Recently resolved
+
+- **OQ (session 2026-09-07, no number)** — "Why does Ararka say no AI model is configured when all the
+  LMS API keys are connected?" → RESOLVED 2026-09-07 (PR #320): Ararka checked `GOOGLE_AI_API_KEY`, a
+  name **nothing else in the repo uses**; the rest of the app reads `GOOGLE_GEMINI_API_KEY` /
+  `GOOGLE_API_KEY`. `lib/ai-keys.ts` is now the single source of truth for provider key names.
+
+- **OQ (session 2026-09-07, no number)** — "Why did Google SSO from staging land on production?" →
+  RESOLVED 2026-09-07 (PR #318): `NEXT_PUBLIC_SITE_URL` is inlined at **build** time and the staging
+  build carried the production value, so the `?? window.location.origin` fallback never ran. Three OAuth
+  call sites had drifted; all now go through `lib/auth/oauth-redirect.ts`.
+
+- **OQ (session 2026-09-07, no number)** — "Why did an admin appear as a learner and get bounced out of
+  Ararka?" → RESOLVED 2026-09-07: not an auth bug. `profiles.modules` did not exist on the live database
+  (the migrations had been applied to the wrong Supabase project), and a single
+  `.select("role, full_name, status, modules")` fails **entirely** on one missing column — so `profile`
+  came back null and the nav fell back to `learner`. Operator re-applied the migrations on
+  `mmkmsudwtrqdzehnfctx`. Structural cause tracked as OQ-015.
+
 
 - **OQ (session 2026-08-17, no number)** — "Why was tatev@teachforarmenia.org invited but not enrolled /
   no access?" → RESOLVED 2026-08-17: the auto-enroll-on-visit code marked her invite `accepted` in

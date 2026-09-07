@@ -1,7 +1,7 @@
 ---
 provenance: llm-draft
 created: 2026-07-03
-last-modified: 2026-08-17
+last-modified: 2026-09-07
 tags: [current, lessons, proposals, staging]
 related: [MOC, ../../lessons/index]
 ---
@@ -37,6 +37,9 @@ human-gated.
     previously theorized). The reliable local gate is `tsc --noEmit`; a full build needs the heap bump.
   - *Evidence:* SIGABRT twice this session at default heap; clean compile + 115-route generation with
     `--max-old-space-size=8192`. Prior handoff mis-attributed it to worktree module resolution.
+  - *Re-confirmed 2026-09-07:* SIGABRT again at default heap; every full build this session needed
+    `NODE_OPTIONS=--max-old-space-size=8192`. Third independent confirmation — this is stable, not
+    environmental noise.
   - *Re-confirmed 2026-08-17 (WU-0006):* SIGABRT again at default heap on plain `main`/`staging` trees;
     heap bump compiled + generated all 115 routes cleanly. Third session running — strong promote signal.
 
