@@ -1,0 +1,19 @@
+{"subject":"russian","grade":4,"doc":"1EqzD4Mj3Cg2QHBBJoqSMMTXKmaro282hdO3CqzZ0bLA",
+ "notes":"Header says 2026-2027 (the other Russian papers say 2025-2026). Russian is the one subject where the general guide says spelling errors DO cost points (-0,1 per error). Q4, Q9 and Q13 are picture-based. SOURCE MISMATCH on Q6: the question prints «Собака Рекс, девочка анна, мальчик Антон, попугай чико» but the key answers a different sentence («гусенок Вилли» instead of «девочка анна»). Against the printed question the corrections are анна → Анна and чико → Чико.",
+ "key":[
+ {"number":1,"points":0.5,"type":"short_answer","answer":"торт — м.р.; пицца — ж.р.","scoring_notes":"2 x 0,25 միավոր"},
+ {"number":2,"points":0.5,"type":"multiple_choice","answer":"б) играет"},
+ {"number":3,"points":1,"type":"matching","answer":"1-в (мышонок — маленький); 2-д (дело — доброе); 3-а (слон — большой); 4-б (шапочка — красная)","scoring_notes":"4 x 0,25 միավոր"},
+ {"number":4,"points":1,"type":"short_answer","answer":"1. кто?; 2. что?; 3. кто?; 4. кто?","scoring_notes":"4 x 0,25 միավոր. Նկարից կախված"},
+ {"number":5,"points":1,"type":"short_answer","answer":"молоко, кока-кола, какао, булка → булка; хлеб, соль, стакан, лаваш → стакан","scoring_notes":"2 x 0,5 միավոր"},
+ {"number":6,"points":1,"type":"short_answer","answer":"Собака Рекс, девочка Анна, мальчик Антон, попугай Чико — մեծատառով են գրվում անունները՝ Анна, Чико","scoring_notes":"4 x 0,25 միավոր. Աղբյուրի բանալին այլ նախադասություն է ուղղում («гусенок Вилли») — ճշտել բովանդակային խմբի հետ"},
+ {"number":7,"points":1,"type":"true_false","answer":"Максим учится в третьем классе — нет; Он утром просыпается в 8 часов — нет; Максим делает уроки в 3 часа — да; Вечером Максим смотрит мультфильмы или играет — да","scoring_notes":"4 x 0,25 միավոր"},
+ {"number":8,"points":0.5,"type":"fill_blank","answer":"ежик → ежики; слон → слоны","scoring_notes":"2 x 0,25 միավոր"},
+ {"number":9,"points":0.5,"type":"short_answer","answer":"Медленная черепаха; колючий ежик","accepted_variants":["медленная черепаха","колючий ежик","маленький ежик","большая черепаха"],"scoring_notes":"2 x 0,25 միավոր՝ ցանկացած ճիշտ ածական. Նկարից կախված"},
+ {"number":10,"points":1,"type":"short_answer","answer":"Кто читал книгу? (կամ) Что читал папа?","accepted_variants":["Кто читал книгу?","Что читал папа?"]},
+ {"number":11,"points":1,"type":"short_answer","answer":"Օր.՝ Мама испекла хлеб. Каша очень вкусная.","scoring_notes":"2 x 0,5 միավոր՝ ընդունվում է ցանկացած քերականորեն ճիշտ նախադասություն տրված բառերով"},
+ {"number":12,"points":1,"type":"fill_blank","answer":"Воробей прилетел. Звери пели.","scoring_notes":"2 x 0,5 միավոր"},
+ {"number":13,"points":1.5,"type":"short_answer","answer":"Мальчик играет. Девочка поет. Котенок спит.","scoring_notes":"3 x 0,5 միավոր. Նկարից կախված"},
+ {"number":14,"points":1.5,"type":"short_answer","answer":"1. Я учусь в четвертом классе; 2. На уроках мы читаем, пишем; 3. На переменах мы играем","scoring_notes":"3 x 0,5 միավոր՝ ընդունվում է ցանկացած քերականորեն ճիշտ անձնական պատասխան"},
+ {"number":15,"points":2,"type":"essay","answer":"Մոդելային պատասխան՝ «Я назову свое блюдо картошка с сыром. 1) Варим картошку. 2) Кладём сверху сыр. 3) Едим горячее.»","scoring_notes":"Անվանումը՝ 0,5 միավոր; պատրաստման 3 նախադասությունը՝ 3 x 0,5 միավոր"}
+]}
