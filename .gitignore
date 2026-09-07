@@ -12,3 +12,7 @@ build/
 
 # transient tsc output for scripts/import-agenda.mjs
 .import-build/
+
+# playwright run output
+test-results/
+playwright-report/

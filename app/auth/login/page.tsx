@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import { oauthCallbackUrl } from "@/lib/auth/oauth-redirect";
 import { Suspense } from "react";
 
 function LoginForm() {
@@ -84,15 +85,10 @@ function LoginForm() {
   async function handleGoogleLogin() {
     setLoading(true);
     setError("");
-    const nextParam = searchParams.get("next");
-    const callbackUrl = new URL("/auth/callback", window.location.origin);
-    if (nextParam && nextParam.startsWith("/") && !nextParam.startsWith("//")) {
-      callbackUrl.searchParams.set("next", nextParam);
-    }
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: callbackUrl.toString(),
+        redirectTo: oauthCallbackUrl(searchParams.get("next")),
       },
     });
     if (error) {
