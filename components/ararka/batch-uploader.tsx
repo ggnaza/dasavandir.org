@@ -2,17 +2,8 @@
 
 import { useState, useCallback, useRef, useEffect } from "react";
 import { PDFDocument } from "pdf-lib";
-
-/**
- * Vercel Functions reject a request body over 4.5MB with 413
- * FUNCTION_PAYLOAD_TOO_LARGE, before the route handler runs. The 413 body is
- * not JSON, so an oversized upload used to surface as a bare "Scoring failed"
- * with no scan row written and nothing to go on.
- * https://vercel.com/docs/functions/limitations
- */
-const VERCEL_BODY_LIMIT_BYTES = 4.5 * 1024 * 1024;
-// Headroom for multipart framing and the other form fields.
-const UPLOAD_TARGET_BYTES = 4 * 1024 * 1024;
+import { createClient as createSupabaseClient } from "@/lib/supabase/client";
+import { SCAN_BUCKET, MAX_SCAN_BYTES } from "@/lib/ararka/storage";
 
 interface Subject {
   id: string;
@@ -188,10 +179,10 @@ export function BatchUploader({
         });
       }
 
-      // Flag anything the platform will reject before it is uploaded, so the
-      // failure is named here instead of arriving as an opaque 413.
+      // Scans go straight to Supabase Storage, so the only ceiling left is what
+      // the scoring model itself accepts.
       setOversized(
-        parts.filter((p) => p.blob.size > UPLOAD_TARGET_BYTES).map((p) => p.filename),
+        parts.filter((p) => p.blob.size > MAX_SCAN_BYTES).map((p) => p.filename),
       );
       partsRef.current = parts;
       setStudents(studentList);
@@ -212,9 +203,7 @@ export function BatchUploader({
         prev.map((s) => (s.index === index ? { ...s, status: "scoring" } : s)),
       );
 
-      // Fail fast and legibly rather than posting a body the platform will
-      // reject with a non-JSON 413 that reads as a generic scoring failure.
-      if (part.blob.size > VERCEL_BODY_LIMIT_BYTES) {
+      if (part.blob.size > MAX_SCAN_BYTES) {
         const mb = (part.blob.size / 1024 / 1024).toFixed(1);
         setStudents((prev) =>
           prev.map((s) =>
@@ -222,7 +211,7 @@ export function BatchUploader({
               ? {
                   ...s,
                   status: "error",
-                  error: `Too large to upload (${mb} MB; limit is 4.5 MB). Re-scan at a lower resolution.`,
+                  error: `Too large to score (${mb} MB; limit is 32 MB). Re-scan at a lower resolution.`,
                 }
               : s,
           ),
@@ -231,14 +220,38 @@ export function BatchUploader({
       }
 
       try {
-        const formData = new FormData();
-        formData.append("file", part.blob, part.filename);
-        formData.append("test_id", testId);
-        formData.append("batch_id", batchId);
-        if (modelId) formData.append("model_id", modelId);
-        if (onBehalfOf) formData.append("on_behalf_of", onBehalfOf);
+        // Upload straight to Supabase Storage. Posting the file to our own API
+        // would hit Vercel's 4.5MB request body limit, which rejects the
+        // request before the route runs and yields a non-JSON 413.
+        const contentType = part.blob.type || "application/pdf";
+        const urlRes = await fetch("/api/ararka/upload-url", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ content_type: contentType, batch_id: batchId }),
+        });
+        if (!urlRes.ok) {
+          const b = await urlRes.json().catch(() => ({ error: "Could not start upload" }));
+          throw new Error(b.error ?? `HTTP ${urlRes.status}`);
+        }
+        const { path, token } = (await urlRes.json()) as { path: string; token: string };
 
-        const res = await fetch("/api/ararka/score", { method: "POST", body: formData });
+        const supabase = createSupabaseClient();
+        const { error: uploadErr } = await supabase.storage
+          .from(SCAN_BUCKET)
+          .uploadToSignedUrl(path, token, part.blob, { contentType });
+        if (uploadErr) throw new Error(`Upload failed: ${uploadErr.message}`);
+
+        const res = await fetch("/api/ararka/score", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            test_id: testId,
+            storage_path: path,
+            batch_id: batchId,
+            model_id: modelId || undefined,
+            on_behalf_of: onBehalfOf || undefined,
+          }),
+        });
         if (!res.ok) {
           const body = await res.json().catch(() => ({ error: "Scoring failed" }));
           throw new Error(body.error ?? `HTTP ${res.status}`);
@@ -482,7 +495,7 @@ export function BatchUploader({
                 : `${files.length} PDF${files.length === 1 ? "" : "s"} selected`}
             </p>
             <p className="text-xs text-gray-400">
-              You can select many files at once — each one is scored as a separate student (max 25MB each)
+              You can select many files at once — each one is scored as a separate student (max 32MB each)
             </p>
           </div>
           <input
@@ -591,7 +604,7 @@ export function BatchUploader({
           {oversized.length > 0 && (
             <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
               <strong>
-                {oversized.length} file{oversized.length === 1 ? "" : "s"} exceed the 4.5 MB upload
+                {oversized.length} file{oversized.length === 1 ? "" : "s"} exceed the 32 MB scoring
                 limit
               </strong>{" "}
               and will fail to score: {oversized.join(", ")}. Re-scan at a lower resolution (150 dpi
