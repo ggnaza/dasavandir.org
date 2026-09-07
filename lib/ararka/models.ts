@@ -34,14 +34,14 @@ export const SCORING_MODELS: ScoringModel[] = [
     id: "gemini-flash",
     name: "Gemini 2.5 Flash",
     provider: "google",
-    model: "gemini-2.5-flash-preview-05-20",
+    model: "gemini-2.5-flash",
     description: "Google's fast model.",
   },
   {
     id: "gemini-pro",
     name: "Gemini 2.5 Pro",
     provider: "google",
-    model: "gemini-2.5-pro-preview-06-05",
+    model: "gemini-2.5-pro",
     description: "Google's most capable model.",
   },
 ];

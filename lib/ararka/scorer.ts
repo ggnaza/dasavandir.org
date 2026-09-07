@@ -150,7 +150,18 @@ async function scoreWithGemini(
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         contents: [{ parts }],
-        generationConfig: { maxOutputTokens: 4096, temperature: 0.1 },
+        generationConfig: {
+          // A 15-question breakdown with extracted answers and explanations is
+          // a lot of JSON; 4096 truncated it and the parse then failed.
+          maxOutputTokens: 8192,
+          temperature: 0.1,
+          // Gemini 2.5 counts thinking tokens against maxOutputTokens and will
+          // happily spend the whole budget before emitting anything, returning
+          // no text at all. Flash lets thinking be switched off; Pro enforces a
+          // minimum budget, so it just gets the larger allowance above.
+          // Same reasoning as lib/llm.ts.
+          ...(model.model.includes("flash") ? { thinkingConfig: { thinkingBudget: 0 } } : {}),
+        },
       }),
     },
   );
