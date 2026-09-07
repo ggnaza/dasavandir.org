@@ -3,6 +3,17 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { PDFDocument } from "pdf-lib";
 
+/**
+ * Vercel Functions reject a request body over 4.5MB with 413
+ * FUNCTION_PAYLOAD_TOO_LARGE, before the route handler runs. The 413 body is
+ * not JSON, so an oversized upload used to surface as a bare "Scoring failed"
+ * with no scan row written and nothing to go on.
+ * https://vercel.com/docs/functions/limitations
+ */
+const VERCEL_BODY_LIMIT_BYTES = 4.5 * 1024 * 1024;
+// Headroom for multipart framing and the other form fields.
+const UPLOAD_TARGET_BYTES = 4 * 1024 * 1024;
+
 interface Subject {
   id: string;
   name_hy: string;
@@ -76,6 +87,7 @@ export function BatchUploader({
   const [splitSingleFile, setSplitSingleFile] = useState(false);
   const [students, setStudents] = useState<StudentResult[]>([]);
   const [splitting, setSplitting] = useState(false);
+  const [oversized, setOversized] = useState<string[]>([]);
   const [scoring, setScoring] = useState(false);
   const [batchId] = useState(() => crypto.randomUUID());
   const [onBehalfOf, setOnBehalfOf] = useState("");
@@ -176,6 +188,11 @@ export function BatchUploader({
         });
       }
 
+      // Flag anything the platform will reject before it is uploaded, so the
+      // failure is named here instead of arriving as an opaque 413.
+      setOversized(
+        parts.filter((p) => p.blob.size > UPLOAD_TARGET_BYTES).map((p) => p.filename),
+      );
       partsRef.current = parts;
       setStudents(studentList);
     } catch {
@@ -194,6 +211,24 @@ export function BatchUploader({
       setStudents((prev) =>
         prev.map((s) => (s.index === index ? { ...s, status: "scoring" } : s)),
       );
+
+      // Fail fast and legibly rather than posting a body the platform will
+      // reject with a non-JSON 413 that reads as a generic scoring failure.
+      if (part.blob.size > VERCEL_BODY_LIMIT_BYTES) {
+        const mb = (part.blob.size / 1024 / 1024).toFixed(1);
+        setStudents((prev) =>
+          prev.map((s) =>
+            s.index === index
+              ? {
+                  ...s,
+                  status: "error",
+                  error: `Too large to upload (${mb} MB; limit is 4.5 MB). Re-scan at a lower resolution.`,
+                }
+              : s,
+          ),
+        );
+        return;
+      }
 
       try {
         const formData = new FormData();
@@ -552,6 +587,17 @@ export function BatchUploader({
               )}
             </div>
           </div>
+
+          {oversized.length > 0 && (
+            <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+              <strong>
+                {oversized.length} file{oversized.length === 1 ? "" : "s"} exceed the 4.5 MB upload
+                limit
+              </strong>{" "}
+              and will fail to score: {oversized.join(", ")}. Re-scan at a lower resolution (150 dpi
+              greyscale is plenty), or split into fewer pages per file.
+            </div>
+          )}
 
           {!scoring && students.every((s) => s.status === "pending") && (
             <div className="mb-4 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-800">

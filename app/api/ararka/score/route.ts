@@ -22,8 +22,15 @@ export async function POST(request: Request) {
     return Response.json({ error: "file and test_id are required" }, { status: 400 });
   }
 
-  if (file.size > 25 * 1024 * 1024) {
-    return Response.json({ error: "File too large (max 25MB)" }, { status: 400 });
+  // Vercel rejects a request body over 4.5MB with 413 before this handler even
+  // runs, so a 25MB ceiling here was fiction: oversized uploads failed with a
+  // non-JSON gateway error and no scan row. The client shrinks scans before
+  // upload; this stays as a truthful backstop.
+  if (file.size > 4.5 * 1024 * 1024) {
+    return Response.json(
+      { error: "File too large — the upload limit is 4.5MB after compression" },
+      { status: 413 },
+    );
   }
 
   const allowedTypes = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
