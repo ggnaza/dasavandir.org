@@ -1,0 +1,19 @@
+{"subject":"physics","grade":8,"doc":"1HQXrVEUf4Lj-UCKj2KOwTF89uik8JnHhGmAObDh90ws",
+ "notes":"2024-2025 edition. Q3 and Q5 are figure-dependent — Q5's key text is garbled in the source ('3340 վայրկյանում վարող տրակտորը') and needs the original figure to state properly. Q14's source arithmetic has a typo (9515 vs 9615); recomputed here.",
+ "key":[
+ {"number":1,"points":0.5,"type":"fill_blank","answer":"Մեխանիկական շարժում"},
+ {"number":2,"points":0.5,"type":"multiple_choice","answer":"գ. P = ρgh"},
+ {"number":3,"points":1,"type":"diagram","answer":"2-րդ նկարում","scoring_notes":"Պատասխանը կախված է թեստի նկարից"},
+ {"number":4,"points":1,"type":"multiple_choice","answer":"η = (Aօգ/Aլր) x 100%"},
+ {"number":5,"points":1,"type":"short_answer","answer":"Ավելի կարճ ժամանակում վարող տրակտորն է ավելի հզոր","scoring_notes":"Աղբյուրի բանալին այս կետում աղավաղված է — ճշտել բնագիր նկարով"},
+ {"number":6,"points":1,"type":"multiple_choice","answer":"Մեքենան գնում է Մոսկվայից Բեռլին"},
+ {"number":7,"points":1,"type":"multiple_choice","answer":"Գնդակի արագությունն աճում է"},
+ {"number":8,"points":0.5,"type":"computation","answer":"P1 = 750/180 ≈ 4,17 Վտ; P2 = 750/420 ≈ 1,79 Վտ"},
+ {"number":9,"points":0.5,"type":"computation","answer":"F = mg = 3200 x 10 = 32000 Ն; A = 32000 x 4300 = 137 600 000 Ջ; P = 137 600 000/840 ≈ 163 810 Վտ (≈163,8 կՎտ)"},
+ {"number":10,"points":1,"type":"computation","answer":"F = mg = 720 x 10 = 7200 Ն; S = 4 x 0,002 = 0,008 մ²; P = 7200/0,008 = 900 000 Պա (900 կՊա)"},
+ {"number":11,"points":1,"type":"computation","answer":"F = mg = 4150 x 10 = 41500 Ն; h = 988000/41500 ≈ 23,8 մ"},
+ {"number":12,"points":1,"type":"computation","answer":"Pջուր = 1000 x 10 x 0,42 = 4200 Պա; Pկերոսին = 800 x 10 x 0,42 = 3360 Պա; Pընդհանուր = 7560 Պա"},
+ {"number":13,"points":1.5,"type":"computation","answer":"ա. Sշնաձուկ = 11 x 10 = 110 մ; բ. Sձուկ = 6 x 10 = 60 մ; գ. 110 - 60 = 50 մ","scoring_notes":"3 x 0,5 միավոր"},
+ {"number":14,"points":1.5,"type":"computation","answer":"V = 0,75/7800 ≈ 9,615 x 10^-5 մ³; FԱ = 1000 x 10 x 9,615 x 10^-5 ≈ 0,96 Ն; Pջրում = mg - FԱ = 7,5 - 0,96 ≈ 6,54 Ն"},
+ {"number":15,"points":2,"type":"essay","answer":"Հիմնական միտքը՝ արգելակումը և տեղից շարժվելը արագացող շարժումներ են։ Հետևանքներ՝ մեքենաները չէին կարողանա արգելակել; կանգնածները չէին կարողանա շարժվել; կլինեին բազում ավտովթարներ; վարորդը չէր կարողանա արագությունը փոխել","scoring_notes":"4 հետևանք, 4 x 0,5 միավոր"}
+]}

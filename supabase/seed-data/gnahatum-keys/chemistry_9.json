@@ -1,0 +1,19 @@
+{"subject":"chemistry","grade":9,"doc":"155mHuL7ccFcQ3fhpgSIF0v_ztRNbOp30AJrrv1r2bgw",
+ "notes":"Source header table says 'ամփոփիչ' but the document H1 and the subject guide both place it as Հայտորոշիչ. Q15 key has a typo in the source ('C+ O2 = O2'); correct equation is C + O2 = CO2.",
+ "key":[
+ {"number":1,"points":0.5,"type":"multiple_choice","answer":"գ. Cu(OH)2, HCl, NaNO3, SO3"},
+ {"number":2,"points":0.5,"type":"computation","answer":"3"},
+ {"number":3,"points":1,"type":"multiple_choice","answer":"բ. CO2 + MgO = MgCO3 + Q"},
+ {"number":4,"points":1,"type":"short_answer","answer":"ա. ա փորձանոթը; բ. Ավելացնել ջուր","scoring_notes":"2 x 0,5 միավոր"},
+ {"number":5,"points":1,"type":"true_false","answer":"ա. սխալ է; բ. ճիշտ է; գ. ճիշտ է; դ. սխալ է","scoring_notes":"4 x 0,25 միավոր"},
+ {"number":6,"points":1,"type":"fill_blank","answer":"n; 6,02 x 10^23","scoring_notes":"2 x 0,5 միավոր"},
+ {"number":7,"points":1,"type":"true_false","answer":"ա. այո; բ. ոչ; գ. այո; դ. ոչ","scoring_notes":"4 x 0,25 միավոր"},
+ {"number":8,"points":0.5,"type":"short_answer","answer":"ա. Միացման օրինակ՝ փայտի այրում, մեթանի այրում; բ. Փոխանակման օրինակ՝ սոդայի և քացախի փոխազդեցություն","scoring_notes":"2 x 0,25 միավոր. Միավոր տրվում է ցանկացած ճիշտ օրինակի համար"},
+ {"number":9,"points":0.5,"type":"multiple_choice","answer":"դ. CuBr2"},
+ {"number":10,"points":1,"type":"computation","answer":"ω = 9/300 x 100% = 3%"},
+ {"number":11,"points":1,"type":"table","answer":"Կալցիումի հիդրօքսիդ՝ Ca(OH)2, հիմք; Նատրիումի հիդրոկարբոնատ՝ NaHCO3, թթվային աղ; Կալիումի օքսիդ՝ K2O, հիմնային օքսիդ; Ծծմբական թթու՝ H2SO4, թթու","scoring_notes":"4 x 0,25 միավոր"},
+ {"number":12,"points":1,"type":"computation","answer":"n(NH3) = 3,4/17 = 0,2 մոլ, ըստ Ավոգադրոյի օրենքի n(H2O) = n(NH3) = 0,2 մոլ"},
+ {"number":13,"points":1.5,"type":"short_answer","answer":"ա. CuO + H2 = Cu + H2O; բ. Տեղակալման; գ. 4","scoring_notes":"3 x 0,5 միավոր"},
+ {"number":14,"points":1.5,"type":"short_answer","answer":"ա. Li → Li2O → LiOH → Li2SO3; բ. 4Li + O2 → 2Li2O, Li2O + H2O → 2LiOH, 2LiOH + H2SO3 → Li2SO3 + 2H2O","scoring_notes":"Շղթան՝ 0,5 միավոր. Յուրաքանչյուր ճիշտ ռեակցիա՝ 0,5 միավոր"},
+ {"number":15,"points":2,"type":"essay","answer":"ա. Միացման ռեակցիա, C + O2 = CO2; բ. Առաջանում են ածխաթթու գազ և ջրի գոլորշի, երբեմն ծուխ և այլ գազեր; գ. Հիմնավորված դիրքորոշում (օր.՝ այրելը սխալ է, քանի որ CO2-ը մեծացնում է աղտոտվածությունը); դ. Այլընտրանք՝ կոմպոստ, տերևների քայքայումից առաջանում է հումուս","scoring_notes":"4 x 0,5 միավոր"}
+]}

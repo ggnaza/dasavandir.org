@@ -42,6 +42,13 @@ export interface AnswerKeyItem {
   type: QuestionType;
   answer: string;
   sub_parts?: { label: string; answer: string; points: number }[] | null;
+  /**
+   * Alternative phrasings the official answer key explicitly accepts, seeded
+   * from the "Հնարավոր պատասխաններ" / "Ակնկալվող պատասխաններ" sections of the
+   * source documents. Teacher corrections add more over time via
+   * `ararka.answer_variants`; both feed the scoring prompt identically.
+   */
+  accepted_variants?: string[] | null;
   scoring_notes?: string | null;
 }
 

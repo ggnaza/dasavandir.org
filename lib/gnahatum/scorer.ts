@@ -4,11 +4,24 @@ import Anthropic from "@anthropic-ai/sdk";
 import { POINT_DISTRIBUTION, type AnswerKeyItem, type ScoredItem } from "./constants";
 import { getCurrentModel, type ScoringModel } from "./models";
 
-function buildScoringPrompt(answerKey: AnswerKeyItem[], scoringNotes?: string | null): string {
+/**
+ * `learnedBlock` is the accumulated human-grading knowledge for this test,
+ * already rendered to text by lib/gnahatum/learning.ts. It is passed in rather
+ * than fetched here so the scorer stays free of database access — and because
+ * it is plain prompt text, every provider below benefits from it equally.
+ */
+function buildScoringPrompt(
+  answerKey: AnswerKeyItem[],
+  scoringNotes?: string | null,
+  learnedBlock?: string,
+): string {
   const keyDescription = answerKey.map((q) => {
     let desc = `Q${q.number} (${q.points} pts, type: ${q.type}): correct answer = ${q.answer}`;
     if (q.sub_parts?.length) {
       desc += `\n  Sub-parts: ${q.sub_parts.map((s) => `${s.label}: ${s.answer} (${s.points} pts)`).join(", ")}`;
+    }
+    if (q.accepted_variants?.length) {
+      desc += `\n  Also accepted: ${q.accepted_variants.join(" | ")}`;
     }
     if (q.scoring_notes) {
       desc += `\n  Scoring note: ${q.scoring_notes}`;
@@ -22,6 +35,7 @@ ANSWER KEY:
 ${keyDescription}
 
 ${scoringNotes ? `GENERAL SCORING NOTES:\n${scoringNotes}\n` : ""}
+${learnedBlock ? `${learnedBlock}\n` : ""}
 SCORING RULES:
 - Total: 15 points across 15 questions
 - Point distribution is FIXED per question number (Q1=0.5, Q2=0.5, Q3=1, Q4=1, Q5=1, Q6=1, Q7=1, Q8=0.5, Q9=0.5, Q10=1, Q11=1, Q12=1, Q13=1.5, Q14=1.5, Q15=2)
@@ -183,12 +197,13 @@ export async function scoreFromScan(
   answerKey: AnswerKeyItem[],
   scoringNotes?: string | null,
   modelOverride?: string,
+  learnedBlock?: string,
 ): Promise<ScoringResult> {
   const model = modelOverride
     ? (await import("./models")).SCORING_MODELS.find((m) => m.id === modelOverride) ?? getCurrentModel()
     : getCurrentModel();
 
-  const prompt = buildScoringPrompt(answerKey, scoringNotes);
+  const prompt = buildScoringPrompt(answerKey, scoringNotes, learnedBlock);
 
   let result: { text: string; raw: unknown };
   if (model.provider === "anthropic") {

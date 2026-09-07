@@ -1,0 +1,19 @@
+{"subject":"physics","grade":11,"doc":"1ezgcpCotim3R53uTTLe9FtCGyyaT-5mL2NrNbkyoLC0",
+ "notes":"2024-2025 edition. IMPORTANT: in the source Հավելված 1 the answers for Q4 and Q5 are transposed (the matching table is printed under '4', the deformation-types answer under '5'); realigned to the body numbering here. Q3, Q5, Q7, Q9, Q10, Q11 are figure-dependent.",
+ "key":[
+ {"number":1,"points":0.5,"type":"multiple_choice","answer":"Հավասարակշռության դիրքից առավելագույն շեղումը"},
+ {"number":2,"points":0.5,"type":"short_answer","answer":"Այն ամենափոքր ժամանակամիջոցը, որի ընթացքում տատանումները կրկնվում են"},
+ {"number":3,"points":1,"type":"multiple_choice","answer":"Բոլորում (չորսում էլ)","scoring_notes":"Նկարից կախված"},
+ {"number":4,"points":1,"type":"multiple_choice","answer":"Առաձգական, պլաստիկ"},
+ {"number":5,"points":1,"type":"matching","answer":"1→Դ (հոսանքի աղբյուր), 2→Գ (ռեզիստոր), 3→Բ (վոլտաչափ), 4→Ա (բանալի)","scoring_notes":"Ըստ աղբյուրի՝ 1234 → 4321. Նկարից կախված"},
+ {"number":6,"points":1,"type":"multiple_choice","answer":"Ազատ անկման արագացում, թելի երկարություն"},
+ {"number":7,"points":1,"type":"diagram","answer":"Առաջին նկար՝ S N S N; երկրորդ նկար՝ S N N S","scoring_notes":"Դիտարկվում է որպես երկու 0,5 միավորանոց առաջադրանք; յուրաքանչյուրը գնահատվում է ամբողջական — մեկ սխալ տառը ամբողջ ենթաառաջադրանքը սխալ է դարձնում"},
+ {"number":8,"points":0.5,"type":"computation","answer":"k = F/x = 633/0,25 = 2532 Ն/մ"},
+ {"number":9,"points":0.5,"type":"computation","answer":"F ~ 1/r²; (3,5r)² = 12,25r², ուստի ուժը կփոքրանա 12,25 անգամ"},
+ {"number":10,"points":1,"type":"computation","answer":"Rընդ = 3R = 9,6 Օմ; U = 224 Վ; I = 224/9,6 ≈ 23,3 Ա","scoring_notes":"Նկարից կախված"},
+ {"number":11,"points":1,"type":"diagram","answer":"Ուղղված կլինի ըստ ուժագծերի","scoring_notes":"Նկարից կախված"},
+ {"number":12,"points":1,"type":"computation","answer":"T = 1/3000 = 0,0003 վ; N = 0,2/0,0003 = 600 տատանում; S = N x 2a = 600 x 2 x 0,004 = 4,8 մ"},
+ {"number":13,"points":1.5,"type":"computation","answer":"t = 155 ր = 9300 վ; S = c x t = 300 000 x 9300 = 2,79 x 10^9 կմ = 2,79 x 10^12 մ","scoring_notes":"Աշակերտը պետք է իմանա լույսի արագությունը՝ c = 300 000 կմ/վ"},
+ {"number":14,"points":1.5,"type":"computation","answer":"λ = v/ν = 225 000 000 / (451 x 10^12) ≈ 4,99 x 10^-7 մ"},
+ {"number":15,"points":2,"type":"essay","answer":"Առաջնային միտքը՝ ցանկացած կապ (ռադիո, հեռախոս, համացանց) շատ անորոշ կաշխատեր; հոսանքի հետ կապված յուրաքանչյուր գործողություն տեղի կունենար անորոշ ժամանակահատվածում (օր.՝ սենյակի լույսը վառելը)","scoring_notes":"Մեկ պարբերություն, փոփոխության 2 օրինակ. Կարևոր է գաղափարային հիմքը և շարադասական հասկանալիությունը"}
+]}

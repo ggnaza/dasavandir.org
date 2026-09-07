@@ -1,0 +1,19 @@
+{"subject":"physics","grade":7,"doc":"1KLhtveUXZUF3aeRhan5JoheWzIJtaUE2h0k-Vmf_9Nw",
+ "notes":"2024-2025 edition. Q6 is figure-dependent (angle labelled on a diagram); key gives the label only.",
+ "key":[
+ {"number":1,"points":0.5,"type":"fill_blank","answer":"Մեխանիկական շարժում"},
+ {"number":2,"points":0.5,"type":"fill_blank","answer":"Մեխանիկական էներգիա"},
+ {"number":3,"points":1,"type":"multiple_choice","answer":"Գոգավոր, ուռուցիկ և հարթ"},
+ {"number":4,"points":1,"type":"multiple_choice","answer":"Vմիջ = S/t"},
+ {"number":5,"points":1,"type":"multiple_choice","answer":"Շարժվում է իր վրա կիրառված ուժի ազդեցությամբ"},
+ {"number":6,"points":1,"type":"diagram","answer":"Նկարում անկման անկյունը նշված տառը (ըստ բանալու՝ երրորդ տարբերակը)","scoring_notes":"Պատասխանը կախված է թեստի նկարից"},
+ {"number":7,"points":1,"type":"matching","answer":"Ջոուլ՝ E/A; Մետր՝ S/h; Վայրկյան՝ t; Նյուտոն՝ F","scoring_notes":"4 x 0,25 միավոր"},
+ {"number":8,"points":0.5,"type":"computation","answer":"10 մ/վ"},
+ {"number":9,"points":0.5,"type":"short_answer","answer":"Կարմիր, նարնջագույն, դեղին, կանաչ, երկնագույն, կապույտ, մանուշակագույն"},
+ {"number":10,"points":1,"type":"computation","answer":"S1 = 340 x 44 = 14960 մ (օդում); S2 = 1500 x 44 = 66000 մ (ջրում)"},
+ {"number":11,"points":1,"type":"computation","answer":"66°/2 = 33°"},
+ {"number":12,"points":1,"type":"computation","answer":"F = A/S = 144/3 = 48 Ն"},
+ {"number":13,"points":1.5,"type":"computation","answer":"S = 4A/4F = 8/20 = 0,4 մ"},
+ {"number":14,"points":1.5,"type":"computation","answer":"v1 = 100/10 = 10 մ/վ; v2 = 100/12,5 = 8 մ/վ"},
+ {"number":15,"points":2,"type":"essay","answer":"Հիմնական միտքը՝ մեխանիկական աշխատանք չէր կարող կատարվել։ Օրինակներ՝ մարդիկ չէին կարողանա շարժվել, ոչինչ չէր տեղափոխվի","scoring_notes":"2 օրինակ պահանջվում է"}
+]}

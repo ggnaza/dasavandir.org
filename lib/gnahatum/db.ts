@@ -29,5 +29,9 @@ export function gnahatumDb() {
   return {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     from: (table: string): any => client.from(table),
+    // Resolves against the `ararka` schema like `from` does, so this reaches
+    // ararka.<name> rather than a public-schema function of the same name.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    rpc: (name: string, args?: Record<string, unknown>): any => client.rpc(name, args),
   };
 }
