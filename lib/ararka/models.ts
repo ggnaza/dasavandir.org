@@ -50,8 +50,25 @@ export const DEFAULT_MODEL_ID = "claude-sonnet";
 
 let currentModelId: string = DEFAULT_MODEL_ID;
 
+/**
+ * The model to score with when the caller names none.
+ *
+ * Must prefer a model whose provider key actually exists. Returning the
+ * hardcoded Claude default on a deployment with only a Gemini key sent every
+ * unqualified request to Anthropic and failed with "No Anthropic API key",
+ * which reads as a bug in the picker rather than a missing key.
+ *
+ * Falls back to the declared default only when nothing is configured at all —
+ * the scorer then raises a precise, provider-named error.
+ */
 export function getCurrentModel(): ScoringModel {
-  return SCORING_MODELS.find((m) => m.id === currentModelId) ?? SCORING_MODELS[0];
+  const available = getAvailableModels();
+  return (
+    available.find((m) => m.id === currentModelId) ??
+    available[0] ??
+    SCORING_MODELS.find((m) => m.id === currentModelId) ??
+    SCORING_MODELS[0]
+  );
 }
 
 export function setCurrentModel(modelId: string): void {

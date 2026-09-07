@@ -99,9 +99,19 @@ export function BatchUploader({
           models: ModelInfo[];
           providerEnvNames?: Record<string, string[]>;
         }) => {
-          setModels(data.models ?? []);
+          const available = data.models ?? [];
+          setModels(available);
           setProviderEnvNames(data.providerEnvNames ?? null);
-          if (!modelId && data.current) setModelId(data.current);
+          // Never hold a model that isn't one of the rendered <option>s. A
+          // controlled <select> whose value matches no option displays the
+          // FIRST option while state keeps the stale value — so the user sees
+          // Gemini selected, never fires onChange, and Claude gets sent.
+          setModelId((prev) => {
+            if (prev && available.some((m) => m.id === prev)) return prev;
+            return (
+              available.find((m) => m.id === data.current)?.id ?? available[0]?.id ?? ""
+            );
+          });
         },
       )
       .catch(() => {});
