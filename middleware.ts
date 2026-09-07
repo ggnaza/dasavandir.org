@@ -109,7 +109,9 @@ export async function middleware(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user && (path.startsWith("/admin") || path.startsWith("/learn") || path.startsWith("/efficacy") || path.startsWith("/ararka"))) {
-    return NextResponse.redirect(new URL("/auth/login", request.url));
+    const loginUrl = new URL("/auth/login", request.url);
+    loginUrl.searchParams.set("next", path);
+    return NextResponse.redirect(loginUrl);
   }
 
   if (user && (path === "/auth/login" || path === "/auth/signup")) {

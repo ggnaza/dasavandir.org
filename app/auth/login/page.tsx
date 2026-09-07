@@ -53,7 +53,7 @@ function LoginForm() {
     setSuccessMsg("");
 
     const { error: err } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL ?? window.location.origin}/auth/set-password`,
+      redirectTo: `${window.location.origin}/auth/set-password`,
     });
 
     if (err) {
@@ -84,10 +84,15 @@ function LoginForm() {
   async function handleGoogleLogin() {
     setLoading(true);
     setError("");
+    const nextParam = searchParams.get("next");
+    const callbackUrl = new URL("/auth/callback", window.location.origin);
+    if (nextParam && nextParam.startsWith("/") && !nextParam.startsWith("//")) {
+      callbackUrl.searchParams.set("next", nextParam);
+    }
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL ?? window.location.origin}/auth/callback`,
+        redirectTo: callbackUrl.toString(),
       },
     });
     if (error) {
