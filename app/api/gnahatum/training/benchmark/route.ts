@@ -163,7 +163,10 @@ export async function POST(request: Request) {
         gold_scan_id: gold.id,
         ai_total: result.totalScore,
         ai_items: result.items,
-        human_total: gold.human_total,
+        // Coerced: PostgREST can hand back a Postgres `numeric` as a string,
+        // and the summary below does arithmetic on it — `"12.5" - 11` is NaN,
+        // which would silently report the model's accuracy as unknown.
+        human_total: Number(gold.human_total),
         items_matched: matched,
         items_total: humanPoints.size,
         used_learning: includeLearning,
@@ -177,7 +180,7 @@ export async function POST(request: Request) {
         gold_scan_id: gold.id,
         ai_total: null,
         ai_items: [],
-        human_total: gold.human_total,
+        human_total: Number(gold.human_total),
         used_learning: includeLearning,
         error_text: err instanceof Error ? err.message : "scoring failed",
       });

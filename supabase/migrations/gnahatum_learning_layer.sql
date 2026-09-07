@@ -113,9 +113,14 @@ BEGIN
 END;
 $$;
 
+-- service_role only: the function is SECURITY INVOKER and answer_variants is
+-- RLS-protected, so this is the role the app actually calls it with.
+REVOKE ALL ON FUNCTION ararka.record_answer_variant(
+  uuid, int, text, text, numeric, numeric, text, uuid
+) FROM PUBLIC, authenticated, anon;
 GRANT EXECUTE ON FUNCTION ararka.record_answer_variant(
   uuid, int, text, text, numeric, numeric, text, uuid
-) TO authenticated, service_role;
+) TO service_role;
 
 -- ---------------------------------------------------------------------------
 -- 3. Scoring precedents — rules distilled from repeated corrections
@@ -218,9 +223,40 @@ WHERE b.error_text IS NULL
 GROUP BY b.model_id, b.model_provider, b.used_learning;
 
 -- ---------------------------------------------------------------------------
--- 6. Grants (same pattern as the rest of the ararka schema)
+-- 6. Grants and row-level security
 -- ---------------------------------------------------------------------------
 
 GRANT USAGE ON SCHEMA ararka TO authenticated, anon, service_role;
 GRANT ALL ON ALL TABLES IN SCHEMA ararka TO authenticated, service_role;
 GRANT ALL ON ALL SEQUENCES IN SCHEMA ararka TO authenticated, service_role;
+
+-- CRITICAL. `CREATE TABLE` leaves row-level security OFF, and the blanket
+-- GRANT above hands `authenticated` full access — so without this block every
+-- signed-in LMS user could read these tables straight through PostgREST, which
+-- is exposed for the `ararka` schema. gold_scans, gold_items, benchmark_runs
+-- and answer_variants all contain real student answers and scores.
+--
+-- The existing ararka tables are already protected this way. No policies are
+-- created deliberately: the Gnahatum app talks to this schema exclusively with
+-- the service-role key (lib/gnahatum/db.ts), and service_role bypasses RLS.
+-- RLS with zero policies therefore means "service role only", which is exactly
+-- the intended access model. Adding a permissive policy here would widen it.
+ALTER TABLE ararka.answer_variants     ENABLE ROW LEVEL SECURITY;
+ALTER TABLE ararka.scoring_precedents  ENABLE ROW LEVEL SECURITY;
+ALTER TABLE ararka.gold_scans          ENABLE ROW LEVEL SECURITY;
+ALTER TABLE ararka.gold_items          ENABLE ROW LEVEL SECURITY;
+ALTER TABLE ararka.benchmark_runs      ENABLE ROW LEVEL SECURITY;
+
+-- Belt and braces: take the privileges back off the browser-facing roles so
+-- the tables are unreachable even if RLS is ever switched off by accident.
+REVOKE ALL ON ararka.answer_variants,
+              ararka.scoring_precedents,
+              ararka.gold_scans,
+              ararka.gold_items,
+              ararka.benchmark_runs
+  FROM authenticated, anon;
+
+-- model_performance is a view over benchmark_runs and inherits nothing from
+-- the base table's RLS, so lock it down explicitly too.
+REVOKE ALL ON ararka.model_performance FROM authenticated, anon;
+GRANT SELECT ON ararka.model_performance TO service_role;

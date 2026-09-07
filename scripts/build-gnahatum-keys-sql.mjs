@@ -130,7 +130,9 @@ out.push("DELETE FROM ararka.tests t");
 out.push(" WHERE t.test_type = 'diagnostic'");
 out.push("   AND ((t.subject_id = 'english' AND t.grade = 1)");
 out.push("     OR (t.subject_id = 'armenian_lang' AND t.grade = 2))");
-out.push("   AND NOT EXISTS (SELECT 1 FROM ararka.scans s WHERE s.test_id = t.id);");
+out.push("   AND NOT EXISTS (SELECT 1 FROM ararka.scans s WHERE s.test_id = t.id)");
+out.push("   AND NOT EXISTS (SELECT 1 FROM ararka.results r WHERE r.test_id = t.id)");
+out.push("   AND NOT EXISTS (SELECT 1 FROM ararka.gold_scans g WHERE g.test_id = t.id);");
 out.push("");
 
 console.log(out.join("\n"));

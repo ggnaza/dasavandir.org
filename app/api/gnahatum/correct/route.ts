@@ -102,10 +102,16 @@ export async function POST(request: Request) {
     learned = await recordCorrectionAsKnowledge({
       testId: result.test_id as string,
       correctedBy: user!.id,
-      corrections: corrections.map((c) => ({
-        question_number: c.question_number,
-        teacher_score: c.teacher_score,
-      })),
+      // Feed the CLAMPED scores, the same ones written to `teacher_items`
+      // above. Passing the raw request values would record a variant worth
+      // e.g. 99 points on a 0.5-point question, and that number is read back
+      // into the scoring prompt as a precedent.
+      corrections: teacherItems
+        .filter((item) => corrections.some((c) => c.question_number === item.number))
+        .map((item) => ({
+          question_number: item.number,
+          teacher_score: item.awarded_points,
+        })),
       items,
     });
   }
