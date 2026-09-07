@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ararkaDb } from "@/lib/ararka/db";
+import { listArarkaTeachers } from "@/lib/ararka/teachers";
 import { BatchUploader } from "@/components/ararka/batch-uploader";
 
 export default async function ScanPage() {
@@ -38,13 +39,7 @@ export default async function ScanPage() {
       profile?.role === "space_manager";
 
     if (isLdm) {
-      const { data } = await admin
-        .from("profiles")
-        .select("id, full_name, email")
-        .contains("modules", ["ararka"])
-        .neq("id", user.id)
-        .order("full_name");
-      teachers = data ?? [];
+      teachers = await listArarkaTeachers(admin, user.id);
     }
   }
 

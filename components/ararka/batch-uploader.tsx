@@ -31,7 +31,8 @@ interface ScoredItem {
 
 interface StudentResult {
   index: number;
-  pageRange: string;
+  /** Where this student's test came from: a filename, or a page range. */
+  source: string;
   status: "pending" | "scoring" | "scored" | "error";
   studentName: string | null;
   teacherName: string | null;
@@ -69,7 +70,9 @@ export function BatchUploader({
   const [modelId, setModelId] = useState("");
   const [models, setModels] = useState<ModelInfo[]>([]);
   const [pagesPerTest, setPagesPerTest] = useState(6);
-  const [file, setFile] = useState<File | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
+  // Only meaningful when a single PDF holds several students' tests back to back.
+  const [splitSingleFile, setSplitSingleFile] = useState(false);
   const [students, setStudents] = useState<StudentResult[]>([]);
   const [splitting, setSplitting] = useState(false);
   const [scoring, setScoring] = useState(false);
@@ -80,7 +83,7 @@ export function BatchUploader({
   const [editedScores, setEditedScores] = useState<Record<number, number>>({});
   const [correctionReasons, setCorrectionReasons] = useState<Record<number, string>>({});
   const [savingCorrections, setSavingCorrections] = useState(false);
-  const pdfChunksRef = useRef<Uint8Array[]>([]);
+  const partsRef = useRef<{ blob: Blob; filename: string }[]>([]);
   const abortRef = useRef(false);
 
   useEffect(() => {
@@ -96,75 +99,97 @@ export function BatchUploader({
 
   const filteredTests = tests.filter((t) => t.subject_id === subjectId);
 
-  const handleFileChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0];
-    if (!f) return;
-    setFile(f);
+  // An LDM/admin is never the teacher of record — make them name one, or every
+  // scan gets filed under the uploader's own id.
+  const needsTeacher = !!teachers && teachers.length > 0;
+  const readyToScore = !!testId && (!needsTeacher || !!onBehalfOf);
+
+  const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const picked = Array.from(e.target.files ?? []);
+    if (picked.length === 0) return;
+    setFiles(picked);
     setStudents([]);
-    pdfChunksRef.current = [];
+    partsRef.current = [];
+    // Splitting only ever applies to a lone PDF; picking several always means
+    // one file per student.
+    if (picked.length > 1) setSplitSingleFile(false);
   }, []);
 
-  const handleSplit = useCallback(async () => {
-    if (!file) return;
+  const blankStudent = (index: number, source: string): StudentResult => ({
+    index,
+    source,
+    status: "pending",
+    studentName: null,
+    teacherName: null,
+    totalScore: null,
+    items: null,
+    resultId: null,
+    scanId: null,
+    error: null,
+  });
+
+  const handlePrepare = useCallback(async () => {
+    if (files.length === 0) return;
     setSplitting(true);
     try {
-      const arrayBuffer = await file.arrayBuffer();
-      const pdfDoc = await PDFDocument.load(arrayBuffer);
-      const totalPages = pdfDoc.getPageCount();
-      const numStudents = Math.ceil(totalPages / pagesPerTest);
-      const chunks: Uint8Array[] = [];
+      const parts: { blob: Blob; filename: string }[] = [];
       const studentList: StudentResult[] = [];
 
-      for (let i = 0; i < numStudents; i++) {
-        const startPage = i * pagesPerTest;
-        const endPage = Math.min(startPage + pagesPerTest, totalPages);
+      if (files.length === 1 && splitSingleFile) {
+        // One PDF holding several students' tests, cut every `pagesPerTest` pages.
+        const arrayBuffer = await files[0].arrayBuffer();
+        const pdfDoc = await PDFDocument.load(arrayBuffer);
+        const totalPages = pdfDoc.getPageCount();
+        const numStudents = Math.ceil(totalPages / pagesPerTest);
 
-        const chunkDoc = await PDFDocument.create();
-        const pages = await chunkDoc.copyPages(
-          pdfDoc,
-          Array.from({ length: endPage - startPage }, (_, j) => startPage + j),
-        );
-        pages.forEach((p) => chunkDoc.addPage(p));
-        const chunkBytes = await chunkDoc.save();
-        chunks.push(chunkBytes);
+        for (let i = 0; i < numStudents; i++) {
+          const startPage = i * pagesPerTest;
+          const endPage = Math.min(startPage + pagesPerTest, totalPages);
 
-        studentList.push({
-          index: i,
-          pageRange: `${startPage + 1}-${endPage}`,
-          status: "pending",
-          studentName: null,
-          teacherName: null,
-          totalScore: null,
-          items: null,
-          resultId: null,
-          scanId: null,
-          error: null,
+          const chunkDoc = await PDFDocument.create();
+          const pages = await chunkDoc.copyPages(
+            pdfDoc,
+            Array.from({ length: endPage - startPage }, (_, j) => startPage + j),
+          );
+          pages.forEach((p) => chunkDoc.addPage(p));
+          const chunkBytes = await chunkDoc.save();
+
+          parts.push({
+            blob: new Blob([chunkBytes.buffer as ArrayBuffer], { type: "application/pdf" }),
+            filename: `student_${i + 1}.pdf`,
+          });
+          studentList.push(blankStudent(i, `p. ${startPage + 1}-${endPage}`));
+        }
+      } else {
+        // The normal case: each selected PDF is exactly one student.
+        files.forEach((f, i) => {
+          parts.push({ blob: f, filename: f.name });
+          studentList.push(blankStudent(i, f.name));
         });
       }
 
-      pdfChunksRef.current = chunks;
+      partsRef.current = parts;
       setStudents(studentList);
     } catch {
       setStudents([]);
     } finally {
       setSplitting(false);
     }
-  }, [file, pagesPerTest]);
+  }, [files, splitSingleFile, pagesPerTest]);
 
   const scoreStudent = useCallback(
     async (index: number): Promise<void> => {
       if (abortRef.current) return;
-      const chunk = pdfChunksRef.current[index];
-      if (!chunk) return;
+      const part = partsRef.current[index];
+      if (!part) return;
 
       setStudents((prev) =>
         prev.map((s) => (s.index === index ? { ...s, status: "scoring" } : s)),
       );
 
       try {
-        const blob = new Blob([chunk.buffer as ArrayBuffer], { type: "application/pdf" });
         const formData = new FormData();
-        formData.append("file", blob, `student_${index + 1}.pdf`);
+        formData.append("file", part.blob, part.filename);
         formData.append("test_id", testId);
         formData.append("batch_id", batchId);
         if (modelId) formData.append("model_id", modelId);
@@ -204,7 +229,9 @@ export function BatchUploader({
         );
       }
     },
-    [testId, batchId],
+    // modelId and onBehalfOf are read inside — without them here the callback
+    // keeps a stale closure and silently posts the wrong model / teacher.
+    [testId, batchId, modelId, onBehalfOf],
   );
 
   const handleScoreAll = useCallback(async () => {
@@ -297,7 +324,7 @@ export function BatchUploader({
       {/* Step 1: Select test */}
       <div className="bg-white rounded-lg border p-6">
         <h2 className="text-lg font-semibold mb-4">1. Select Test</h2>
-        <div className="grid gap-4 sm:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Subject</label>
             <select
@@ -332,56 +359,56 @@ export function BatchUploader({
               ))}
             </select>
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Pages per student test</label>
-            <input
-              type="number"
-              min={1}
-              max={20}
-              value={pagesPerTest}
-              onChange={(e) => setPagesPerTest(parseInt(e.target.value) || 6)}
-              className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm p-2 border"
-            />
-          </div>
         </div>
-        {models.length > 1 && (
-          <div className="mt-4 pt-4 border-t">
-            <label className="block text-sm font-medium text-gray-700 mb-1">AI Scoring Model</label>
-            <select
-              value={modelId}
-              onChange={(e) => setModelId(e.target.value)}
-              className="rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm p-2 border"
-            >
-              {models.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.name} ({m.provider})
-                </option>
-              ))}
-            </select>
-            <p className="text-xs text-gray-400 mt-1">
-              {models.find((m) => m.id === modelId)?.description}
-            </p>
-          </div>
-        )}
+        <div className="mt-4 pt-4 border-t">
+          <label className="block text-sm font-medium text-gray-700 mb-1">AI Scoring Model</label>
+          {models.length === 0 ? (
+            <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+              <strong>No AI model is configured.</strong> Scoring will fail until an API key is
+              set on the server — <code>ANTHROPIC_API_KEY</code> for the Claude models, or{" "}
+              <code>GOOGLE_AI_API_KEY</code> for Gemini.
+            </div>
+          ) : (
+            <>
+              <select
+                value={modelId}
+                onChange={(e) => setModelId(e.target.value)}
+                className="rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm p-2 border"
+              >
+                {models.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.name} ({m.provider})
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-gray-400 mt-1">
+                {models.find((m) => m.id === modelId)?.description}
+              </p>
+            </>
+          )}
+        </div>
         {teachers && teachers.length > 0 && (
           <div className="mt-4 pt-4 border-t">
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Upload on behalf of teacher
+              Teacher <span className="text-red-500">*</span>
             </label>
             <select
               value={onBehalfOf}
               onChange={(e) => setOnBehalfOf(e.target.value)}
-              className="rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm p-2 border"
+              className={`w-full sm:w-96 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm p-2 border ${
+                onBehalfOf ? "border-gray-300" : "border-amber-400 bg-amber-50"
+              }`}
             >
-              <option value="">Myself (default)</option>
+              <option value="">Select the teacher these tests belong to...</option>
               {teachers.map((t) => (
                 <option key={t.id} value={t.id}>
-                  {t.full_name ?? t.email}
+                  {t.full_name ?? t.email} ({t.email})
                 </option>
               ))}
             </select>
             <p className="text-xs text-gray-400 mt-1">
-              As an LDM, you can upload and score tests on behalf of your teachers.
+              {teachers.length} teachers. Results are filed under the teacher you pick, with you
+              recorded as the uploader.
             </p>
           </div>
         )}
@@ -396,21 +423,79 @@ export function BatchUploader({
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
             </svg>
             <p className="text-sm text-gray-500 font-medium">
-              {file ? file.name : "Upload PDF with all student tests"}
+              {files.length === 0
+                ? "Select one PDF per student"
+                : `${files.length} PDF${files.length === 1 ? "" : "s"} selected`}
             </p>
-            <p className="text-xs text-gray-400">PDF containing all scanned tests (max 25MB)</p>
+            <p className="text-xs text-gray-400">
+              You can select many files at once — each one is scored as a separate student (max 25MB each)
+            </p>
           </div>
-          <input type="file" className="hidden" accept="application/pdf" onChange={handleFileChange} />
+          <input
+            type="file"
+            className="hidden"
+            accept="application/pdf"
+            multiple
+            onChange={handleFileChange}
+          />
         </label>
 
-        {file && students.length === 0 && (
-          <button
-            onClick={handleSplit}
-            disabled={splitting || !testId}
-            className="mt-4 px-5 py-2 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700 transition-colors disabled:opacity-50"
-          >
-            {splitting ? "Splitting PDF..." : "Split into Student Tests"}
-          </button>
+        {files.length > 0 && (
+          <ul className="mt-3 max-h-32 overflow-y-auto text-xs text-gray-600 space-y-1">
+            {files.map((f, i) => (
+              <li key={`${f.name}-${i}`} className="flex justify-between gap-3">
+                <span className="truncate">{f.name}</span>
+                <span className="text-gray-400 shrink-0">{(f.size / 1024 / 1024).toFixed(1)} MB</span>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        {files.length === 1 && (
+          <div className="mt-4 pt-4 border-t">
+            <label className="flex items-center gap-2 text-sm text-gray-700">
+              <input
+                type="checkbox"
+                checked={splitSingleFile}
+                onChange={(e) => setSplitSingleFile(e.target.checked)}
+                className="rounded border-gray-300"
+              />
+              This one PDF contains several students, split it by page count
+            </label>
+            {splitSingleFile && (
+              <div className="mt-2 flex items-center gap-2">
+                <label className="text-sm text-gray-700">Pages per student</label>
+                <input
+                  type="number"
+                  min={1}
+                  max={20}
+                  value={pagesPerTest}
+                  onChange={(e) => setPagesPerTest(parseInt(e.target.value) || 6)}
+                  className="w-20 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm p-2 border"
+                />
+              </div>
+            )}
+          </div>
+        )}
+
+        {files.length > 0 && students.length === 0 && (
+          <div className="mt-4">
+            <button
+              onClick={() => void handlePrepare()}
+              disabled={splitting || !readyToScore}
+              className="px-5 py-2 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700 transition-colors disabled:opacity-50"
+            >
+              {splitting ? "Preparing..." : "Continue"}
+            </button>
+            {!testId && (
+              <p className="text-xs text-amber-600 mt-2">Select a subject and test above first.</p>
+            )}
+            {testId && needsTeacher && !onBehalfOf && (
+              <p className="text-xs text-amber-600 mt-2">
+                Select the teacher these tests belong to above first.
+              </p>
+            )}
+          </div>
         )}
       </div>
 
@@ -438,14 +523,23 @@ export function BatchUploader({
               ) : (
                 <button
                   onClick={handleScoreAll}
-                  disabled={!testId || students.every((s) => s.status === "scored")}
+                  disabled={!readyToScore || students.every((s) => s.status === "scored")}
                   className="px-4 py-2 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 text-sm"
                 >
-                  {scored.length > 0 && scored.length < students.length ? "Continue Scoring" : "Score All"}
+                  {scored.length > 0 && scored.length < students.length
+                    ? "Continue Scoring"
+                    : `Score All (${students.length})`}
                 </button>
               )}
             </div>
           </div>
+
+          {!scoring && students.every((s) => s.status === "pending") && (
+            <div className="mb-4 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-800">
+              {students.length} student{students.length === 1 ? "" : "s"} ready. Nothing is scored
+              yet — click <strong>Score All</strong> to start.
+            </div>
+          )}
 
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -453,7 +547,7 @@ export function BatchUploader({
                 <tr className="border-b bg-gray-50 text-left">
                   <th className="py-2 px-3 font-medium text-gray-500 w-8">#</th>
                   <th className="py-2 px-3 font-medium text-gray-500">Student</th>
-                  <th className="py-2 px-3 font-medium text-gray-500">Pages</th>
+                  <th className="py-2 px-3 font-medium text-gray-500">Source</th>
                   <th className="py-2 px-3 font-medium text-gray-500">Score</th>
                   <th className="py-2 px-3 font-medium text-gray-500">Status</th>
                   <th className="py-2 px-3 font-medium text-gray-500">Actions</th>
@@ -474,7 +568,9 @@ export function BatchUploader({
                           </span>
                         )}
                       </td>
-                      <td className="py-2 px-3 text-gray-500">{student.pageRange}</td>
+                      <td className="py-2 px-3 text-gray-500 max-w-[180px] truncate" title={student.source}>
+                        {student.source}
+                      </td>
                       <td className="py-2 px-3">
                         {student.totalScore !== null ? (
                           <>
@@ -501,7 +597,12 @@ export function BatchUploader({
                           <span className="text-green-600 text-xs font-medium">Scored</span>
                         )}
                         {student.status === "error" && (
-                          <span className="text-red-600 text-xs" title={student.error ?? undefined}>Error</span>
+                          <span
+                            className="text-red-600 text-xs block max-w-[220px]"
+                            title={student.error ?? undefined}
+                          >
+                            {student.error ?? "Error"}
+                          </span>
                         )}
                         {student.status === "pending" && (
                           <span className="text-gray-400 text-xs">Pending</span>

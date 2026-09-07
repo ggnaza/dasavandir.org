@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { listArarkaTeachers } from "@/lib/ararka/teachers";
 
 export async function GET() {
   const supabase = createClient();
@@ -26,16 +27,6 @@ export async function GET() {
     return Response.json({ error: "Not an LDM" }, { status: 403 });
   }
 
-  const { data: teachers, error } = await admin
-    .from("profiles")
-    .select("id, full_name, email")
-    .contains("modules", ["ararka"])
-    .neq("id", user.id)
-    .order("full_name");
-
-  if (error) {
-    return Response.json({ error: error.message }, { status: 500 });
-  }
-
-  return Response.json({ teachers: teachers ?? [] });
+  const teachers = await listArarkaTeachers(admin, user.id);
+  return Response.json({ teachers });
 }
