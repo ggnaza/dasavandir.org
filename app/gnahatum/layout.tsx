@@ -2,13 +2,13 @@ import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { EfficacyNav } from "@/components/efficacy/nav";
+import { GnahatumNav } from "@/components/gnahatum/nav";
 import { getModuleGrants, allowedModules, canEnter } from "@/lib/access/module-access";
 import { moduleForHost } from "@/lib/modules";
 
 export const dynamic = "force-dynamic";
 
-export default async function EfficacyLayout({ children }: { children: React.ReactNode }) {
+export default async function GnahatumLayout({ children }: { children: React.ReactNode }) {
   const supabase = createClient();
   const {
     data: { user },
@@ -27,22 +27,19 @@ export default async function EfficacyLayout({ children }: { children: React.Rea
   if (!profile) redirect("/learn");
 
   const grants = await getModuleGrants(user.id, profile.role);
-  if (!canEnter(grants, "efficacy")) redirect("/learn");
-
-  const navRole: "admin" | "ldm" | "teacher" =
-    profile.role === "admin" ? "admin" : grants.efficacy === "ldm" ? "ldm" : "teacher";
+  if (!canEnter(grants, "gnahatum")) redirect("/learn");
 
   const host = headers().get("host") ?? "";
-  const onSubdomain = moduleForHost(host)?.id === "efficacy";
+  const onSubdomain = moduleForHost(host)?.id === "gnahatum";
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <EfficacyNav
-        role={navRole}
+      <GnahatumNav
         userName={profile.full_name ?? undefined}
-        onSubdomain={onSubdomain}
         modules={allowedModules(grants)}
+        isLdm={grants.gnahatum === "ldm"}
         isAdmin={profile.role === "admin"}
+        onSubdomain={onSubdomain}
       />
       <main className="max-w-6xl mx-auto px-4 py-8">{children}</main>
     </div>

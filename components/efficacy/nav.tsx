@@ -1,11 +1,15 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { ModuleSwitcher } from "@/components/module-switcher";
+import type { ModuleId } from "@/lib/modules";
 
 type EfficacyNavProps = {
   role: "admin" | "ldm" | "teacher";
   userName?: string;
   onSubdomain?: boolean;
+  modules?: ModuleId[] | string[];
+  isAdmin?: boolean;
 };
 
 interface NavLink {
@@ -37,7 +41,13 @@ function stripPrefix(href: string, onSubdomain: boolean): string {
   return href;
 }
 
-export function EfficacyNav({ role, userName, onSubdomain = false }: EfficacyNavProps) {
+export function EfficacyNav({
+  role,
+  userName,
+  onSubdomain = false,
+  modules,
+  isAdmin,
+}: EfficacyNavProps) {
   const pathname = usePathname();
 
   const rawLinks: NavLink[] =
@@ -54,6 +64,11 @@ export function EfficacyNav({ role, userName, onSubdomain = false }: EfficacyNav
           <Link href={stripPrefix("/efficacy", onSubdomain)} className="text-xl font-bold shrink-0" style={{ color: "#EC5328" }}>
             TFA Efficacy
           </Link>
+          <ModuleSwitcher
+            modules={modules ?? ["courses", "efficacy"]}
+            isAdmin={isAdmin}
+            onSubdomain={onSubdomain}
+          />
           <div className="flex items-center gap-1 overflow-x-auto">
             {rawLinks.map((link, i) => {
               if (link.href === "") {
@@ -84,12 +99,6 @@ export function EfficacyNav({ role, userName, onSubdomain = false }: EfficacyNav
         </div>
         <div className="flex items-center gap-3 shrink-0">
           {userName && <span className="text-sm text-gray-600 hidden sm:inline">{userName}</span>}
-          <Link
-            href={onSubdomain ? "https://dasavandir.org/learn" : "/learn"}
-            className="text-sm text-gray-500 hover:text-gray-700"
-          >
-            LMS
-          </Link>
         </div>
       </div>
     </nav>

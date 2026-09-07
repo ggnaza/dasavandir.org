@@ -7,7 +7,7 @@ import {
 } from "../lib/ai-keys";
 
 /**
- * Ararka reported "No AI model is configured" on a deployment that had a
+ * Gnahatum reported "No AI model is configured" on a deployment that had a
  * working Gemini key, because it checked only GOOGLE_AI_API_KEY — a name
  * nothing else in the codebase used. The rest of the app reads
  * GOOGLE_GEMINI_API_KEY (efficacy) or GOOGLE_API_KEY (lib/llm).

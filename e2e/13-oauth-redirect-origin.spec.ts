@@ -92,14 +92,14 @@ test("login page SSO redirects back to the current origin", async ({ page, baseU
 });
 
 test("login page SSO preserves the next param", async ({ page, baseURL }) => {
-  await page.goto("/auth/login?next=/ararka");
+  await page.goto("/auth/login?next=/gnahatum");
 
   const redirect = await captureRedirectTo(page, () =>
     page.getByRole("button", { name: /sign in with google/i }).click()
   );
 
   expect(redirect.origin).toBe(new URL(baseURL!).origin);
-  expect(redirect.searchParams.get("next")).toBe("/ararka");
+  expect(redirect.searchParams.get("next")).toBe("/gnahatum");
 });
 
 test("login page SSO drops a protocol-relative next param", async ({ page, baseURL }) => {

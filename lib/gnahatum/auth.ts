@@ -2,16 +2,21 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getModuleGrants } from "@/lib/access/module-access";
 
-export interface EfficacyUser {
+export interface GnahatumUser {
   id: string;
   email: string;
   role: string;
-  /** LDM *in Efficacy* — read from module_access, not the old global tick. */
+  /** LDM *in Gnahatum* — from module_access, not from the platform role. */
   isLdm: boolean;
   fullName: string | null;
 }
 
-export async function getEfficacyUser(): Promise<EfficacyUser | null> {
+/**
+ * The signed-in user, or null when they are not signed in or have no Gnahatum
+ * grant. Returning null for an ungranted user means every API route that calls
+ * `requireAuth` also enforces module access, without repeating the check.
+ */
+export async function getGnahatumUser(): Promise<GnahatumUser | null> {
   const supabase = createClient();
   const {
     data: { user },
@@ -29,29 +34,30 @@ export async function getEfficacyUser(): Promise<EfficacyUser | null> {
   if (!profile) return null;
 
   const grants = await getModuleGrants(user.id, profile.role);
-  if (grants.efficacy === "none") return null;
+  if (grants.gnahatum === "none") return null;
 
   return {
     id: user.id,
     email: user.email ?? "",
     role: profile.role,
-    isLdm: grants.efficacy === "ldm",
+    isLdm: grants.gnahatum === "ldm",
     fullName: profile.full_name,
   };
 }
 
-export function requireAuth(user: EfficacyUser | null): Response | null {
+export function requireAuth(user: GnahatumUser | null): Response | null {
   if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });
   return null;
 }
 
-export function requireLdm(user: EfficacyUser): Response | null {
+export function requireLdm(user: GnahatumUser): Response | null {
   if (!user.isLdm && user.role !== "admin")
     return Response.json({ error: "Forbidden" }, { status: 403 });
   return null;
 }
 
-export function requireAdmin(user: EfficacyUser): Response | null {
-  if (user.role !== "admin") return Response.json({ error: "Forbidden" }, { status: 403 });
+export function requireAdmin(user: GnahatumUser): Response | null {
+  if (user.role !== "admin")
+    return Response.json({ error: "Forbidden" }, { status: 403 });
   return null;
 }

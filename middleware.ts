@@ -14,11 +14,32 @@ function bodySizeGuard(request: NextRequest): NextResponse | null {
   return null;
 }
 
+/**
+ * Module subdomains, in `<host> -> <path prefix>` form.
+ *
+ * Each module is reachable both as a path on the main host (`/efficacy/...`)
+ * and on its own subdomain, which middleware rewrites onto that path. The
+ * staging hosts are `staging.<module>.dasavandir.org` — NOT
+ * `<module>.staging.dasavandir.org`; getting that backwards silently serves
+ * the main LMS on the module subdomain instead of the module.
+ */
+const MODULE_SUBDOMAINS: { hosts: string[]; localPrefix: string; path: string }[] = [
+  {
+    hosts: ["efficacy.dasavandir.org", "staging.efficacy.dasavandir.org"],
+    localPrefix: "efficacy.localhost",
+    path: "/efficacy",
+  },
+  {
+    hosts: ["gnahatum.dasavandir.org", "staging.gnahatum.dasavandir.org"],
+    localPrefix: "gnahatum.localhost",
+    path: "/gnahatum",
+  },
+];
+
 const SAME_DEPLOY_HOSTS = new Set([
   "dasavandir.org",
   "staging.dasavandir.org",
-  "efficacy.dasavandir.org",
-  "staging.efficacy.dasavandir.org",
+  ...MODULE_SUBDOMAINS.flatMap((m) => m.hosts),
 ]);
 
 function csrfGuard(request: NextRequest): NextResponse | null {
@@ -44,12 +65,13 @@ function csrfGuard(request: NextRequest): NextResponse | null {
   return null;
 }
 
-function isEfficacySubdomain(host: string): boolean {
-  return (
-    host === "efficacy.dasavandir.org" ||
-    host === "efficacy.staging.dasavandir.org" ||
-    host.startsWith("efficacy.localhost")
-  );
+/** The module path a request's host maps to, or null when it is the main host. */
+function moduleSubdomainPath(host: string): string | null {
+  const bare = host.split(":")[0];
+  for (const m of MODULE_SUBDOMAINS) {
+    if (m.hosts.includes(bare) || bare === m.localPrefix) return m.path;
+  }
+  return null;
 }
 
 export async function middleware(request: NextRequest) {
@@ -62,11 +84,17 @@ export async function middleware(request: NextRequest) {
   const host = request.headers.get("host") ?? "";
   const path = request.nextUrl.pathname;
 
-  // Subdomain routing: efficacy.dasavandir.org/* → /efficacy/*
-  if (isEfficacySubdomain(host)) {
-    if (!path.startsWith("/api/") && !path.startsWith("/auth/") && !path.startsWith("/_next/") && !path.startsWith("/efficacy")) {
+  // Subdomain routing: <module>.dasavandir.org/* → /<module>/*
+  const modulePath = moduleSubdomainPath(host);
+  if (modulePath) {
+    if (
+      !path.startsWith("/api/") &&
+      !path.startsWith("/auth/") &&
+      !path.startsWith("/_next/") &&
+      !path.startsWith(modulePath)
+    ) {
       const url = request.nextUrl.clone();
-      url.pathname = `/efficacy${path === "/" ? "" : path}`;
+      url.pathname = `${modulePath}${path === "/" ? "" : path}`;
       return NextResponse.rewrite(url);
     }
   }
@@ -76,7 +104,7 @@ export async function middleware(request: NextRequest) {
     path.startsWith("/admin") ||
     path.startsWith("/learn") ||
     path.startsWith("/efficacy") ||
-    path.startsWith("/ararka") ||
+    path.startsWith("/gnahatum") ||
     path === "/auth/login" ||
     path === "/auth/signup";
 
@@ -108,7 +136,7 @@ export async function middleware(request: NextRequest) {
 
   const { data: { user } } = await supabase.auth.getUser();
 
-  if (!user && (path.startsWith("/admin") || path.startsWith("/learn") || path.startsWith("/efficacy") || path.startsWith("/ararka"))) {
+  if (!user && (path.startsWith("/admin") || path.startsWith("/learn") || path.startsWith("/efficacy") || path.startsWith("/gnahatum"))) {
     const loginUrl = new URL("/auth/login", request.url);
     loginUrl.searchParams.set("next", path);
     return NextResponse.redirect(loginUrl);

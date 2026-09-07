@@ -6,6 +6,7 @@ import { PresencePing } from "@/components/presence-ping";
 import { ResendActivationButton } from "./resend-activation-button";
 import { cookies } from "next/headers";
 import { getLang } from "@/lib/i18n";
+import { getModuleGrants, allowedModules } from "@/lib/access/module-access";
 
 export const dynamic = "force-dynamic";
 
@@ -20,7 +21,7 @@ export default async function LearnLayout({ children }: { children: React.ReactN
     // Must use the admin (service-role) client: RLS on `profiles` has no
     // "read own row" policy, so the user-auth client returns null here and the
     // nav silently falls back to the learner role.
-    admin.from("profiles").select("role, full_name, status, modules").eq("id", user.id).single(),
+    admin.from("profiles").select("role, full_name, status").eq("id", user.id).single(),
     admin.from("notifications").select("*", { count: "exact", head: true }).eq("user_id", user.id).eq("read", false),
   ]);
 
@@ -31,11 +32,10 @@ export default async function LearnLayout({ children }: { children: React.ReactN
     : profile?.role === "course_creator" || profile?.role === "course_manager" ? "creator"
     : "learner";
   const isPending = profile?.status === "pending";
-  const isLdm = profile?.role === "course_manager" || profile?.role === "space_manager";
-  const userModules = profile?.modules ?? ["courses"];
-  const navModules = isLdm && !userModules.includes("ararka")
-    ? [...userModules, "ararka"]
-    : userModules;
+  // Which modules appear in the switcher comes from module_access, not from a
+  // role guess — a course_manager is not automatically a Gnahatum LDM any more.
+  const grants = await getModuleGrants(user.id, profile?.role ?? null);
+  const navModules = allowedModules(grants);
 
   return (
     <div className="min-h-screen">

@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getModuleGrants } from "@/lib/access/module-access";
 
 export const dynamic = "force-dynamic";
 
@@ -15,13 +16,15 @@ export default async function EfficacyPage() {
   const admin = createAdminClient();
   const { data: profile } = await admin
     .from("profiles")
-    .select("role, is_ldm")
+    .select("role")
     .eq("id", user.id)
     .single();
 
   if (!profile) redirect("/learn");
 
+  const grants = await getModuleGrants(user.id, profile.role);
+
   if (profile.role === "admin") redirect("/efficacy/admin");
-  if (profile.is_ldm) redirect("/efficacy/ldm");
+  if (grants.efficacy === "ldm") redirect("/efficacy/ldm");
   redirect("/efficacy/teacher");
 }
