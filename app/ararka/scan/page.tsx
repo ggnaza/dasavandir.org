@@ -12,7 +12,7 @@ export default async function ScanPage() {
   const { data: tests } = await db
     .from("tests")
     .select("id, subject_id, grade, test_type, year")
-    .eq("test_type", "diagnostic")
+    .in("test_type", ["diagnostic", "diagnostic_base", "diagnostic_target"])
     .order("grade");
 
   return (

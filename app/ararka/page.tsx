@@ -12,7 +12,7 @@ export default async function ArarkaHome() {
   const { data: tests } = await db
     .from("tests")
     .select("id, subject_id, grade, test_type, year, total_points")
-    .eq("test_type", "diagnostic")
+    .in("test_type", ["diagnostic", "diagnostic_base", "diagnostic_target"])
     .order("grade");
 
   const testsBySubject = (tests ?? []).reduce(
