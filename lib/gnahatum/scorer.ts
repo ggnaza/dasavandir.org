@@ -209,6 +209,10 @@ Put the calculation in "points_breakdown" — the steps earned and their sum, e.
 exactly. Writing "this earns 0.25" and then emitting 0 is a defect: the number in
 awarded_points is the score the student receives, not the prose.
 
+KEEP EVERY TEXT FIELD SHORT. "points_breakdown" is ONE line of arithmetic, under 80
+characters, no commentary. "explanation" is at most two sentences. Never repeat a
+sentence or a phrase; once the calculation is stated, close the string.
+
 STUDENT'S TRANSCRIBED ANSWERS:
 ${transcriptText}
 
@@ -259,6 +263,40 @@ const GRADING_SCHEMA = {
   required: ["items"],
 } as const;
 
+/**
+ * The grading schema with every free-text field removed. A string field can
+ * loop — in production the model padded points_breakdown with the same
+ * sentence until it hit the 32k ceiling, on the retry as well as the first
+ * attempt. A number or a boolean cannot loop. When the full schema runs away,
+ * the scan is re-graded against this one: the student still gets a score,
+ * that one result just carries no prose.
+ */
+const GRADING_SCHEMA_MINIMAL = {
+  type: "OBJECT",
+  properties: {
+    items: {
+      type: "ARRAY",
+      items: {
+        type: "OBJECT",
+        properties: {
+          number: { type: "INTEGER" },
+          awarded_points: { type: "NUMBER" },
+          is_correct: { type: "BOOLEAN" },
+          confidence: { type: "NUMBER" },
+        },
+        required: ["number", "awarded_points", "is_correct", "confidence"],
+      },
+    },
+  },
+  required: ["items"],
+} as const;
+
+const GRADING_FALLBACK_SUFFIX = `
+
+FALLBACK MODE: your previous attempt ran out of space repeating itself. This time output
+ONLY number, awarded_points, is_correct and confidence for each question. No
+points_breakdown, no explanation, no other text. Apply the same scoring rules.`;
+
 interface GradedItem {
   number: number;
   awarded_points: number;
@@ -285,6 +323,12 @@ interface ModelCall {
   scan?: { base64: string; mediaType: ScanMediaType };
   /** Gemini structured-output schema. Anthropic gets the JSON shape from the prompt. */
   schema: object;
+  /**
+   * What to send on the one retry after a runaway. Removing the free-text
+   * fields is what actually stops a repetition loop; lower thinking and
+   * higher temperature alone did not.
+   */
+  fallback?: { schema: object; promptSuffix: string };
 }
 
 async function callAnthropic(
@@ -347,18 +391,24 @@ async function callGemini(
     );
   }
 
-  const parts: Array<Record<string, unknown>> = [];
-  if (call.scan) {
-    parts.push({ inline_data: { mime_type: call.scan.mediaType, data: call.scan.base64 } });
-  }
-  parts.push({ text: call.prompt });
-
   // Transcription is reading, not reasoning: "low" is enough and it is the pass
   // where thinking ran away (5.5k thought tokens on a *successful* run). Grading
   // applies a rubric and gets the default. Both fall back to "low" on a retry.
   const preferredLevel: ThinkingLevel = call.pass === "transcription" ? "low" : "medium";
 
-  const attempt = async (level: ThinkingLevel, temperature: number) => {
+  const attempt = async (
+    level: ThinkingLevel,
+    temperature: number,
+    schema: object,
+    prompt: string,
+    label: string,
+  ) => {
+    const parts: Array<Record<string, unknown>> = [];
+    if (call.scan) {
+      parts.push({ inline_data: { mime_type: call.scan.mediaType, data: call.scan.base64 } });
+    }
+    parts.push({ text: prompt });
+
     const generationConfig: Record<string, unknown> = {
       // A 15-question breakdown with extracted answers and explanations is a lot
       // of JSON; 4096 truncated it and the parse then failed. Thinking tokens are
@@ -378,7 +428,7 @@ async function callGemini(
       // the caller regex-matched the first {...}, which broke whenever an
       // explanation happened to contain a brace.
       responseMimeType: "application/json",
-      responseSchema: call.schema,
+      responseSchema: schema,
     };
 
     if (model.highResolutionScans) {
@@ -422,7 +472,7 @@ async function callGemini(
         pass: call.pass,
         hasScan: !!call.scan,
         generationConfig: { ...generationConfig, responseSchema: "<schema omitted>" },
-        schemaKeys: Object.keys((call.schema as { properties?: object }).properties ?? {}),
+        schemaKeys: Object.keys((schema as { properties?: object }).properties ?? {}),
       });
       throw new Error(
         `Gemini API error in the ${call.pass} pass: ${response.status} ${err.trim()} — sent: ${sent}`,
@@ -447,7 +497,7 @@ async function callGemini(
     // budget, was blocked, or returned only thoughts.
     const usage = data.usageMetadata ?? {};
     const where =
-      `${model.name}, ${call.pass} pass, thinking=${level}` +
+      `${model.name}, ${call.pass} pass (${label}), thinking=${level}, temperature=${temperature}` +
       ` — finish=${candidate?.finishReason ?? "none"}` +
       (data.promptFeedback?.blockReason ? `, blocked=${data.promptFeedback.blockReason}` : "") +
       `, parts=${allParts.length} (thought ${allParts.filter((p) => p.thought).length})` +
@@ -456,7 +506,7 @@ async function callGemini(
     return { text, raw: data, finishReason: candidate?.finishReason as string | undefined, where };
   };
 
-  let result = await attempt(preferredLevel, 0.1);
+  let result = await attempt(preferredLevel, 0.1, call.schema, call.prompt, "full schema");
 
   // Two distinct ways a call ends MAX_TOKENS, told apart by where the tokens
   // went (the `where` string carries both counts):
@@ -472,10 +522,12 @@ async function callGemini(
   const exhausted = (r: typeof result) => r.finishReason === "MAX_TOKENS" || !r.text;
   if (exhausted(result) && model.highResolutionScans) {
     console.warn(
-      `[gnahatum/scorer] retrying at thinking=low, temperature=0.6: ${result.where}` +
+      `[gnahatum/scorer] retrying (${call.fallback ? "minimal schema" : "same schema"}): ${result.where}` +
         ` — tail of output: ${JSON.stringify(result.text.slice(-400))}`,
     );
-    result = await attempt("low", 0.6);
+    result = call.fallback
+      ? await attempt("low", 0.6, call.fallback.schema, call.prompt + call.fallback.promptSuffix, "minimal schema")
+      : await attempt("low", 0.6, call.schema, call.prompt, "same schema");
   }
 
   // A truncated response parses as broken JSON and used to surface as a raw
@@ -597,6 +649,7 @@ export async function scoreFromScan(
       pass: "grading",
       prompt: buildGradingPrompt(answerKey, transcript, scoringNotes, learnedBlock),
       schema: GRADING_SCHEMA,
+      fallback: { schema: GRADING_SCHEMA_MINIMAL, promptSuffix: GRADING_FALLBACK_SUFFIX },
     },
     model,
   );
@@ -665,7 +718,9 @@ export async function scoreFromScan(
       legibility: t.legibility,
       confidence: flags.length > 0 ? Math.min(confidence, 0.5) : confidence,
       points_breakdown: graded?.points_breakdown,
-      explanation: graded?.explanation,
+      explanation:
+        graded?.explanation ??
+        (graded ? "Scored without explanation: the first attempt ran away repeating itself, so this paper was re-graded with a numbers-only schema." : undefined),
       ...(flags.length > 0 ? { review_flags: flags } : {}),
     };
   });
