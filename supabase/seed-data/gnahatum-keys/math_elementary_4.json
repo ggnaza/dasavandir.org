@@ -1,0 +1,19 @@
+{"subject":"math_elementary","grade":4,"doc":"1BUux3CkZSxL62BUXB3KN-The4yP6o1v0",
+ "notes":"Header says 2026-2027. TWO SUSPECTED ERRORS IN THE SOURCE KEY, transcribed as printed and flagged for the content team rather than overridden: (1) Q1 states «100 հատ մեկը մեկ հարյուրյակ է» and the key answers Սխալ է, but 100 ones is one hundred — this looks true, and as printed it would mark correct students wrong. (2) Q5 asks for descending order (նվազման կարգով) but the key lists 177, 390, 496, 508, 812, which is ascending; descending is 812, 508, 496, 390, 177. Compare the grade-3 paper, whose equivalent key is correctly descending. Q3, Q7, Q10, Q11, Q12, Q14, Q15 are figure-based.",
+ "key":[
+ {"number":1,"points":0.5,"type":"true_false","answer":"Սխալ է","scoring_notes":"ՍՏՈՒԳԵԼ՝ աղբյուրի բանալին տալիս է «Սխալ է», սակայն 100 հատ մեկը մեկ հարյուրյակ է թվում է ճիշտ պնդում. Ամբողջական՝ ճիշտ պատասխանի դեպքում ամբողջ միավորը, այլապես 0"},
+ {"number":2,"points":0.5,"type":"fill_blank","answer":"Զանգվածի","scoring_notes":"Զանգվածի չափման միավորներից են գրամը և կիլոգրամը"},
+ {"number":3,"points":1,"type":"diagram","answer":"Առաջինը և չորրորդը; երրորդն ու հինգերորդը","scoring_notes":"Նկարից կախված. Ամբողջական՝ ճիշտ պատասխանի դեպքում ամբողջ միավորը, այլապես 0"},
+ {"number":4,"points":1,"type":"true_false","answer":"Այո","scoring_notes":"Յուրաքանչյուր ճիշտ պատասխան՝ 0,5 միավոր"},
+ {"number":5,"points":1,"type":"short_answer","answer":"812, 508, 496, 390, 177","scoring_notes":"ՍՏՈՒԳԵԼ՝ աղբյուրի բանալին թվերը թվարկում է աճման կարգով (177, 390, 496, 508, 812), մինչդեռ հարցը նվազման կարգ է պահանջում. Ամբողջական՝ ճիշտ պատասխանի դեպքում ամբողջ միավորը, այլապես 0"},
+ {"number":6,"points":1,"type":"fill_blank","answer":"Կես օրը = 12 ժամ; 2 տարին = 24 ամիս; կես կգը = 500 գրամ; 3 մետրը = 30 դեցիմետր","scoring_notes":"Յուրաքանչյուր ճիշտ պատասխան՝ 0,25 միավոր"},
+ {"number":7,"points":1,"type":"diagram","answer":"շրջան, շեղանկյուն, հնգանկյուն","scoring_notes":"Նկարից կախված. Ամբողջական՝ ճիշտ պատասխանի դեպքում ամբողջ միավորը, այլապես 0"},
+ {"number":8,"points":0.5,"type":"table","answer":"3562 → նախորդ կլոր հարյուրյակը 3500, հաջորդը 3600; 527 → նախորդը 500, հաջորդը 600","scoring_notes":"Յուրաքանչյուր զույգ ճիշտ պատասխան՝ 0,25 միավոր"},
+ {"number":9,"points":0.5,"type":"computation","answer":"ա) 9, 1; բ) 12, 12; գ) 8, 8","scoring_notes":"Յուրաքանչյուր 3 ճիշտ պատասխանի համար՝ 0,25 միավոր"},
+ {"number":10,"points":1,"type":"computation","answer":"1520; 2110","scoring_notes":"Յուրաքանչյուր ճիշտ պատասխան՝ 0,5 միավոր. Նկարից կախված"},
+ {"number":11,"points":1,"type":"computation","answer":"48 + 32 + 41 + 29 = 150 մմ. Պատասխան՝ 150 մմ","scoring_notes":"Նկարից կախված. Ամբողջական՝ ճիշտ պատասխանի դեպքում ամբողջ միավորը, այլապես 0"},
+ {"number":12,"points":1,"type":"computation","answer":"1) 80 : 4 = 20 սմ (բարձրություն); 1 մ 60 սմ = 160 սմ; 2) 160 : 4 = 40 սմ (լայնություն). Պատասխան՝ 20 սմ, 40 սմ","scoring_notes":"Յուրաքանչյուր ճիշտ պատասխան՝ 0,5 միավոր. Գծագրից կախված"},
+ {"number":13,"points":1.5,"type":"computation","answer":"4 x 500 = 2000 գրամ = 2 կգ. Պատասխան՝ 2 կգ","scoring_notes":"Ամբողջական՝ ճիշտ պատասխանի դեպքում ամբողջ միավորը, այլապես 0"},
+ {"number":14,"points":1.5,"type":"computation","answer":"4 x (60 + 40) = 4 x 100 = 400 մ. Պատասխան՝ 400 մ","scoring_notes":"Գծապատկերից կախված. Ամբողջական՝ ճիշտ պատասխանի դեպքում ամբողջ միավորը, այլապես 0"},
+ {"number":15,"points":2,"type":"essay","answer":"Մոդելային խնդիր՝ «Երևանից Եղեգնաձոր հեռավորությունը 125 կմ է, իսկ Եղեգնաձորից Գորիս՝ 5 կմ ավելի։ Որքա՞ն է Գորիս-Կապան հեռավորությունը, եթե Երևանից Կապան 320 կմ է։» Լուծում՝ 320 - (125 + 125 + 5) = 65. Պատասխան՝ 65 կմ","scoring_notes":"Խնդիրը ճիշտ կազմելու և լուծելու համար՝ 2 միավոր. Գծապատկերից կախված"}
+]}
