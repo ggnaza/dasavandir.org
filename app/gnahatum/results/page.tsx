@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { gnahatumDb } from "@/lib/gnahatum/db";
+import { formatPoints } from "@/lib/gnahatum/format";
 
 export default async function ResultsPage() {
   const db = gnahatumDb();
@@ -105,11 +106,11 @@ export default async function ResultsPage() {
                     </td>
                     <td className="py-3 px-4">{test?.grade ?? "—"}</td>
                     <td className="py-3 px-4 text-gray-500">
-                      {r.total_score.toFixed(1)}
+                      {formatPoints(r.total_score)}
                     </td>
                     <td className="py-3 px-4">
                       <span className={`font-medium ${pct >= 70 ? "text-green-600" : pct >= 40 ? "text-yellow-600" : "text-red-600"}`}>
-                        {finalScore.toFixed(1)}
+                        {formatPoints(finalScore)}
                       </span>
                       <span className="text-gray-400"> / {r.max_score}</span>
                       <span className="text-gray-400 text-xs ml-1">({pct.toFixed(0)}%)</span>
