@@ -82,8 +82,8 @@ check(
 
 // --- the truncation guards must stay ---
 check(
-  /maxOutputTokens: 32768/.test(src),
-  "output budget dropped below 32768 — thinking tokens share it and a smaller budget truncated the JSON",
+  /maxOutputTokens: call\.pass === "transcription" \? 32768 : 16384/.test(src),
+  "output budgets changed — transcription needs 32768 (verbatim Armenian is long; thinking shares it), grading is capped at 16384 so a repetition loop fails cheaply",
 );
 // Gemini 3 is steered with thinkingLevel. A thinkingBudget sent to a Gemini 3
 // model was silently ignored, thinking ran to ~30k tokens and the JSON arrived
@@ -100,7 +100,21 @@ check(
 );
 check(
   /const exhausted = \(r: typeof result\) => r\.finishReason === "MAX_TOKENS" \|\| !r\.text;/.test(src),
-  "the one-shot retry at thinking=low was removed — intermittent MAX_TOKENS / empty responses will fail the scan outright",
+  "the one-shot retry was removed — intermittent MAX_TOKENS / empty responses will fail the scan outright",
+);
+// A runaway ANSWER (thoughts ~0, answer at the cap) is a repetition loop, not
+// thinking; only a higher temperature breaks it. The retry must change both.
+check(
+  /result = await attempt\("low", 0\.6\);/.test(src),
+  "the retry no longer raises temperature — a JSON repetition loop will recur identically on retry",
+);
+check(
+  /Output ended: \$\{JSON\.stringify\(result\.text\.slice\(-300\)\)\}/.test(src),
+  "a MAX_TOKENS error no longer carries the output tail — what the model got stuck on is lost again",
+);
+check(
+  (src.match(/maxItems: 40,/g) ?? []).length >= 2,
+  "the transcription/grading arrays are unbounded again — an items loop runs to the token ceiling",
 );
 check(
   /pass: "transcription",/.test(src) && /pass: "grading",/.test(src) && /\$\{call\.pass\} pass/.test(src),
