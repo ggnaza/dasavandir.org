@@ -1,0 +1,19 @@
+{"subject":"english","grade":6,"doc":"1S7Kah_FTxJKs6q5Uxvoiqj0MFmS6MvL8JCBKLC4YA0g",
+ "notes":"2025-2026 edition, հայտորոշիչ. Q1-Q3 are listening items scored against the audio recording linked from the paper. Three cosmetic source slips, none affecting the answers: the Q5 key is headed «Underline the correct verb form» though the task is some/any; Q7's email in the question sheet reads «I was an unforgettable experience» where the key correctly writes «It was»; and Q13's Armenian instruction says Present Simple/Continuous where the English says Past.",
+ "key":[
+  {"number":1,"points":0.5,"type":"fill_blank","answer":"train","scoring_notes":"Listening — «During their trip, they traveled by train.»","accepted_variants":["by train"]},
+  {"number":2,"points":0.5,"type":"true_false","answer":"1) True 2) True","scoring_notes":"2 x 0,25 միավոր. Listening.","accepted_variants":[]},
+  {"number":3,"points":1,"type":"fill_blank","answer":"bought … stopped by — «Later, Emily bought some souvenirs and then she stopped by a local café for lunch.»","scoring_notes":"2 x 0,5 միավոր. Listening.","accepted_variants":[]},
+  {"number":4,"points":1,"type":"matching","answer":"1-a, 2-b","scoring_notes":"2 x 0,5 միավոր. «c» (an action happening currently) is the extra description.","accepted_variants":[]},
+  {"number":5,"points":1,"type":"fill_blank","answer":"1) any 2) some","scoring_notes":"2 x 0,5 միավոր.","accepted_variants":["any, some"]},
+  {"number":6,"points":1,"type":"short_answer","answer":"1) They had two sons and a daughter. 2) My granny didn't write a letter.","scoring_notes":"2 x 0,5 միավոր.","accepted_variants":[]},
+  {"number":7,"points":1,"type":"fill_blank","answer":"1) went 2) was 3) was skiing 4) met","scoring_notes":"4 x 0,25 միավոր. «had» is the odd word out.","accepted_variants":[]},
+  {"number":8,"points":0.5,"type":"short_answer","answer":"village, weather","scoring_notes":"2 x 0,25 միավոր. Any two defensible keywords from the text.","accepted_variants":[]},
+  {"number":9,"points":0.5,"type":"short_answer","answer":"«A Village Visit» or «Weather in the Village»","scoring_notes":"Any title built on the pupil's own Task 8 keywords.","accepted_variants":[]},
+  {"number":10,"points":1,"type":"short_answer","answer":"What were Emma's parents doing while she was walking with her brother?","scoring_notes":"Any grammatical Wh- question about the highlighted section.","accepted_variants":[]},
+  {"number":11,"points":1,"type":"short_answer","answer":"1) There aren't any plastic bags on the bench. 2) Is there any litter in the street?","scoring_notes":"2 x 0,5 միավոր.","accepted_variants":[]},
+  {"number":12,"points":1,"type":"short_answer","answer":"Model: 1) I went to the movies yesterday with my friends. 2) Yesterday, I spent the whole day at the beach.","scoring_notes":"2 x 0,5 միավոր. Any two correct past-tense sentences using «yesterday».","accepted_variants":[]},
+  {"number":13,"points":1.5,"type":"fill_blank","answer":"1) What were you doing when I called you last night? 2) How did you break your arm?","scoring_notes":"3 x 0,5 միավոր across the gaps.","accepted_variants":[]},
+  {"number":14,"points":1.5,"type":"short_answer","answer":"2, 1, 4, 3","scoring_notes":"Story order: went to the park → played soccer → the sun set → went home for dinner.","accepted_variants":["2,1,4,3"]},
+  {"number":15,"points":2,"type":"table","answer":"T-shirt — Yes, good under warm clothes. Sweater — Yes, keeps you warm. Umbrella — No, not needed for snow. Sunglasses — Yes, protects your eyes from bright snow. Gloves — Yes, keeps your hands warm. Scarf — Yes, keeps your neck warm. Sun hat — No, use a warm hat instead.","scoring_notes":"Critical thinking — the pack/don't-pack decision plus a reason for each item; a defended answer that differs from the model still scores.","accepted_variants":[]}
+ ]}
