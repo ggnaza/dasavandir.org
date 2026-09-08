@@ -85,16 +85,33 @@ check(
   /maxOutputTokens: 32768/.test(src),
   "output budget dropped below 32768 — thinking tokens share it and a smaller budget truncated the JSON",
 );
+// Gemini 3 is steered with thinkingLevel. A thinkingBudget sent to a Gemini 3
+// model was silently ignored, thinking ran to ~30k tokens and the JSON arrived
+// truncated (MAX_TOKENS) or not at all. The 2.5 legacy branch keeps its budget.
+const gemini3Branch = src.slice(src.indexOf("if (model.highResolutionScans) {"), src.indexOf("} else if (model.model.includes(\"flash\"))"));
 check(
-  /thinkingConfig = \{ thinkingBudget: 8192 \}/.test(src),
-  "Gemini 3 thinking budget is no longer bounded — an open budget can consume the whole output allowance",
+  /thinkingConfig = \{ thinkingLevel: level \}/.test(gemini3Branch),
+  "Gemini 3 no longer sets thinkingConfig.thinkingLevel — thinking will run unbounded at the default level",
+);
+check(
+  // Code, not comments: the branch's own comment explains why a budget is wrong here.
+  !/thinkingBudget\s*:/.test(gemini3Branch),
+  "a thinkingBudget is being sent to Gemini 3 again — the docs say it may misbehave, and in production it was ignored",
+);
+check(
+  /const exhausted = \(r: typeof result\) => r\.finishReason === "MAX_TOKENS" \|\| !r\.text;/.test(src),
+  "the one-shot retry at thinking=low was removed — intermittent MAX_TOKENS / empty responses will fail the scan outright",
+);
+check(
+  /pass: "transcription",/.test(src) && /pass: "grading",/.test(src) && /\$\{call\.pass\} pass/.test(src),
+  "model-call errors no longer name the pass — a failure will not say whether transcription or grading broke",
 );
 check(
   /finishReason !== "STOP"/.test(src),
   "finishReason is no longer checked — a truncated response will crash in JSON.parse instead of reporting MAX_TOKENS",
 );
 check(
-  /\.filter\(\(p: \{ thought\?: boolean; text\?: string \}\) => !p\.thought/.test(src),
+  /allParts\s*\.filter\(\(p\) => !p\.thought/.test(src) && !/parts\?\.\[0\]\?\.text/.test(src),
   "Gemini text extraction no longer skips thought parts / reads only parts[0]",
 );
 check(
