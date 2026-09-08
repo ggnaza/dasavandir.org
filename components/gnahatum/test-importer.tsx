@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { POINT_DISTRIBUTION, TOTAL_QUESTIONS, type AnswerKeyItem } from "@/lib/gnahatum/constants";
-import { QUESTION_TYPES } from "@/lib/gnahatum/import";
+import { TOTAL_QUESTIONS, type AnswerKeyItem } from "@/lib/gnahatum/constants";
+import { AnswerKeyEditor } from "@/components/gnahatum/answer-key-editor";
 
 interface Subject {
   id: string;
@@ -275,60 +275,7 @@ export function TestImporter({ subjects }: { subjects: Subject[] }) {
             />
           </label>
 
-          <div className="space-y-3">
-            {items.map((item) => (
-              <div
-                key={item.number}
-                className={`border rounded-md p-3 ${item.answer.trim() ? "" : "border-red-300 bg-red-50"}`}
-              >
-                <div className="flex items-center gap-3 mb-2">
-                  <span className="text-sm font-semibold text-gray-900 w-14">Q{item.number}</span>
-                  <span className="text-xs text-gray-500 w-16">
-                    {POINT_DISTRIBUTION[item.number]} pts
-                  </span>
-                  <select
-                    value={item.type}
-                    onChange={(e) =>
-                      updateItem(item.number, { type: e.target.value as AnswerKeyItem["type"] })
-                    }
-                    className="border rounded-md px-2 py-1 text-xs"
-                  >
-                    {QUESTION_TYPES.map((t) => (
-                      <option key={t} value={t}>
-                        {t}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <textarea
-                  value={item.answer}
-                  onChange={(e) => updateItem(item.number, { answer: e.target.value })}
-                  rows={2}
-                  placeholder="Correct answer"
-                  className="w-full border rounded-md px-2 py-1.5 text-sm"
-                />
-                <input
-                  value={(item.accepted_variants ?? []).join(" | ")}
-                  onChange={(e) =>
-                    updateItem(item.number, {
-                      accepted_variants: e.target.value
-                        .split("|")
-                        .map((v) => v.trim())
-                        .filter(Boolean),
-                    })
-                  }
-                  placeholder="Also accepted, separated by |"
-                  className="mt-2 w-full border rounded-md px-2 py-1.5 text-xs"
-                />
-                <input
-                  value={item.scoring_notes ?? ""}
-                  onChange={(e) => updateItem(item.number, { scoring_notes: e.target.value })}
-                  placeholder="Scoring note, e.g. 2 x 0,5 միավոր"
-                  className="mt-2 w-full border rounded-md px-2 py-1.5 text-xs"
-                />
-              </div>
-            ))}
-          </div>
+          <AnswerKeyEditor items={items} onChange={updateItem} />
 
           {message && (
             <div className={message.kind === "ok" ? "text-emerald-700" : "text-red-600"}>
