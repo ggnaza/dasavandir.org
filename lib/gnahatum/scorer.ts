@@ -91,6 +91,9 @@ const TRANSCRIPTION_SCHEMA = {
     teacher_name: { type: "STRING", nullable: true },
     answers: {
       type: "ARRAY",
+      // The largest seeded test has 40 questions. A repetition loop that emits
+      // items forever is cut off here instead of at the token ceiling.
+      maxItems: 40,
       items: {
         type: "OBJECT",
         properties: {
@@ -242,6 +245,7 @@ const GRADING_SCHEMA = {
   properties: {
     items: {
       type: "ARRAY",
+      maxItems: 40,
       items: {
         type: "OBJECT",
         properties: {
@@ -358,13 +362,17 @@ async function callGemini(
   // applies a rubric and gets the default. Both fall back to "low" on a retry.
   const preferredLevel: ThinkingLevel = call.pass === "transcription" ? "low" : "medium";
 
-  const attempt = async (level: ThinkingLevel) => {
+  const attempt = async (level: ThinkingLevel, temperature: number) => {
     const generationConfig: Record<string, unknown> = {
       // A 15-question breakdown with extracted answers and explanations is a lot
       // of JSON; 4096 truncated it and the parse then failed. Thinking tokens are
-      // ALSO drawn from this budget, so it has to cover both.
-      maxOutputTokens: 32768,
-      temperature: 0.1,
+      // ALSO drawn from this budget, so it has to cover both. Transcription can
+      // legitimately be long (verbatim Armenian is token-heavy); a healthy
+      // grading answer is ~1.7k tokens, so its ceiling is lower — a runaway
+      // there is a repetition loop, and a lower cap makes it fail at half the
+      // cost rather than "succeed" at 32k.
+      maxOutputTokens: call.pass === "transcription" ? 32768 : 16384,
+      temperature,
       // Guarantees a parseable object. Previously the response was free text and
       // the caller regex-matched the first {...}, which broke whenever an
       // explanation happened to contain a brace.
@@ -434,25 +442,40 @@ async function callGemini(
     return { text, raw: data, finishReason: candidate?.finishReason as string | undefined, where };
   };
 
-  let result = await attempt(preferredLevel);
+  let result = await attempt(preferredLevel, 0.1);
 
-  // The failures are intermittent — the same scan scores on the next try — and
-  // they are all the same shape: thinking consumed the output. One retry at
-  // the floor level recovers them without costing a successful run anything.
+  // Two distinct ways a call ends MAX_TOKENS, told apart by where the tokens
+  // went (the `where` string carries both counts):
+  //   thoughts high, answer small  → thinking ran away; lower the level.
+  //   thoughts ~0, answer at cap   → the ANSWER ran away: a repetition loop
+  //                                  inside the JSON, which structured output
+  //                                  at temperature 0.1 is prone to. Seen in
+  //                                  production as answer=32753 on the grading
+  //                                  pass with thoughts=0. Lowering thinking
+  //                                  does nothing for that; a higher
+  //                                  temperature is what breaks the loop.
+  // One retry covers both: floor thinking AND raise temperature.
   const exhausted = (r: typeof result) => r.finishReason === "MAX_TOKENS" || !r.text;
-  if (exhausted(result) && model.highResolutionScans && preferredLevel !== "low") {
-    console.warn(`[gnahatum/scorer] retrying at thinking=low: ${result.where}`);
-    result = await attempt("low");
+  if (exhausted(result) && model.highResolutionScans) {
+    console.warn(
+      `[gnahatum/scorer] retrying at thinking=low, temperature=0.6: ${result.where}` +
+        ` — tail of output: ${JSON.stringify(result.text.slice(-400))}`,
+    );
+    result = await attempt("low", 0.6);
   }
 
   // A truncated response parses as broken JSON and used to surface as a raw
   // "Expected ',' or ']' ... at position N" with no indication of the cause.
-  // finishReason names it precisely.
+  // finishReason names it precisely — and on a runaway, the tail of what the
+  // model was emitting is the only evidence of what it got stuck on, so it
+  // travels with the error (into scans.error_text) rather than being dropped.
   if (result.finishReason && result.finishReason !== "STOP") {
+    const tail = result.text.length > 0 ? ` Output ended: ${JSON.stringify(result.text.slice(-300))}` : "";
+    console.error(`[gnahatum/scorer] ${result.where} — head: ${JSON.stringify(result.text.slice(0, 1500))} … tail: ${JSON.stringify(result.text.slice(-1500))}`);
     throw new Error(
       result.finishReason === "MAX_TOKENS"
-        ? `Gemini ran out of output tokens before finishing (${result.where}).`
-        : `Gemini stopped early without a complete result (${result.where}).`,
+        ? `Gemini ran out of output tokens before finishing (${result.where}).${tail}`
+        : `Gemini stopped early without a complete result (${result.where}).${tail}`,
     );
   }
 
