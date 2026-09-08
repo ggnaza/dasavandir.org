@@ -82,8 +82,12 @@ check(
 
 // --- the truncation guards must stay ---
 check(
-  /maxOutputTokens: call\.pass === "transcription" \? 32768 : 16384/.test(src),
-  "output budgets changed — transcription needs 32768 (verbatim Armenian is long; thinking shares it), grading is capped at 16384 so a repetition loop fails cheaply",
+  /maxOutputTokens: 32768,/.test(src),
+  "output budget dropped below 32768 — thinking tokens share it; a 16384 grading cap coincided with every grading call returning 400",
+);
+check(
+  /generationConfig: \{ \.\.\.generationConfig, responseSchema: "<schema omitted>" \}/.test(src),
+  "a Gemini 4xx no longer echoes the generationConfig it sent — the next INVALID_ARGUMENT will be a guess again",
 );
 // Gemini 3 is steered with thinkingLevel. A thinkingBudget sent to a Gemini 3
 // model was silently ignored, thinking ran to ~30k tokens and the JSON arrived
@@ -113,8 +117,8 @@ check(
   "a MAX_TOKENS error no longer carries the output tail — what the model got stuck on is lost again",
 );
 check(
-  (src.match(/maxItems: 40,/g) ?? []).length >= 2,
-  "the transcription/grading arrays are unbounded again — an items loop runs to the token ceiling",
+  !/maxItems/.test(src),
+  "maxItems is back in a response schema — it was added in #345 and removed with the grading 400; re-add only with a live-verified request",
 );
 check(
   /pass: "transcription",/.test(src) && /pass: "grading",/.test(src) && /\$\{call\.pass\} pass/.test(src),
