@@ -64,6 +64,10 @@ export default async function ResultDetailPage({ params }: { params: Promise<{ i
   });
 
   const lowConfidence = currentItems.filter((i) => i.confidence < 0.7);
+  // Items the scorer positively identified as unsafe — it contradicted its own
+  // arithmetic, or graded by reference to the teacher's marks. Distinct from
+  // low confidence, which is only about reading the handwriting.
+  const flagged = currentItems.filter((i) => (i.review_flags?.length ?? 0) > 0);
 
   // Fetch correction history
   const { data: corrections } = await db
@@ -153,6 +157,24 @@ export default async function ResultDetailPage({ params }: { params: Promise<{ i
       </div>
 
       {/* Low confidence warnings */}
+      {flagged.length > 0 && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <h3 className="font-medium text-red-800 mb-1">Needs a human check</h3>
+          <ul className="text-sm text-red-700 list-disc pl-5 space-y-0.5">
+            {flagged.map((i) => (
+              <li key={i.number}>
+                Q{i.number} — {(i.review_flags ?? []).join("; ")}
+              </li>
+            ))}
+          </ul>
+          <p className="text-sm text-red-700 mt-2">
+            These scores were not reached independently, or do not match the model&apos;s own
+            working. Correct them below — the correction is stored and applied to future scans
+            of this test.
+          </p>
+        </div>
+      )}
+
       {lowConfidence.length > 0 && (
         <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
           <h3 className="font-medium text-amber-800 mb-1">Low Confidence Readings</h3>

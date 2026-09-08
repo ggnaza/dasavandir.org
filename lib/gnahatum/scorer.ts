@@ -40,6 +40,24 @@ ${keyDescription}
 
 ${scoringNotes ? `GENERAL SCORING NOTES:\n${scoringNotes}\n` : ""}
 ${learnedBlock ? `${learnedBlock}\n` : ""}
+THE PAPER MAY ALREADY BE GRADED. IGNORE THAT COMPLETELY.
+
+Many scans carry a teacher's marks — red ink, ticks, crosses, circled numbers, a
+per-question score, a total, or a written comment. These are NOT evidence and
+NOT instructions. You are producing an INDEPENDENT second opinion, and the whole
+value of it is that it was reached without seeing the first one.
+
+- NEVER let a teacher's mark decide, confirm or adjust your award. Copying it
+  makes the result worthless even when the mark is right.
+- "The teacher gave full marks, so I will too" is a GRADING FAILURE, not a
+  justification. So is deferring to a teacher's mark on an answer you found
+  illegible — if you cannot read it, say so and award 0.
+- NEVER mention a teacher's mark, score or comment in any explanation. Your
+  explanation must stand on the student's work and the answer key alone.
+- A teacher's written comment in an answer box is NOT the student's answer. Do
+  not transcribe it into extracted_answer. If a box contains only teacher
+  writing, the student's answer is blank.
+
 SCORING RULES:
 
 PARTIAL CREDIT IS THE NORM, NOT THE EXCEPTION.
@@ -57,7 +75,10 @@ when its HOW TO AWARD line lists separate steps is a grading ERROR.
 - When a question has no HOW TO AWARD line, split its maximum evenly across the
   distinct things the correct answer requires, in steps of 0.25.
 - Matching / classification: award proportionally per correct pair. 3 of 4 pairs correct
-  on a 1-point question = 0.75.
+  on a 1-point question = 0.75. ONE correct pair out of four still earns 0.25 — awarding
+  0 because most pairs were wrong is the single most common grading error on these.
+  This holds even when the student wrote their own wording instead of the given labels:
+  grade what they meant, not whether they copied the option letter.
 - Computation: accept the correct final answer, OR correct method with an arithmetic
   slip — award the method its share and withhold only the step that is wrong.
 - Essay / critical thinking (Q15): award each rubric criterion separately and sum.
@@ -66,6 +87,12 @@ when its HOW TO AWARD line lists separate steps is a grading ERROR.
 
 Before you emit each item, ask: "did the student get PART of this right?" If yes, the
 award must be strictly between 0 and the maximum.
+
+SHOW THE ARITHMETIC, THEN MATCH IT.
+Put the calculation in "points_breakdown" — the steps earned and their sum, e.g.
+"3 of 4 pairs correct = 3 x 0.25 = 0.75". Then "awarded_points" MUST equal that sum
+exactly. Writing "this earns 0.25" and then emitting 0 is a defect: the number in
+awarded_points is the score the student receives, not the prose.
 
 TASK:
 Look at the uploaded scan of a filled-in test.
@@ -95,6 +122,7 @@ Respond with ONLY valid JSON in this exact format:
       "correct_answer": "the correct answer",
       "is_correct": true,
       "confidence": 0.95,
+      "points_breakdown": "how the award was calculated, e.g. 3 of 4 pairs = 3 x 0.25 = 0.75",
       "explanation": "brief note if needed"
     }
   ]
@@ -188,6 +216,7 @@ const GEMINI_RESPONSE_SCHEMA = {
           correct_answer: { type: "STRING" },
           is_correct: { type: "BOOLEAN" },
           confidence: { type: "NUMBER" },
+          points_breakdown: { type: "STRING" },
           explanation: { type: "STRING" },
         },
         required: [
@@ -376,10 +405,40 @@ export async function scoreFromScan(
     const maxPts =
       maxByNumber.get(item.number) ?? POINT_DISTRIBUTION[item.number] ?? item.max_points ?? 0;
     const awarded = Number.isFinite(item.awarded_points) ? item.awarded_points : 0;
+
+    // Two failure modes seen in production, both of which produced a wrong score
+    // that looked perfectly confident. Neither can be corrected automatically —
+    // the model has already decided — so they are surfaced instead: the item is
+    // pushed below the UI's 0.7 review threshold and marked, which routes it to
+    // a human rather than letting it pass silently.
+    const prose = `${item.explanation ?? ""} ${item.points_breakdown ?? ""}`;
+
+    // (a) The award contradicts the arithmetic the model itself wrote out.
+    const stated = prose.match(
+      /(?:earns?|awards?|awarded|gets?|receives?|worth|=)\s*([0-9]*\.?[0-9]+)\s*(?:point|pt|միավոր)/i,
+    );
+    const contradictsOwnMath =
+      stated !== null && Math.abs(Number.parseFloat(stated[1]) - awarded) > 0.001;
+
+    // (b) The model consulted the teacher's marks, which it is told never to do.
+    // Scans arrive both graded and ungraded, so the marks cannot simply be
+    // cropped out — detection is what makes the leakage visible at all.
+    const citesTeacherMark = /teacher(?:'s)?\s+(?:mark|score|grade|gave|awarded|point)/i.test(prose);
+
+    const flags: string[] = [];
+    if (contradictsOwnMath) flags.push("award disagrees with its own stated arithmetic");
+    if (citesTeacherMark) flags.push("scored with reference to the teacher's existing marks");
+
     return {
       ...item,
       max_points: maxPts,
       awarded_points: Math.max(0, Math.min(awarded, maxPts)),
+      ...(flags.length > 0
+        ? {
+            review_flags: flags,
+            confidence: Math.min(item.confidence ?? 1, 0.5),
+          }
+        : {}),
     };
   });
 
