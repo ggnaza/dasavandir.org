@@ -4,6 +4,7 @@ import { useState, useCallback, useRef, useEffect } from "react";
 import { PDFDocument } from "pdf-lib";
 import { createClient as createSupabaseClient } from "@/lib/supabase/client";
 import { SCAN_BUCKET, MAX_SCAN_BYTES } from "@/lib/gnahatum/storage";
+import { formatPoints } from "@/lib/gnahatum/format";
 
 interface Subject {
   id: string;
@@ -586,7 +587,7 @@ export function BatchUploader({
             <div className="flex items-center gap-3">
               {scored.length > 0 && (
                 <span className="text-sm text-gray-500">
-                  Avg: <strong className="text-gray-900">{avgScore.toFixed(1)}</strong>/15
+                  Avg: <strong className="text-gray-900">{formatPoints(avgScore)}</strong>/15
                   {" | "}Scored: {scored.length}/{students.length}
                 </span>
               )}
@@ -663,7 +664,7 @@ export function BatchUploader({
                         {student.totalScore !== null ? (
                           <>
                             <span className={`font-medium ${pct >= 70 ? "text-green-600" : pct >= 40 ? "text-yellow-600" : "text-red-600"}`}>
-                              {student.totalScore.toFixed(1)}
+                              {formatPoints(student.totalScore)}
                             </span>
                             <span className="text-gray-400"> / 15</span>
                           </>

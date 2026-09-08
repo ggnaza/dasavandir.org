@@ -143,6 +143,24 @@ check(
   "prompt no longer spells out the one-of-four matching case, where the zeros cluster",
 );
 
+// --- scores are displayed exactly; a corrected 2.75 once rendered as "2.8" ---
+// Percentages and file sizes may round; a point value may not. Any .toFixed(1)
+// on a gnahatum surface that is not a pct/MB is a score being rounded on screen.
+import { readdirSync as _rd, statSync } from "node:fs";
+const walk = (dir) => _rd(dir).flatMap((f) => {
+  const full = join(dir, f);
+  return statSync(full).isDirectory() ? walk(full) : /\.tsx?$/.test(f) ? [full] : [];
+});
+const roundedScores = ["components/gnahatum", "app/gnahatum"].flatMap(walk).flatMap((file) =>
+  readFileSync(file, "utf8").split("\n")
+    .map((line, i) => ({ file, line: i + 1, text: line }))
+    .filter(({ text }) => /\.toFixed\(1\)/.test(text) && !/pct|MB|1024|confidence/.test(text)),
+);
+check(
+  roundedScores.length === 0,
+  `a score is rounded on screen with .toFixed(1) — use formatPoints(): ${roundedScores.map((r) => `${r.file}:${r.line}`).join(", ")}`,
+);
+
 // --- the corpus these rules exist for must still carry quarter-point rubrics ---
 const quarterPoint = readdirSync(KEYS_DIR)
   .filter((f) => f.endsWith(".json"))

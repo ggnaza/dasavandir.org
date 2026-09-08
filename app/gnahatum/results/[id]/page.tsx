@@ -4,6 +4,7 @@ import { gnahatumDb } from "@/lib/gnahatum/db";
 import { COGNITIVE_LEVELS, POINT_DISTRIBUTION } from "@/lib/gnahatum/constants";
 import type { ScoredItem } from "@/lib/gnahatum/constants";
 import { ResultEditor } from "@/components/gnahatum/result-editor";
+import { formatPoints } from "@/lib/gnahatum/format";
 
 export default async function ResultDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -104,12 +105,12 @@ export default async function ResultDetailPage({ params }: { params: Promise<{ i
           </div>
           <div className="text-right">
             <div className={`text-4xl font-bold ${pct >= 70 ? "text-green-600" : pct >= 40 ? "text-yellow-600" : "text-red-600"}`}>
-              {finalScore.toFixed(1)}
+              {formatPoints(finalScore)}
             </div>
             <div className="text-gray-400">/ {result.max_score} ({pct.toFixed(0)}%)</div>
             {wasCorrected && (
               <div className="text-xs text-gray-400 mt-1">
-                AI score: {result.total_score.toFixed(1)} | Corrected: {new Date(result.corrected_at!).toLocaleDateString()}
+                AI score: {formatPoints(result.total_score)} | Corrected: {new Date(result.corrected_at!).toLocaleDateString()}
               </div>
             )}
             <div className="mt-2">
@@ -141,7 +142,7 @@ export default async function ResultDetailPage({ params }: { params: Promise<{ i
               <div className="text-sm text-gray-400">{level.label_hy}</div>
               <div className="mt-2 flex items-baseline gap-2">
                 <span className="text-2xl font-bold text-gray-900">
-                  {level.earned.toFixed(1)}
+                  {formatPoints(level.earned)}
                 </span>
                 <span className="text-gray-400">/ {level.max}</span>
               </div>

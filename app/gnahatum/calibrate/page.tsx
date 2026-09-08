@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { gnahatumDb } from "@/lib/gnahatum/db";
+import { formatPoints } from "@/lib/gnahatum/format";
 
 export default async function CalibratePage() {
   const db = gnahatumDb();
@@ -116,13 +117,13 @@ export default async function CalibratePage() {
                     <td className="py-3 px-4">
                       {subject?.name_hy ?? subject?.name_en ?? "—"} Gr.{test?.grade}
                     </td>
-                    <td className="py-3 px-4">{c.human_total?.toFixed(1) ?? "—"}</td>
-                    <td className="py-3 px-4">{c.ai_total?.toFixed(1) ?? "—"}</td>
+                    <td className="py-3 px-4">{formatPoints(c.human_total)}</td>
+                    <td className="py-3 px-4">{formatPoints(c.ai_total)}</td>
                     <td className="py-3 px-4">
                       <span
                         className={`font-medium ${absDelta <= 0.5 ? "text-green-600" : absDelta <= 1 ? "text-yellow-600" : "text-red-600"}`}
                       >
-                        {c.delta > 0 ? "+" : ""}{c.delta?.toFixed(1) ?? "—"}
+                        {c.delta > 0 ? "+" : ""}{formatPoints(c.delta)}
                       </span>
                     </td>
                     <td className="py-3 px-4 text-gray-500">
