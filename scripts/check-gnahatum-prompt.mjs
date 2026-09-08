@@ -66,13 +66,13 @@ check(
 
 // --- the answer key, not the fixed table, decides a question's maximum ---
 check(
-  /maxByNumber\.get\(item\.number\) \?\? POINT_DISTRIBUTION/.test(src),
+  /key\.points \?\? POINT_DISTRIBUTION/.test(src),
   "max_points no longer prefers the answer key over POINT_DISTRIBUTION — questions past Q15 will clamp to 0",
 );
 
 // --- Gemini must get guaranteed JSON, and Gemini 3 must get full-resolution scans ---
 check(
-  /responseMimeType: "application\/json"/.test(src) && /responseSchema: GEMINI_RESPONSE_SCHEMA/.test(src),
+  /responseMimeType: "application\/json"/.test(src) && /responseSchema: call\.schema/.test(src),
   "Gemini structured output was removed — the response falls back to fragile regex extraction",
 );
 check(
@@ -104,12 +104,31 @@ check(
 
 // --- the paper may already be graded; the model must not copy the marks ---
 check(
-  /THE PAPER MAY ALREADY BE GRADED\. IGNORE THAT COMPLETELY\./.test(src),
-  "prompt no longer opens with the teacher-mark prohibition — the model copied teacher scores in production",
+  /THE PAPER MAY ALREADY BE MARKED BY A TEACHER\. THAT WRITING IS NOT THE STUDENT'S\./.test(src),
+  "transcription prompt no longer carries the teacher-mark prohibition — the model copied teacher scores in production",
 );
 check(
-  /NEVER mention a teacher's mark, score or comment in any explanation/.test(src),
-  "prompt no longer forbids citing teacher marks in explanations — that ban is what makes leakage detectable",
+  /Do NOT mention teacher marks anywhere in your output/.test(src),
+  "transcription prompt no longer forbids mentioning teacher marks — that ban is what makes leakage detectable",
+);
+
+// --- ADR-0008: the grading pass must never receive the image ---
+// The whole point of two passes is that the grader CANNOT see a teacher's
+// mark. A `scan:` in the grading call would silently reopen the leak.
+const gradingStart = src.indexOf("prompt: buildGradingPrompt(");
+const gradingEnd = gradingStart === -1 ? -1 : src.indexOf("model,", gradingStart);
+const gradingCall = gradingStart === -1 || gradingEnd === -1 ? null : src.slice(gradingStart, gradingEnd);
+check(
+  gradingCall !== null && !/\bscan:/.test(gradingCall),
+  "the grading pass is being handed the scan — the grader must grade from the transcript only (ADR-0008)",
+);
+check(
+  /prompt: buildTranscriptionPrompt\(answerKey\)/.test(src) && /scan: \{ base64: imageBase64/.test(src),
+  "the transcription pass no longer receives the scan",
+);
+check(
+  /const structure = answerKey/.test(src) && !/buildTranscriptionPrompt[\s\S]{0,1200}q\.answer\b/.test(src),
+  "the transcription prompt is leaking the correct answers — reading must not be biased toward the key",
 );
 check(
   /citesTeacherMark/.test(src) && /contradictsOwnMath/.test(src),
