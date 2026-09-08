@@ -1,0 +1,114 @@
+{
+ "subject": "geometry",
+ "grade": 11,
+ "test_type": "diagnostic_target",
+ "doc": "1zkqDpw89inqeqYM9zDIpfrzkfgCrJnXTrw0CTs6eJYw",
+ "notes": "Exported from the live ararka.tests row on 2026-09-08 — this test was originally added through the Gnahatum importer UI, not from a seed file.",
+ "key": [
+  {
+   "number": 1,
+   "points": 0.5,
+   "type": "short_answer",
+   "answer": "Skew lines (Խdelays)",
+   "scoring_notes": "Correct identification 0.5"
+  },
+  {
+   "number": 2,
+   "points": 0.5,
+   "type": "fill_blank",
+   "answer": "a²+b²+c² (space diagonal formula component)",
+   "scoring_notes": "Correct formula 0.5"
+  },
+  {
+   "number": 3,
+   "points": 1,
+   "type": "short_answer",
+   "answer": "ays: pyramid (triangular/quadrilateral), բ: cube",
+   "scoring_notes": "Each correct identification 0.5"
+  },
+  {
+   "number": 4,
+   "points": 1,
+   "type": "short_answer",
+   "answer": "ays: Line perpendicular to two intersecting lines in a plane is perpendicular to the plane TRUE, բ: Oblique projection can be longer than the oblique TRUE, գ: More than one line perpendicular to plane through a point FALSE, դ: Rectangular prism diagonals are equal TRUE",
+   "scoring_notes": "Each correct answer 0.25"
+  },
+  {
+   "number": 5,
+   "points": 1,
+   "type": "short_answer",
+   "answer": "EF segment cannot intersect MD because they are skew lines",
+   "scoring_notes": "Correct reasoning 1.0"
+  },
+  {
+   "number": 6,
+   "points": 1,
+   "type": "diagram",
+   "answer": "Geometric construction in 3D",
+   "scoring_notes": "Correct construction 1.0"
+  },
+  {
+   "number": 7,
+   "points": 1,
+   "type": "table",
+   "answer": "n-gon prism: vertices=2n, faces=n+2, edges=3n. n-gon pyramid: vertices=n+1, faces=n+1, edges=2n",
+   "scoring_notes": "Each correct formula 0.25 (covering all 6 entries)"
+  },
+  {
+   "number": 8,
+   "points": 0.5,
+   "type": "computation",
+   "answer": "Angle = 180-115 = 65° (angles formed by two intersecting lines in a plane)",
+   "scoring_notes": "Correct angle calculation 0.5"
+  },
+  {
+   "number": 9,
+   "points": 0.5,
+   "type": "computation",
+   "answer": "∠BAH=30°, ∠ABH=90°-30°=60° (angle between oblique and plane)",
+   "scoring_notes": "Correct calculation 0.5"
+  },
+  {
+   "number": 10,
+   "points": 1,
+   "type": "computation",
+   "answer": "Total surface area = 4 × equilateral triangle area = 4·(√3/4)·a² = 8√3 [with specific dimensions]",
+   "scoring_notes": "Each correct step 0.5"
+  },
+  {
+   "number": 11,
+   "points": 1,
+   "type": "computation",
+   "answer": "∠B=60° → ∠A=30°, AB = 2·CB = 7√6 cm",
+   "scoring_notes": "Each calculation step 0.5"
+  },
+  {
+   "number": 12,
+   "points": 1,
+   "type": "computation",
+   "answer": "HD=CD-AB=3-2=1, BH=2.4, by Pythagorean theorem BD=2.6",
+   "scoring_notes": "Diagram and setup 0.5, Pythagorean application 0.5, answer 0.5"
+  },
+  {
+   "number": 13,
+   "points": 1.5,
+   "type": "computation",
+   "answer": "Prism: lateral edge=3cm, base=rhombus with diagonals 3cm and 4cm. Side=2.5cm. S_lateral=P·h=10·3=30, S_base=6, S_total=36",
+   "scoring_notes": "Found side length 0.5, lateral area 0.5, total area 0.5"
+  },
+  {
+   "number": 14,
+   "points": 1.5,
+   "type": "computation",
+   "answer": "Pyramid: h=8m, base side=12m, half-base=6m, slant height=√(64+36)=10m. S_lateral=(1/2)·48·10=240 m². Cost=240×5000=1,200,000 dram",
+   "scoring_notes": "Slant height calculation 0.5, lateral area 0.5, cost 0.5"
+  },
+  {
+   "number": 15,
+   "points": 2,
+   "type": "essay",
+   "answer": "Triangular prism surface: 2 equal triangles (bases) + 3 rectangles (lateral faces). For glass roof: only lateral area matters. Calculate with base side=4m and appropriate height.",
+   "scoring_notes": "Identified face types 0.5, correct area formulas 0.5, calculated result 0.5, clear explanation 0.5"
+  }
+ ]
+}

@@ -1,0 +1,113 @@
+{
+ "subject": "ict",
+ "grade": 6,
+ "doc": "1URdhVxSgwYzTSmHWdBx_4zXH6Sy8_uaJ-BzNekBebI4",
+ "notes": "Exported from the live ararka.tests row on 2026-09-08 — this test was originally added through the Gnahatum importer UI, not from a seed file.",
+ "key": [
+  {
+   "number": 1,
+   "points": 0.5,
+   "type": "short_answer",
+   "answer": "Mouse (Մdelays)",
+   "scoring_notes": "Correct device 0.5"
+  },
+  {
+   "number": 2,
+   "points": 0.5,
+   "type": "computation",
+   "answer": "18 (numerical answer)",
+   "scoring_notes": "Correct calculation 0.5"
+  },
+  {
+   "number": 3,
+   "points": 1,
+   "type": "matching",
+   "answer": "Senses matching to digital input devices",
+   "scoring_notes": "Each correct match 0.25"
+  },
+  {
+   "number": 4,
+   "points": 1,
+   "type": "short_answer",
+   "answer": "Google tools true/false",
+   "scoring_notes": "Each correct answer 0.25"
+  },
+  {
+   "number": 5,
+   "points": 1,
+   "type": "short_answer",
+   "answer": "Cell formatting tools",
+   "scoring_notes": "Correct identification 1.0"
+  },
+  {
+   "number": 6,
+   "points": 1,
+   "type": "matching",
+   "answer": "App matching to functions",
+   "scoring_notes": "Each correct match 0.25"
+  },
+  {
+   "number": 7,
+   "points": 1,
+   "type": "short_answer",
+   "answer": "True/false statements",
+   "scoring_notes": "Each correct answer 0.25"
+  },
+  {
+   "number": 8,
+   "points": 0.5,
+   "type": "diagram",
+   "answer": "Toolbar identification",
+   "scoring_notes": "Correct identifications 0.5"
+  },
+  {
+   "number": 9,
+   "points": 0.5,
+   "type": "short_answer",
+   "answer": "Font changes observation",
+   "scoring_notes": "Correct observations 0.5"
+  },
+  {
+   "number": 10,
+   "points": 1,
+   "type": "diagram",
+   "answer": "Chart with 4 devices",
+   "scoring_notes": "Correct chart construction 1.0"
+  },
+  {
+   "number": 11,
+   "points": 1,
+   "type": "computation",
+   "answer": "Algorithm interpretation - follow steps to get result",
+   "scoring_notes": "Correct execution 1.0"
+  },
+  {
+   "number": 12,
+   "points": 1,
+   "type": "computation",
+   "answer": "Binary coding",
+   "scoring_notes": "Correct encoding 1.0"
+  },
+  {
+   "number": 13,
+   "points": 1.5,
+   "type": "diagram",
+   "answer": "Flowchart construction",
+   "scoring_notes": "Correct flowchart 1.5"
+  },
+  {
+   "number": 14,
+   "points": 1.5,
+   "type": "computation",
+   "answer": "Water jug algorithm (classic puzzle)",
+   "scoring_notes": "Correct algorithm steps 1.5"
+  },
+  {
+   "number": 15,
+   "points": 2,
+   "type": "essay",
+   "answer": "Human vs computer comparison (strengths/weaknesses of each)",
+   "scoring_notes": "Human advantages 0.5, computer advantages 0.5, balanced comparison 0.5, writing quality 0.5"
+  }
+ ]
+}

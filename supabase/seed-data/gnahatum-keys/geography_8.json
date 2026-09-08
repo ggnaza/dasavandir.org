@@ -1,0 +1,113 @@
+{
+ "subject": "geography",
+ "grade": 8,
+ "doc": "1675hF3DR3mqkytAs0oDe-bwJ3vQGpgri2BOp_Ueghvk",
+ "notes": "Exported from the live ararka.tests row on 2026-09-08 — this test was originally added through the Gnahatum importer UI, not from a seed file.",
+ "key": [
+  {
+   "number": 1,
+   "points": 0.5,
+   "type": "multiple_choice",
+   "answer": "True (Ճdelays)",
+   "scoring_notes": "Correct selection 0.5"
+  },
+  {
+   "number": 2,
+   "points": 0.5,
+   "type": "fill_blank",
+   "answer": "Pre-industrial: Somalia; Post-industrial: Germany",
+   "scoring_notes": "Each correct example 0.25"
+  },
+  {
+   "number": 3,
+   "points": 1,
+   "type": "short_answer",
+   "answer": "Inexhaustible resources / Exhaustible resources classification",
+   "scoring_notes": "Each correct category with examples 0.5"
+  },
+  {
+   "number": 4,
+   "points": 1,
+   "type": "matching",
+   "answer": "1-բ, 2-ays, 3-դ, 4-գ",
+   "scoring_notes": "Each correct match 0.25"
+  },
+  {
+   "number": 5,
+   "points": 1,
+   "type": "short_answer",
+   "answer": "Demographic policy - state measures to regulate population",
+   "scoring_notes": "Complete definition 1.0"
+  },
+  {
+   "number": 6,
+   "points": 1,
+   "type": "short_answer",
+   "answer": "A-Maritime climate, B-Continental climate",
+   "scoring_notes": "Each correct identification 0.5"
+  },
+  {
+   "number": 7,
+   "points": 1,
+   "type": "matching",
+   "answer": "Crop origin matching (wheat-Middle East, rice-SE Asia, corn-Americas, potato-S.America)",
+   "scoring_notes": "Each correct match 0.25"
+  },
+  {
+   "number": 8,
+   "points": 0.5,
+   "type": "fill_blank",
+   "answer": "Cardinal and intercardinal directions on compass rose",
+   "scoring_notes": "0.5 for complete compass"
+  },
+  {
+   "number": 9,
+   "points": 0.5,
+   "type": "computation",
+   "answer": "Average temperature = 11.5°C",
+   "scoring_notes": "Correct calculation 0.5"
+  },
+  {
+   "number": 10,
+   "points": 1,
+   "type": "computation",
+   "answer": "Cargo turnover = 525 million tons",
+   "scoring_notes": "Correct calculation 1.0"
+  },
+  {
+   "number": 11,
+   "points": 1,
+   "type": "computation",
+   "answer": "Resource provision = 20 tons/person",
+   "scoring_notes": "Correct formula application and calculation 1.0"
+  },
+  {
+   "number": 12,
+   "points": 1,
+   "type": "short_answer",
+   "answer": "Pre-industrial vs post-industrial development stages comparison",
+   "scoring_notes": "Each stage described correctly 0.5"
+  },
+  {
+   "number": 13,
+   "points": 1.5,
+   "type": "diagram",
+   "answer": "Graph construction from given data",
+   "scoring_notes": "Correct axes 0.5, correct data plotting 0.5, labels 0.5"
+  },
+  {
+   "number": 14,
+   "points": 1.5,
+   "type": "essay",
+   "answer": "Government forms: monarchy vs republic, subtypes",
+   "scoring_notes": "Each form described 0.5, examples 0.5, comparison 0.5"
+  },
+  {
+   "number": 15,
+   "points": 2,
+   "type": "essay",
+   "answer": "Gender ratio analysis and causes",
+   "scoring_notes": "Analysis 1.0, causes explained 0.5, coherent argument 0.5"
+  }
+ ]
+}

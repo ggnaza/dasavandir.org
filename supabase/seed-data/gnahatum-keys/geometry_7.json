@@ -1,0 +1,113 @@
+{
+ "subject": "geometry",
+ "grade": 7,
+ "doc": "1zkqDpw89inqeqYM9zDIpfrzkfgCrJnXTrw0CTs6eJYw",
+ "notes": "Exported from the live ararka.tests row on 2026-09-08 — this test was originally added through the Gnahatum importer UI, not from a seed file.",
+ "key": [
+  {
+   "number": 1,
+   "points": 0.5,
+   "type": "short_answer",
+   "answer": "Acute angle (Սdelays)",
+   "scoring_notes": "Correct angle type 0.5"
+  },
+  {
+   "number": 2,
+   "points": 0.5,
+   "type": "matching",
+   "answer": "Equal area figures: ays,գ,դ,զ have one group; բ,է have another",
+   "scoring_notes": "Correct grouping 0.5"
+  },
+  {
+   "number": 3,
+   "points": 1,
+   "type": "short_answer",
+   "answer": "ays: true, բ: false, գ: true, դ: false",
+   "scoring_notes": "Each correct answer 0.25"
+  },
+  {
+   "number": 4,
+   "points": 1,
+   "type": "short_answer",
+   "answer": "ays: Rectangle all angles 90° TRUE, բ: Equal area rectangles have equal sides FALSE, գ: Square perimeter is 4 times its side TRUE, դ: Rectangle area equals product of adjacent sides TRUE",
+   "scoring_notes": "Each correct answer 0.25"
+  },
+  {
+   "number": 5,
+   "points": 1,
+   "type": "short_answer",
+   "answer": "ays: closed, բ: open, գ: open, դ: open",
+   "scoring_notes": "Each correct answer 0.25"
+  },
+  {
+   "number": 6,
+   "points": 1,
+   "type": "table",
+   "answer": "Rectangular prism: vertices=8, edges=12, faces=6, one base example=ABCD",
+   "scoring_notes": "Each correct answer 0.25"
+  },
+  {
+   "number": 7,
+   "points": 1,
+   "type": "diagram",
+   "answer": "Draw specified angles correctly",
+   "scoring_notes": "Each correct angle 0.25"
+  },
+  {
+   "number": 8,
+   "points": 0.5,
+   "type": "computation",
+   "answer": "BC = AB + 4 = 15 + 4 = 19 cm. P = 15 + 19 + 13 = 47 cm",
+   "scoring_notes": "Found BC 0.25, calculated perimeter 0.25"
+  },
+  {
+   "number": 9,
+   "points": 0.5,
+   "type": "computation",
+   "answer": "V = 4 × 3 × 2 = 24 m³ (rectangular prism volume)",
+   "scoring_notes": "Correct volume calculation 0.5"
+  },
+  {
+   "number": 10,
+   "points": 1,
+   "type": "diagram",
+   "answer": "Construct symmetric image of figure with respect to given line",
+   "scoring_notes": "Each correctly reflected point/figure 0.5"
+  },
+  {
+   "number": 11,
+   "points": 1,
+   "type": "computation",
+   "answer": "Sum of radii = AB/2 = 50/2 = 25",
+   "scoring_notes": "Correct relationship and calculation 1.0"
+  },
+  {
+   "number": 12,
+   "points": 1,
+   "type": "computation",
+   "answer": "Broken line length: AB + BC + CD = 4 + 5.5 + 3 = 12.5 cm",
+   "scoring_notes": "Correct sum 1.0"
+  },
+  {
+   "number": 13,
+   "points": 1.5,
+   "type": "computation",
+   "answer": "∠AOB is a right angle, ∠COB=x, ∠AOC=90-x (from diagram)",
+   "scoring_notes": "Correct diagram 0.5, found ∠COB 0.5, found ∠AOC 0.5"
+  },
+  {
+   "number": 14,
+   "points": 1.5,
+   "type": "computation",
+   "answer": "Calculate paintable area of room walls, subtract for windows/doors, account for waste",
+   "scoring_notes": "Paintable area 0.5, one wall area 0.5, waste calculation 0.5"
+  },
+  {
+   "number": 15,
+   "points": 2,
+   "type": "essay",
+   "answer": "Human body symmetry and asymmetry: examples of symmetry (left/right hands, eyes) and asymmetry (heart position, handedness). Health and aesthetic implications.",
+   "scoring_notes": "Two symmetry examples with justification 1.0, two asymmetry examples with justification 1.0"
+  }
+ ]
+}

@@ -1,0 +1,113 @@
+{
+ "subject": "math_elementary",
+ "grade": 6,
+ "doc": "1zkqDpw89inqeqYM9zDIpfrzkfgCrJnXTrw0CTs6eJYw",
+ "notes": "Exported from the live ararka.tests row on 2026-09-08 — this test was originally added through the Gnahatum importer UI, not from a seed file.",
+ "key": [
+  {
+   "number": 1,
+   "points": 0.5,
+   "type": "short_answer",
+   "answer": "Thousands place (Հdelays)",
+   "scoring_notes": "Correct place value 0.5"
+  },
+  {
+   "number": 2,
+   "points": 0.5,
+   "type": "short_answer",
+   "answer": "Segment (Հdelays)",
+   "scoring_notes": "Correct geometric term 0.5"
+  },
+  {
+   "number": 3,
+   "points": 1,
+   "type": "multiple_choice",
+   "answer": "False - divisibility by 4 rule is about last two digits, not digit sum",
+   "scoring_notes": "Correct identification of false statement 1.0"
+  },
+  {
+   "number": 4,
+   "points": 1,
+   "type": "fill_blank",
+   "answer": "0; 1; 2; 3; 4",
+   "scoring_notes": "All possible digits listed 1.0"
+  },
+  {
+   "number": 5,
+   "points": 1,
+   "type": "computation",
+   "answer": "ays: 1/4=2/8, բ: 3/6=1/2, գ: 3/8=6/16, դ: 1/3=2/6",
+   "scoring_notes": "Each correct equivalent fraction 0.25"
+  },
+  {
+   "number": 6,
+   "points": 1,
+   "type": "short_answer",
+   "answer": "Whole part: 4, Fractional part: 2/3",
+   "scoring_notes": "Each correct identification 0.5"
+  },
+  {
+   "number": 7,
+   "points": 1,
+   "type": "short_answer",
+   "answer": "Definition: To convert mixed number to improper fraction, multiply whole part by denominator, add numerator, keep denominator",
+   "scoring_notes": "Complete and correct definition 1.0"
+  },
+  {
+   "number": 8,
+   "points": 0.5,
+   "type": "computation",
+   "answer": "60581 = 6*10000 + 0*1000 + 5*100 + 8*10 + 1*1",
+   "scoring_notes": "Correct expanded form 0.5"
+  },
+  {
+   "number": 9,
+   "points": 0.5,
+   "type": "computation",
+   "answer": "ays: 2*4=8 cm², բ: 3*4=12 cm², գ: 2*6=12 cm². Equal areas: բ and գ",
+   "scoring_notes": "Correct calculations and identification 0.5"
+  },
+  {
+   "number": 10,
+   "points": 1,
+   "type": "computation",
+   "answer": "x = 63 + 4 = 22 (solving equation with unknown)",
+   "scoring_notes": "Correct equation solving 1.0"
+  },
+  {
+   "number": 11,
+   "points": 1,
+   "type": "fill_blank",
+   "answer": "341802; 341808",
+   "scoring_notes": "Each correct number 0.5"
+  },
+  {
+   "number": 12,
+   "points": 1,
+   "type": "computation",
+   "answer": "4/3 * 2/27 = 13/3 * 16/7 = 208/21",
+   "scoring_notes": "Convert to improper fraction 0.5, correct multiplication 0.5"
+  },
+  {
+   "number": 13,
+   "points": 1.5,
+   "type": "computation",
+   "answer": "BC = 3 + 1/2 = 3.5 cm, Perimeter = 3 + 3.5 + 5.5 = 12 cm. Label sides so AC is longest, BC second, AB smallest",
+   "scoring_notes": "BC length 0.5, perimeter 0.5, correct labeling 0.5"
+  },
+  {
+   "number": 14,
+   "points": 1.5,
+   "type": "computation",
+   "answer": "GCD(24, 36) = 12",
+   "scoring_notes": "Each prime factorization 0.5, GCD calculation 0.5"
+  },
+  {
+   "number": 15,
+   "points": 2,
+   "type": "essay",
+   "answer": "Explain why 2/8 diagram is incorrect (unequal divisions), construct correct diagram, explain what 2/8 of a quantity means",
+   "scoring_notes": "Identified error 0.5, correct diagram 0.5, explained meaning 0.5, clear writing 0.5"
+  }
+ ]
+}

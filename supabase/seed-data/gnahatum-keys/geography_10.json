@@ -1,0 +1,130 @@
+{
+ "subject": "geography",
+ "grade": 10,
+ "doc": "1Qdxk551LEMWT4HFTpIYjOsxQHCQrxrHJJsbdGLFY4o0",
+ "notes": "Exported from the live ararka.tests row on 2026-09-08 — this test was originally added through the Gnahatum importer UI, not from a seed file.",
+ "key": [
+  {
+   "number": 1,
+   "points": 0.5,
+   "type": "fill_blank",
+   "answer": "Coordinate grid identification",
+   "scoring_notes": "Correct identification 0.5"
+  },
+  {
+   "number": 2,
+   "points": 0.5,
+   "type": "multiple_choice",
+   "answer": "բ",
+   "scoring_notes": "Correct selection 0.5"
+  },
+  {
+   "number": 3,
+   "points": 1,
+   "type": "short_answer",
+   "answer": "Monarchy types / Republic types classification",
+   "scoring_notes": "Each type correctly named 0.25"
+  },
+  {
+   "number": 4,
+   "points": 1,
+   "type": "matching",
+   "answer": "1-բ, 2-գ, 3-ays, 4-դ",
+   "scoring_notes": "Each correct match 0.25"
+  },
+  {
+   "number": 5,
+   "points": 1,
+   "type": "fill_blank",
+   "answer": "List of world regions",
+   "scoring_notes": "Each correct region 0.25"
+  },
+  {
+   "number": 6,
+   "points": 1,
+   "type": "fill_blank",
+   "answer": "Thermal zones - each correct zone 0.25",
+   "scoring_notes": "0.25 per correct answer"
+  },
+  {
+   "number": 7,
+   "points": 1,
+   "type": "short_answer",
+   "answer": "1-true, 2-false, 3-true, 4-true",
+   "scoring_notes": "Each correct answer 0.25"
+  },
+  {
+   "number": 8,
+   "points": 0.5,
+   "type": "diagram",
+   "answer": "Mark two federal states on map",
+   "scoring_notes": "Each correctly marked state 0.25"
+  },
+  {
+   "number": 9,
+   "points": 0.5,
+   "type": "computation",
+   "answer": "Azimuth = 270 degrees",
+   "scoring_notes": "Correct azimuth determination 0.5"
+  },
+  {
+   "number": 10,
+   "points": 1,
+   "type": "computation",
+   "answer": "Scale calculation: 40 cm on map",
+   "scoring_notes": "Correct scale application 1.0"
+  },
+  {
+   "number": 11,
+   "points": 1,
+   "type": "table",
+   "answer": "Continent-platform correspondence table",
+   "scoring_notes": "Each correct pair 0.25"
+  },
+  {
+   "number": 12,
+   "points": 1,
+   "type": "essay",
+   "answer": "Population pyramid analysis",
+   "scoring_notes": "Correct interpretation 0.5, demographic implications 0.5"
+  },
+  {
+   "number": 13,
+   "points": 1.5,
+   "type": "computation",
+   "answer": "Birth/death rate difference = 2.3 promille",
+   "scoring_notes": "Each rate correctly calculated 0.5, difference 0.5",
+   "sub_parts": [
+    {
+     "label": "birth_rate",
+     "answer": "Calculate birth rate",
+     "points": 0.5
+    },
+    {
+     "label": "death_rate",
+     "answer": "Calculate death rate",
+     "points": 0.5
+    },
+    {
+     "label": "natural_increase",
+     "answer": "2.3 promille",
+     "points": 0.5
+    }
+   ]
+  },
+  {
+   "number": 14,
+   "points": 1.5,
+   "type": "computation",
+   "answer": "Distance = 3330 km",
+   "scoring_notes": "Correct distance calculation using coordinates 1.5"
+  },
+  {
+   "number": 15,
+   "points": 2,
+   "type": "essay",
+   "answer": "Causes of population decline globally and in specific regions",
+   "scoring_notes": "Causes identified 1.0, analysis 0.5, writing quality 0.5"
+  }
+ ]
+}

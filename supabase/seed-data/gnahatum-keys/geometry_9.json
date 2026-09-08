@@ -1,0 +1,113 @@
+{
+ "subject": "geometry",
+ "grade": 9,
+ "doc": "1zkqDpw89inqeqYM9zDIpfrzkfgCrJnXTrw0CTs6eJYw",
+ "notes": "Exported from the live ararka.tests row on 2026-09-08 — this test was originally added through the Gnahatum importer UI, not from a seed file.",
+ "key": [
+  {
+   "number": 1,
+   "points": 0.5,
+   "type": "matching",
+   "answer": "ays: opposite vectors, բ: non-parallel vectors, գ: equal vectors",
+   "scoring_notes": "All correct identifications 0.5"
+  },
+  {
+   "number": 2,
+   "points": 0.5,
+   "type": "matching",
+   "answer": "Pentagon / Rhombus / Trapezoid (identify polygons)",
+   "scoring_notes": "All correct names 0.5"
+  },
+  {
+   "number": 3,
+   "points": 1,
+   "type": "short_answer",
+   "answer": "Parallelogram area = base × height",
+   "scoring_notes": "Correct formula/theorem 1.0"
+  },
+  {
+   "number": 4,
+   "points": 1,
+   "type": "short_answer",
+   "answer": "ays: Any polygon has a diagonal FALSE, բ: Rectangle diagonals are equal TRUE, գ: All rhombus angles are equal FALSE, դ: Trapezoid bases are parallel TRUE",
+   "scoring_notes": "Each correct answer 0.5 (only բ and դ are true)"
+  },
+  {
+   "number": 5,
+   "points": 1,
+   "type": "short_answer",
+   "answer": "AA similarity criterion: If two angles of one triangle equal two angles of another, triangles are similar",
+   "scoring_notes": "Complete correct statement 1.0"
+  },
+  {
+   "number": 6,
+   "points": 1,
+   "type": "fill_blank",
+   "answer": "Midpoint: x₀=(x₁+x₂)/2, y₀=(y₁+y₂)/2. Distance: √((x₂-x₁)²+(y₂-y₁)²)",
+   "scoring_notes": "Each correct formula 0.5"
+  },
+  {
+   "number": 7,
+   "points": 1,
+   "type": "short_answer",
+   "answer": "Rhombus diagonals: intersect and bisect each other, are perpendicular, bisect the angles",
+   "scoring_notes": "Each correct property 0.5"
+  },
+  {
+   "number": 8,
+   "points": 0.5,
+   "type": "computation",
+   "answer": "AC = 2·EF = 16 (midsegment theorem)",
+   "scoring_notes": "Correct answer 0.5"
+  },
+  {
+   "number": 9,
+   "points": 0.5,
+   "type": "computation",
+   "answer": "A₁B₁ = AB/k = 28/2 = 14 (similar triangles, ratio k=2, so A₁B₁=3·AB=45... [from source: A₁B₁=3AB=45 or 28/2=14])",
+   "scoring_notes": "Correct similar triangles calculation 0.5"
+  },
+  {
+   "number": 10,
+   "points": 1,
+   "type": "computation",
+   "answer": "By Pythagorean theorem: √(15²-12²) = √(225-144) = √81 = 9. Total: 18+24=42",
+   "scoring_notes": "Correct Pythagorean calculation and final answer 1.0"
+  },
+  {
+   "number": 11,
+   "points": 1,
+   "type": "computation",
+   "answer": "Using midpoint formula: A(x,y): 1=(x+4)/2 → x=-2, 5=(y+3)/2 → y=7. A(-2, 7)",
+   "scoring_notes": "Each coordinate correct 0.5"
+  },
+  {
+   "number": 12,
+   "points": 1,
+   "type": "computation",
+   "answer": "k = QR/YZ = 4/3. P_PQR = 6+4+7 = 17. P_YZX = 17×3/4 = 51/4",
+   "scoring_notes": "Found perimeter 0.25, found ratio 0.25, found other perimeter 0.5"
+  },
+  {
+   "number": 13,
+   "points": 1.5,
+   "type": "computation",
+   "answer": "Point coordinates from graph: (8, -1). Midpoint: xM=(8+(-3))/2=2.5, yM=(5+(-1))/2=2",
+   "scoring_notes": "Correct coordinates from graph 1.0, correct midpoint 0.5"
+  },
+  {
+   "number": 14,
+   "points": 1.5,
+   "type": "computation",
+   "answer": "AB⃗ = {0-0, 4-0} = {0,4}, |AB⃗| = 4. BC⃗ = {3-0, 0-4} = {3,-4}, |BC⃗| = 5",
+   "scoring_notes": "Correct vector coordinates 0.5, correct AB length 0.5, correct BC length 0.5"
+  },
+  {
+   "number": 15,
+   "points": 2,
+   "type": "essay",
+   "answer": "Triangle similarity application: add missing data (e.g. BD=5m), compose problem, solve using similarity ratio: (x+5)/x = 3.6/0.9 = 4 → x = 5/3",
+   "scoring_notes": "Added missing data 0.5, composed problem 0.5, solved correctly 1.0"
+  }
+ ]
+}

@@ -1,0 +1,113 @@
+{
+ "subject": "ict",
+ "grade": 9,
+ "doc": "1URdhVxSgwYzTSmHWdBx_4zXH6Sy8_uaJ-BzNekBebI4",
+ "notes": "Exported from the live ararka.tests row on 2026-09-08 — this test was originally added through the Gnahatum importer UI, not from a seed file.",
+ "key": [
+  {
+   "number": 1,
+   "points": 0.5,
+   "type": "short_answer",
+   "answer": "Page background settings",
+   "scoring_notes": "Correct answer 0.5"
+  },
+  {
+   "number": 2,
+   "points": 0.5,
+   "type": "short_answer",
+   "answer": "Margin settings (page layout)",
+   "scoring_notes": "Correct answer 0.5"
+  },
+  {
+   "number": 3,
+   "points": 1,
+   "type": "matching",
+   "answer": "File operations: save/print/cut/copy",
+   "scoring_notes": "Each correct match 0.25"
+  },
+  {
+   "number": 4,
+   "points": 1,
+   "type": "multiple_choice",
+   "answer": "բ - formula =4*6+5",
+   "scoring_notes": "Correct selection 1.0"
+  },
+  {
+   "number": 5,
+   "points": 1,
+   "type": "short_answer",
+   "answer": "Spreadsheet true/false statements",
+   "scoring_notes": "Each correct answer 0.25"
+  },
+  {
+   "number": 6,
+   "points": 1,
+   "type": "short_answer",
+   "answer": "Ctrl+Enter (line break in cell)",
+   "scoring_notes": "Correct shortcut 1.0"
+  },
+  {
+   "number": 7,
+   "points": 1,
+   "type": "computation",
+   "answer": "Binary conversion steps (show work)",
+   "scoring_notes": "Correct conversion process 1.0"
+  },
+  {
+   "number": 8,
+   "points": 0.5,
+   "type": "computation",
+   "answer": "Answer = 4",
+   "scoring_notes": "Correct calculation 0.5"
+  },
+  {
+   "number": 9,
+   "points": 0.5,
+   "type": "table",
+   "answer": "SUM function in spreadsheet table",
+   "scoring_notes": "Correct formula and result 0.5"
+  },
+  {
+   "number": 10,
+   "points": 1,
+   "type": "computation",
+   "answer": "Binary: 110101",
+   "scoring_notes": "Correct binary representation 1.0"
+  },
+  {
+   "number": 11,
+   "points": 1,
+   "type": "computation",
+   "answer": "5655 bytes (file size calculation)",
+   "scoring_notes": "Correct calculation 1.0"
+  },
+  {
+   "number": 12,
+   "points": 1,
+   "type": "computation",
+   "answer": "Binary to decimal: 110110 = 54",
+   "scoring_notes": "Correct conversion 1.0"
+  },
+  {
+   "number": 13,
+   "points": 1.5,
+   "type": "table",
+   "answer": "Spreadsheet with averages (AVERAGE function)",
+   "scoring_notes": "Correct formulas and values 1.5"
+  },
+  {
+   "number": 14,
+   "points": 1.5,
+   "type": "diagram",
+   "answer": "25×10 binary image encoding",
+   "scoring_notes": "Correct encoding 1.5"
+  },
+  {
+   "number": 15,
+   "points": 2,
+   "type": "essay",
+   "answer": "Word features useful for scientists vs humanities scholars",
+   "scoring_notes": "Science features 0.5, humanities features 0.5, comparison 0.5, writing quality 0.5"
+  }
+ ]
+}

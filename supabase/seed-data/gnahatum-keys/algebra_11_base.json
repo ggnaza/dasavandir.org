@@ -1,0 +1,136 @@
+{
+ "subject": "algebra",
+ "grade": 11,
+ "test_type": "diagnostic_base",
+ "doc": "1zkqDpw89inqeqYM9zDIpfrzkfgCrJnXTrw0CTs6eJYw",
+ "notes": "Exported from the live ararka.tests row on 2026-09-08 — this test was originally added through the Gnahatum importer UI, not from a seed file.",
+ "key": [
+  {
+   "number": 1,
+   "points": 0.5,
+   "type": "computation",
+   "answer": "ays: 60° = π/3 radians, բ: 90° = π/2 radians",
+   "scoring_notes": "Each correct conversion 0.25"
+  },
+  {
+   "number": 2,
+   "points": 0.5,
+   "type": "short_answer",
+   "answer": "Shift f(x) graph 6 units up along y-axis",
+   "scoring_notes": "Correct transformation description 0.5"
+  },
+  {
+   "number": 3,
+   "points": 1,
+   "type": "computation",
+   "answer": "x = π/2 + πk (trigonometric equation general solution)",
+   "scoring_notes": "Correct general solution 1.0"
+  },
+  {
+   "number": 4,
+   "points": 1,
+   "type": "short_answer",
+   "answer": "ays: P(impossible)=0 TRUE, բ: P can be any number FALSE, գ: equally likely events have equal probabilities TRUE, դ: favorable outcomes cannot exceed total outcomes TRUE",
+   "scoring_notes": "Correct identification of false statement (բ) 1.0"
+  },
+  {
+   "number": 5,
+   "points": 1,
+   "type": "fill_blank",
+   "answer": "ays: (ab)^m = a^m * b^m, բ: (a^m)^n = a^(mn)",
+   "scoring_notes": "Each correct rule 0.5"
+  },
+  {
+   "number": 6,
+   "points": 1,
+   "type": "fill_blank",
+   "answer": "ays: y=cos(x) period 2π, բ: y=sin(x) period 2π, գ: y=tan(x) period π, դ: y=cot(x) period π",
+   "scoring_notes": "Each correct period 0.25"
+  },
+  {
+   "number": 7,
+   "points": 1,
+   "type": "diagram",
+   "answer": "Graph construction (sketch of function with axis intercepts marked)",
+   "scoring_notes": "Graph outline 0.5, intercept coordinates 0.5"
+  },
+  {
+   "number": 8,
+   "points": 0.5,
+   "type": "computation",
+   "answer": "(5^(1/3))^3 = 5^1 = 5^(3/2) [= sqrt(5^3)]",
+   "scoring_notes": "Correct exponent calculation 0.5"
+  },
+  {
+   "number": 9,
+   "points": 0.5,
+   "type": "table",
+   "answer": "Trig values table: sin/cos/tan/cot at 0°,30°,45°,60°,90°",
+   "scoring_notes": "Correctly filled table 0.5",
+   "sub_parts": [
+    {
+     "label": "sin",
+     "answer": "0, 1/2, √2/2, √3/2, 1",
+     "points": 0.125
+    },
+    {
+     "label": "cos",
+     "answer": "1, √3/2, √2/2, 1/2, 0",
+     "points": 0.125
+    },
+    {
+     "label": "tan",
+     "answer": "0, √3/3, 1, √3, undefined",
+     "points": 0.125
+    },
+    {
+     "label": "cot",
+     "answer": "undefined, √3, 1, √3/3, 0",
+     "points": 0.125
+    }
+   ]
+  },
+  {
+   "number": 10,
+   "points": 1,
+   "type": "computation",
+   "answer": "y = 5 + sqrt(3x-2). Domain: x>2/3, D=(2/3, +∞) ∪ {exclude x=2/3 if strict}. Range: E=(5, +∞)",
+   "scoring_notes": "Correct domain 0.5, correct range 0.5"
+  },
+  {
+   "number": 11,
+   "points": 1,
+   "type": "computation",
+   "answer": "3^n < 3^(√7) < 3^(n+1). Since 2 < √7 < 3, n = 2",
+   "scoring_notes": "Correct estimation of √7 and finding n 1.0"
+  },
+  {
+   "number": 12,
+   "points": 1,
+   "type": "essay",
+   "answer": "Even function proof: y=sin(x^2)+5x^4. 1) D(y)=R symmetric about 0. 2) y(-x)=sin((-x)^2)+5(-x)^4=sin(x^2)+5x^4=y(x). Therefore even.",
+   "scoring_notes": "Checked domain symmetry and f(-x)=f(x) 1.0"
+  },
+  {
+   "number": 13,
+   "points": 1.5,
+   "type": "computation",
+   "answer": "Independent events: P(both universities) = 0.9 × 0.8 = 0.72 (72%)",
+   "scoring_notes": "Correct formula applied 1.0, correct probability 0.5"
+  },
+  {
+   "number": 14,
+   "points": 1.5,
+   "type": "computation",
+   "answer": "(√x - √y)(√x + √y) - √(xy) = x - y - √(xy). When x=12, y=3: 12-3-√36 = 12-3-6 = 5 [wait, let me recalc: 12-3-6=3, but source says 11-6=5 with x=12,y=3]",
+   "scoring_notes": "Simplified expression 1.0, calculated value 0.5"
+  },
+  {
+   "number": 15,
+   "points": 2,
+   "type": "essay",
+   "answer": "Number sets: N⊂Z⊂Q⊂R. Irrational numbers exist (√2, π) that are real but not rational. Diagram showing concentric sets.",
+   "scoring_notes": "Correct set diagram 1.0, justified with examples 0.5, appropriate examples 0.5"
+  }
+ ]
+}

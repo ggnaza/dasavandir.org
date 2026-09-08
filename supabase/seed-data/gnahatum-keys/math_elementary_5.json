@@ -1,0 +1,113 @@
+{
+ "subject": "math_elementary",
+ "grade": 5,
+ "doc": "1zkqDpw89inqeqYM9zDIpfrzkfgCrJnXTrw0CTs6eJYw",
+ "notes": "Exported from the live ararka.tests row on 2026-09-08 — this test was originally added through the Gnahatum importer UI, not from a seed file.",
+ "key": [
+  {
+   "number": 1,
+   "points": 0.5,
+   "type": "table",
+   "answer": "Fractions table: Regular fractions (1/2, 7/10, 4/8) vs Improper fractions (3/2, 5/5, 5/2)",
+   "scoring_notes": "Each correct column entry 0.25"
+  },
+  {
+   "number": 2,
+   "points": 0.5,
+   "type": "fill_blank",
+   "answer": "34590; 34592; 34594; 34596; 34598",
+   "scoring_notes": "All even numbers listed correctly 0.5"
+  },
+  {
+   "number": 3,
+   "points": 1,
+   "type": "fill_blank",
+   "answer": "A(5), B(11) - coordinates on number line",
+   "scoring_notes": "Each correct coordinate 0.5"
+  },
+  {
+   "number": 4,
+   "points": 1,
+   "type": "computation",
+   "answer": "ays=12, բ=14, գ=17, դ=23",
+   "scoring_notes": "Each correct step 0.25"
+  },
+  {
+   "number": 5,
+   "points": 1,
+   "type": "short_answer",
+   "answer": "ays: false (time=distance/speed not distance*speed), բ: true, գ: false (km/h is speed not distance unit), դ: true",
+   "scoring_notes": "Each correct answer 0.25"
+  },
+  {
+   "number": 6,
+   "points": 1,
+   "type": "fill_blank",
+   "answer": "Divisibility by 2 and 5 - Venn diagram",
+   "scoring_notes": "Only div by 2 field 0.5, only div by 5 field 0.5"
+  },
+  {
+   "number": 7,
+   "points": 1,
+   "type": "table",
+   "answer": "Speed-distance-time table: 60:10=6 hours, 2*8=16 km",
+   "scoring_notes": "Each correct data entry 0.5"
+  },
+  {
+   "number": 8,
+   "points": 0.5,
+   "type": "computation",
+   "answer": "68 (12*5+8=68, finding the dividend)",
+   "scoring_notes": "Correct working and answer 0.5"
+  },
+  {
+   "number": 9,
+   "points": 0.5,
+   "type": "computation",
+   "answer": "Distance = 6 units (9-3=6)",
+   "scoring_notes": "Correct distance on number line 0.5"
+  },
+  {
+   "number": 10,
+   "points": 1,
+   "type": "computation",
+   "answer": "18 (24+66=90, 90/5=18)",
+   "scoring_notes": "Correct operations 0.5 each"
+  },
+  {
+   "number": 11,
+   "points": 1,
+   "type": "computation",
+   "answer": "Step 1: 30*1/3=10 students, Step 2: 30-10=20, Step 3: 20>10 more book lovers",
+   "scoring_notes": "Each step 0.33"
+  },
+  {
+   "number": 12,
+   "points": 1,
+   "type": "computation",
+   "answer": "Father born in 1975 (divisible by both 5 and 25 but not by 2, between 1950-2000)",
+   "scoring_notes": "Identifying possible years 0.5, finding 1975 as answer 0.5"
+  },
+  {
+   "number": 13,
+   "points": 1.5,
+   "type": "computation",
+   "answer": "4240 / 20 = 212",
+   "scoring_notes": "Correct long division with all digits 1.5"
+  },
+  {
+   "number": 14,
+   "points": 1.5,
+   "type": "short_answer",
+   "answer": "Word problem about two people walking toward each other: 15+18=33 km/h combined, 33*2=66 km total distance",
+   "scoring_notes": "Problem formulation 1.0, correct solution 0.5"
+  },
+  {
+   "number": 15,
+   "points": 2,
+   "type": "essay",
+   "answer": "Alternative number line design (spiral, circular, etc.) with advantages and disadvantages",
+   "scoring_notes": "Design presented 0.5, advantage 0.5, disadvantage 0.5, clear writing 0.5"
+  }
+ ]
+}

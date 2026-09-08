@@ -3,7 +3,10 @@
  * Generate the idempotent seed migration for Gnahatum diagnostic answer keys.
  *
  * Input:  one JSON file per test under the directory given as argv[2],
- *         shaped { subject, grade, doc, notes, key: AnswerKeyItem[] }.
+ *         shaped { subject, grade, test_type?, doc, notes, key: AnswerKeyItem[] }.
+ *         test_type defaults to 'diagnostic'; algebra and geometry each carry a
+ *         հենքային (base) and a նպատակային (target) paper at grade 11, so a
+ *         subject+grade pair is not on its own unique.
  * Output: SQL on stdout.
  *
  * Every key is validated before it is emitted — 15 questions, points matching
@@ -20,6 +23,12 @@ const POINT_DISTRIBUTION = {
   8: 0.5, 9: 0.5, 10: 1, 11: 1, 12: 1, 13: 1.5, 14: 1.5,
   15: 2,
 };
+
+// The four rows `tests.test_type` accepts. A typo here would not conflict with
+// the intended row and would silently create a fifth, unreachable test.
+const VALID_TEST_TYPES = new Set([
+  "diagnostic", "diagnostic_base", "diagnostic_target", "summative",
+]);
 
 const VALID_TYPES = new Set([
   "multiple_choice", "fill_blank", "matching", "short_answer",
@@ -49,9 +58,14 @@ const problems = [];
 for (const file of files) {
   const data = JSON.parse(readFileSync(join(dir, file), "utf8"));
   const { subject, grade, doc, notes, key } = data;
+  const testType = data.test_type ?? "diagnostic";
 
   if (!subject || !grade || !Array.isArray(key)) {
     problems.push(`${file}: missing subject, grade or key`);
+    continue;
+  }
+  if (!VALID_TEST_TYPES.has(testType)) {
+    problems.push(`${file}: unknown test_type "${testType}"`);
     continue;
   }
   if (key.length !== 15) {
@@ -82,7 +96,15 @@ for (const file of files) {
   const seen = new Set(key.map((k) => k.number));
   if (seen.size !== 15) problems.push(`${file}: duplicate question numbers`);
 
-  rows.push({ subject, grade, doc, notes, key });
+  const dupe = rows.find(
+    (r) => r.subject === subject && r.grade === grade && r.testType === testType,
+  );
+  if (dupe) {
+    problems.push(`${file}: duplicates ${dupe.file} — same subject, grade and test_type`);
+    continue;
+  }
+
+  rows.push({ file, subject, grade, testType, doc, notes, key });
 }
 
 if (problems.length) {
@@ -112,7 +134,7 @@ for (const row of rows) {
     `INSERT INTO ararka.tests (subject_id, grade, test_type, year, total_points, answer_key, scoring_notes, source_file_id)`,
   );
   out.push(
-    `VALUES (${sqlString(row.subject)}, ${row.grade}, 'diagnostic', '${YEAR}', 15.0, ${sqlString(answerKey)}::jsonb, ${sqlString(row.notes ?? null)}, ${sqlString(row.doc ?? null)})`,
+    `VALUES (${sqlString(row.subject)}, ${row.grade}, ${sqlString(row.testType)}, '${YEAR}', 15.0, ${sqlString(answerKey)}::jsonb, ${sqlString(row.notes ?? null)}, ${sqlString(row.doc ?? null)})`,
   );
   out.push(`ON CONFLICT (subject_id, grade, test_type, year) DO UPDATE`);
   out.push(

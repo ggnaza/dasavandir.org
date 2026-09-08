@@ -1,0 +1,114 @@
+{
+ "subject": "geometry",
+ "grade": 11,
+ "test_type": "diagnostic_base",
+ "doc": "1zkqDpw89inqeqYM9zDIpfrzkfgCrJnXTrw0CTs6eJYw",
+ "notes": "Exported from the live ararka.tests row on 2026-09-08 — this test was originally added through the Gnahatum importer UI, not from a seed file.",
+ "key": [
+  {
+   "number": 1,
+   "points": 0.5,
+   "type": "short_answer",
+   "answer": "Skew lines identification",
+   "scoring_notes": "Correct identification 0.5"
+  },
+  {
+   "number": 2,
+   "points": 0.5,
+   "type": "fill_blank",
+   "answer": "Space diagonal formula component",
+   "scoring_notes": "Correct formula 0.5"
+  },
+  {
+   "number": 3,
+   "points": 1,
+   "type": "short_answer",
+   "answer": "3D shape identification (pyramid/cube)",
+   "scoring_notes": "Each correct identification 0.5"
+  },
+  {
+   "number": 4,
+   "points": 1,
+   "type": "short_answer",
+   "answer": "True/false statements about lines and planes in 3D",
+   "scoring_notes": "Each correct answer 0.25"
+  },
+  {
+   "number": 5,
+   "points": 1,
+   "type": "short_answer",
+   "answer": "Skew lines reasoning",
+   "scoring_notes": "Correct explanation 1.0"
+  },
+  {
+   "number": 6,
+   "points": 1,
+   "type": "diagram",
+   "answer": "3D geometric construction",
+   "scoring_notes": "Correct construction 1.0"
+  },
+  {
+   "number": 7,
+   "points": 1,
+   "type": "table",
+   "answer": "Prism and pyramid formulas (vertices, faces, edges)",
+   "scoring_notes": "Each correct formula 0.25"
+  },
+  {
+   "number": 8,
+   "points": 0.5,
+   "type": "computation",
+   "answer": "Angle calculation in 3D geometry",
+   "scoring_notes": "Correct calculation 0.5"
+  },
+  {
+   "number": 9,
+   "points": 0.5,
+   "type": "computation",
+   "answer": "Angle between oblique and plane",
+   "scoring_notes": "Correct calculation 0.5"
+  },
+  {
+   "number": 10,
+   "points": 1,
+   "type": "computation",
+   "answer": "Surface area calculation",
+   "scoring_notes": "Correct calculation 1.0"
+  },
+  {
+   "number": 11,
+   "points": 1,
+   "type": "computation",
+   "answer": "Side/angle calculation using trigonometry",
+   "scoring_notes": "Correct calculation 1.0"
+  },
+  {
+   "number": 12,
+   "points": 1,
+   "type": "computation",
+   "answer": "Pythagorean theorem application in 3D",
+   "scoring_notes": "Correct calculation 1.0"
+  },
+  {
+   "number": 13,
+   "points": 1.5,
+   "type": "computation",
+   "answer": "Prism surface area calculation",
+   "scoring_notes": "Complete calculation with all parts 1.5"
+  },
+  {
+   "number": 14,
+   "points": 1.5,
+   "type": "computation",
+   "answer": "Pyramid calculations",
+   "scoring_notes": "Correct calculations 1.5"
+  },
+  {
+   "number": 15,
+   "points": 2,
+   "type": "essay",
+   "answer": "3D geometry application essay",
+   "scoring_notes": "Analysis 1.0, application 0.5, writing 0.5"
+  }
+ ]
+}

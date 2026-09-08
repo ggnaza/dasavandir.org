@@ -1,0 +1,113 @@
+{
+ "subject": "algebra",
+ "grade": 7,
+ "doc": "1zkqDpw89inqeqYM9zDIpfrzkfgCrJnXTrw0CTs6eJYw",
+ "notes": "Exported from the live ararka.tests row on 2026-09-08 — this test was originally added through the Gnahatum importer UI, not from a seed file.",
+ "key": [
+  {
+   "number": 1,
+   "points": 0.5,
+   "type": "fill_blank",
+   "answer": "Middle terms: 4 and a; Extreme terms: 3 and 8",
+   "scoring_notes": "One pair correct 0.25, both pairs 0.5"
+  },
+  {
+   "number": 2,
+   "points": 0.5,
+   "type": "fill_blank",
+   "answer": "M(6; -5), H(-5; 6)",
+   "scoring_notes": "One point correct 0.25, both 0.5"
+  },
+  {
+   "number": 3,
+   "points": 1,
+   "type": "short_answer",
+   "answer": "ays: true (0 is rational), բ: false (negative fractions are rational), գ: true (larger = more right on number line), դ: true (same-sign product is positive)",
+   "scoring_notes": "Each correct answer 0.25"
+  },
+  {
+   "number": 4,
+   "points": 1,
+   "type": "computation",
+   "answer": "-1 is not a solution, 4 is a solution (equation checking by substitution)",
+   "scoring_notes": "Both checks correct with work shown 1.0, correct answers without work 0.5"
+  },
+  {
+   "number": 5,
+   "points": 1,
+   "type": "matching",
+   "answer": "ays: graph, բ: line diagram, գ: pie/circular diagram, դ: bar/column diagram",
+   "scoring_notes": "Each correct match 0.25"
+  },
+  {
+   "number": 6,
+   "points": 1,
+   "type": "short_answer",
+   "answer": "a/100 * p% (percent formula)",
+   "scoring_notes": "Correct formula 1.0"
+  },
+  {
+   "number": 7,
+   "points": 1,
+   "type": "short_answer",
+   "answer": "To add two integers with same sign: add their absolute values and put the corresponding sign",
+   "scoring_notes": "Complete correct definition 1.0"
+  },
+  {
+   "number": 8,
+   "points": 0.5,
+   "type": "computation",
+   "answer": "Hottest: day 6 = 35°, Coldest: day 1 = 25°, Difference = 10°",
+   "scoring_notes": "Found hot/cold days 0.25, calculated difference 0.25"
+  },
+  {
+   "number": 9,
+   "points": 0.5,
+   "type": "computation",
+   "answer": "(-3 1/2) + (-1 2/3) = (-7/2) + (-5/2) = -12/2 = -6",
+   "scoring_notes": "Converted to improper fractions 0.25, correct sum 0.25"
+  },
+  {
+   "number": 10,
+   "points": 1,
+   "type": "computation",
+   "answer": "2x - 4 = 6x + 9 => -4x = 13 => x = -13/4",
+   "scoring_notes": "Correct grouping 0.5, correct division 0.5"
+  },
+  {
+   "number": 11,
+   "points": 1,
+   "type": "diagram",
+   "answer": "Coordinate plane with correctly plotted points",
+   "scoring_notes": "Correct axes 0.25, one point 0.5, two points 0.75, three points 1.0"
+  },
+  {
+   "number": 12,
+   "points": 1,
+   "type": "computation",
+   "answer": "-2 - 3 + 4 = -1",
+   "scoring_notes": "Correct expression composition 0.5, correct value 0.5"
+  },
+  {
+   "number": 13,
+   "points": 1.5,
+   "type": "table",
+   "answer": "Budget table: Food 45% = 90000, Utilities 20% = 40000, Household 4% = 8000, Savings 10% = 20000",
+   "scoring_notes": "Each correct row 0.25"
+  },
+  {
+   "number": 14,
+   "points": 1.5,
+   "type": "computation",
+   "answer": "First garden: 42 rose bushes, Second: 14 rose bushes",
+   "scoring_notes": "Set up equation 1.0, solved correctly 0.5"
+  },
+  {
+   "number": 15,
+   "points": 2,
+   "type": "essay",
+   "answer": "Probability problem: 7 apples + 4 pears + 9 oranges = 20 fruits. Apple P=35%, Pear P=20%, Orange P=45%. Game is unfair. Make equal quantities for fairness.",
+   "scoring_notes": "Correct calculations 0.5, risk assessment 0.5, logical solution proposed 0.5, clear writing 0.5"
+  }
+ ]
+}
