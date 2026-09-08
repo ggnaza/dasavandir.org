@@ -102,6 +102,28 @@ check(
   "the fallback JSON.parse is unwrapped again — a raw V8 parse error will reach the operator",
 );
 
+// --- the paper may already be graded; the model must not copy the marks ---
+check(
+  /THE PAPER MAY ALREADY BE GRADED\. IGNORE THAT COMPLETELY\./.test(src),
+  "prompt no longer opens with the teacher-mark prohibition — the model copied teacher scores in production",
+);
+check(
+  /NEVER mention a teacher's mark, score or comment in any explanation/.test(src),
+  "prompt no longer forbids citing teacher marks in explanations — that ban is what makes leakage detectable",
+);
+check(
+  /citesTeacherMark/.test(src) && /contradictsOwnMath/.test(src),
+  "server-side detection of teacher-mark leakage / self-contradictory awards was removed",
+);
+check(
+  /SHOW THE ARITHMETIC, THEN MATCH IT/.test(src),
+  "prompt no longer requires awarded_points to equal the stated arithmetic",
+);
+check(
+  /ONE correct pair out of four still earns 0\.25/.test(src),
+  "prompt no longer spells out the one-of-four matching case, where the zeros cluster",
+);
+
 // --- the corpus these rules exist for must still carry quarter-point rubrics ---
 const quarterPoint = readdirSync(KEYS_DIR)
   .filter((f) => f.endsWith(".json"))

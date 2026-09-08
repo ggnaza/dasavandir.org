@@ -60,5 +60,15 @@ export interface ScoredItem {
   correct_answer: string;
   is_correct: boolean;
   confidence: number;
+  /** The model's own arithmetic for the award, e.g. "3 of 4 pairs = 3 x 0.25 = 0.75". */
+  points_breakdown?: string;
   explanation?: string;
+  /**
+   * Set by the scorer when an item needs a human look for a reason the model
+   * cannot be trusted to report: its award contradicted its own arithmetic, or
+   * it graded by reference to the teacher's existing marks. Present only when
+   * something was detected; confidence is forced below the review threshold
+   * alongside it.
+   */
+  review_flags?: string[];
 }

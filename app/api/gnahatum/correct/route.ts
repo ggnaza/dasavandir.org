@@ -47,7 +47,11 @@ export async function POST(request: Request) {
   const teacherItems = items.map((item) => {
     const correction = corrections.find((c) => c.question_number === item.number);
     if (correction) {
-      const maxPts = POINT_DISTRIBUTION[item.number] ?? item.max_points;
+      // The item's own max wins: it came from the test's answer key, which is
+      // the authority. POINT_DISTRIBUTION only covers the standard 15-question
+      // shape and clamps anything past Q15 to 0 — same bug that was fixed in
+      // the scorer.
+      const maxPts = item.max_points ?? POINT_DISTRIBUTION[item.number] ?? 0;
       return {
         ...item,
         awarded_points: Math.min(Math.max(correction.teacher_score, 0), maxPts),
