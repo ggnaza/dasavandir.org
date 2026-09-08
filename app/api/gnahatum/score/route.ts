@@ -11,7 +11,10 @@ import {
   isOwnedBy,
 } from "@/lib/gnahatum/storage";
 
-export const maxDuration = 120;
+// High-resolution scans and thinking-enabled models are slower than the
+// original Gemini 2.5 path. A timeout kills the function before the catch
+// below can run, which is what leaves a scan stuck at 'processing' forever.
+export const maxDuration = 300;
 
 interface ScoreRequest {
   test_id?: string;
@@ -189,8 +192,14 @@ export async function POST(request: Request) {
       teacherName: scoringResult.teacherName,
     });
   } catch (err) {
-    await db.from("scans").update({ status: "error" }).eq("id", scan.id);
     const message = err instanceof Error ? err.message : "Scoring failed";
+    // Persist the reason, not just the status. Without this the failure exists
+    // only in the caller's response body and is gone the moment the tab closes.
+    console.error(`[gnahatum/score] scan ${scan.id} failed:`, message);
+    await db
+      .from("scans")
+      .update({ status: "error", error_text: message.slice(0, 2000) })
+      .eq("id", scan.id);
     return Response.json({ error: message }, { status: 500 });
   }
 }

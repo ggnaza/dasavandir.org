@@ -225,8 +225,10 @@ async function scoreWithGemini(
 
   const generationConfig: Record<string, unknown> = {
     // A 15-question breakdown with extracted answers and explanations is a lot
-    // of JSON; 4096 truncated it and the parse then failed.
-    maxOutputTokens: 8192,
+    // of JSON; 4096 truncated it and the parse then failed. Thinking tokens are
+    // ALSO drawn from this budget, so it has to cover both — 8192 with thinking
+    // enabled left too little for the answer and the JSON came back truncated.
+    maxOutputTokens: 32768,
     temperature: 0.1,
     // Guarantees a parseable object. Previously the response was free text and
     // the caller regex-matched the first {...}, which broke whenever an
@@ -240,6 +242,10 @@ async function scoreWithGemini(
     // at ~1120, which is the difference that matters for handwriting on a
     // scanned answer sheet. Rejected by 2.5, hence the per-model flag.
     generationConfig.media_resolution = "MEDIA_RESOLUTION_HIGH";
+    // Bounded, not unlimited. Grading a rubric benefits from reasoning, but an
+    // open budget lets the model spend the whole maxOutputTokens thinking and
+    // emit a truncated object — which is what an unbounded budget did here.
+    generationConfig.thinkingConfig = { thinkingBudget: 8192 };
   } else {
     // Gemini 2.5 counts thinking tokens against maxOutputTokens and will
     // happily spend the whole budget before emitting anything, returning no
@@ -266,7 +272,29 @@ async function scoreWithGemini(
   }
 
   const data = await response.json();
-  const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+  const candidate = data.candidates?.[0];
+
+  // Every text part, not just parts[0]: with thinking enabled the answer is not
+  // guaranteed to be the first part, and a long answer can be split across
+  // several. Thought parts are excluded — they are prose and would poison the
+  // JSON parse.
+  const text = (candidate?.content?.parts ?? [])
+    .filter((p: { thought?: boolean; text?: string }) => !p.thought && typeof p.text === "string")
+    .map((p: { text: string }) => p.text)
+    .join("");
+
+  // A truncated response parses as broken JSON and used to surface as a raw
+  // "Expected ',' or ']' ... at position N" with no indication of the cause.
+  // finishReason names it precisely.
+  const finishReason = candidate?.finishReason;
+  if (finishReason && finishReason !== "STOP") {
+    throw new Error(
+      finishReason === "MAX_TOKENS"
+        ? "Gemini hit its output limit before finishing the scoring JSON. The scan may have too many pages, or the model spent the budget thinking."
+        : `Gemini stopped early (${finishReason}) without returning a complete result.`,
+    );
+  }
+
   if (!text) throw new Error("No text response from Gemini");
   return { text, raw: data };
 }
@@ -296,6 +324,12 @@ export async function scoreFromScan(
 
   // Gemini now returns application/json directly; Anthropic still returns text
   // that may carry a prose preamble, so fall back to extracting the object.
+  //
+  // Both parses are wrapped: a bare JSON.parse failure surfaces as V8's
+  // "Expected ',' or ']' after array element in JSON at position 427", which
+  // travels all the way to the operator's screen and says nothing about which
+  // model produced it or what came back. The excerpt is what makes it
+  // actionable; the full text goes to the server log, never to the client.
   let parsed: {
     student_name?: string | null;
     teacher_name?: string | null;
@@ -305,8 +339,26 @@ export async function scoreFromScan(
     parsed = JSON.parse(result.text);
   } catch {
     const jsonMatch = result.text.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) throw new Error("Could not parse scoring response as JSON");
-    parsed = JSON.parse(jsonMatch[0]);
+    try {
+      if (!jsonMatch) throw new Error("no JSON object in the response");
+      parsed = JSON.parse(jsonMatch[0]);
+    } catch (err) {
+      console.error(
+        `[gnahatum/scorer] ${model.id} returned unparseable JSON (${result.text.length} chars):`,
+        result.text.slice(0, 4000),
+      );
+      const detail = err instanceof Error ? err.message : String(err);
+      throw new Error(
+        `${model.name} did not return valid JSON (${detail}). ` +
+          `It replied with ${result.text.length} characters starting: ` +
+          `${JSON.stringify(result.text.slice(0, 200))}`,
+      );
+    }
+  }
+
+  if (!Array.isArray(parsed.items)) {
+    console.error(`[gnahatum/scorer] ${model.id} returned no items array:`, result.text.slice(0, 2000));
+    throw new Error(`${model.name} returned a result with no per-question items.`);
   }
 
   const rawItems = parsed.items ?? [];

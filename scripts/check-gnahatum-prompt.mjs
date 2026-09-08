@@ -80,6 +80,28 @@ check(
   "Gemini 3 scans are no longer requested at high media resolution",
 );
 
+// --- the truncation guards must stay ---
+check(
+  /maxOutputTokens: 32768/.test(src),
+  "output budget dropped below 32768 — thinking tokens share it and a smaller budget truncated the JSON",
+);
+check(
+  /thinkingConfig = \{ thinkingBudget: 8192 \}/.test(src),
+  "Gemini 3 thinking budget is no longer bounded — an open budget can consume the whole output allowance",
+);
+check(
+  /finishReason !== "STOP"/.test(src),
+  "finishReason is no longer checked — a truncated response will crash in JSON.parse instead of reporting MAX_TOKENS",
+);
+check(
+  /\.filter\(\(p: \{ thought\?: boolean; text\?: string \}\) => !p\.thought/.test(src),
+  "Gemini text extraction no longer skips thought parts / reads only parts[0]",
+);
+check(
+  !/parsed = JSON\.parse\(jsonMatch\[0\]\);\n  \}/.test(src),
+  "the fallback JSON.parse is unwrapped again — a raw V8 parse error will reach the operator",
+);
+
 // --- the corpus these rules exist for must still carry quarter-point rubrics ---
 const quarterPoint = readdirSync(KEYS_DIR)
   .filter((f) => f.endsWith(".json"))
