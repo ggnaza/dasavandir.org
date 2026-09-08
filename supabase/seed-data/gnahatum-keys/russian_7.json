@@ -1,0 +1,19 @@
+{"subject":"russian","grade":7,"doc":"1YrdppG5A73qrOPT7QKwnImjGN8yJe4HYXCgVAqvRqK0",
+ "notes":"Header says 2026-2027, like the other Russian papers in this folder. Russian is the one subject where the general guide says spelling errors DO cost points (-0,1 per error). Q3 and Q5 depend on pictures printed on the page. For Q10 the source key simply reprints both sentences with the alternatives intact — the underlining does not survive extraction, so the correct choices are named explicitly below.",
+ "key":[
+ {"number":1,"points":0.5,"type":"table","answer":"Мужской род՝ букварь. Женский род՝ осень. Средний род՝ —","scoring_notes":"2 x 0,25 միավոր"},
+ {"number":2,"points":0.5,"type":"multiple_choice","answer":"а. морозная (зима морозная)"},
+ {"number":3,"points":1,"type":"diagram","answer":"пловец; бегун; теннисист; хоккеист","scoring_notes":"4 x 0,25 միավոր. Նկարներից կախված"},
+ {"number":4,"points":1,"type":"short_answer","answer":"читаю, играет","scoring_notes":"4 x 0,25 միավոր ըստ աղբյուրի, թեև ներկա ժամանակի բայերը երկուսն են"},
+ {"number":5,"points":1,"type":"matching","answer":"1. одевать — а; 2. кататься — г; 3. катать — в; 4. одеваться — б","scoring_notes":"4 x 0,25 միավոր. Նկարներից կախված"},
+ {"number":6,"points":1,"type":"short_answer","answer":"читать — что делать?; играть — что делать?; прочитать — что сделать?; приготовить — что сделать?","scoring_notes":"4 x 0,25 միավոր"},
+ {"number":7,"points":1,"type":"short_answer","answer":"1. Армения находится в горах. 2. В Армении растут сладкие персики и виноград. 3. Дома строят из туфа. Антоним слова «холодно» — «тепло» (жарко)","scoring_notes":"4 x 0,25 միավոր"},
+ {"number":8,"points":0.5,"type":"short_answer","answer":"спортсмен — спортсмены; лист — листья","scoring_notes":"2 x 0,25 միավոր"},
+ {"number":9,"points":0.5,"type":"short_answer","answer":"игра — интересная; шахматист — умный","scoring_notes":"2 x 0,25 միավոր. Ընդունելի է ցանկացած տեղին ածական՝ ճիշտ համաձայնեցմամբ"},
+ {"number":10,"points":1,"type":"multiple_choice","answer":"1. Андрей оделся и пошёл на тренировку. 2. Андрей всегда защищал своего брата","scoring_notes":"2 x 0,5 միավոր. ՈՒՇԱԴՐՈՒԹՅՈՒՆ՝ աղբյուրի բանալին այս հարցի դիմաց պարզապես կրկնում է նախադասությունները՝ առանց ընդգծման; ճիշտ ընտրությունները վերականգնված են քերականորեն — «оделся» (անդրադարձ) և «защищал» (ներգործական՝ եղբորը)"},
+ {"number":11,"points":1,"type":"fill_blank","answer":"У меня нет награды. Анна подарила сумку. Арман работал с другом. На столе лежат ракетки","scoring_notes":"4 x 0,25 միավոր"},
+ {"number":12,"points":1,"type":"fill_blank","answer":"Анна вчера играла в шахматы. Друзья сейчас работают. Пожарный вчера потушил пожар. Мама сейчас смотрит матч","scoring_notes":"4 x 0,25 միավոր"},
+ {"number":13,"points":1.5,"type":"short_answer","answer":"Օրինակ՝ Армения — горная страна. В Армении очень вкусный виноград. В нашей стране находится река Аракс","scoring_notes":"3 x 0,5 միավոր՝ մեկական նախադասություն горный, виноград և река բառերով"},
+ {"number":14,"points":1.5,"type":"short_answer","answer":"Օրինակ՝ — Да, я занимаюсь спортом. — Я занимаюсь боксом и шахматами. — Уже год занимаюсь боксом. Шахматами занимаюсь недавно","scoring_notes":"3 x 0,5 միավոր՝ երեք բաց թողնված ռեպլիկա"},
+ {"number":15,"points":2,"type":"essay","answer":"Օրինակ՝ Я очень люблю фигурное катание. Мне нравится, что фигуристы катаются на льду, и элементы очень сложные. Но при этом они очень красиво катаются. Их катание похоже на танцы на льду","scoring_notes":"3-5 նախադասություն՝ 2 փաստարկով"}
+]}

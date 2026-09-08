@@ -1,0 +1,19 @@
+{"subject":"english","grade":5,"doc":"1yDHlzdSfXjuTgx3oJOigEBUTE7OOAqcUwICMs9t0qWQ",
+ "notes":"2025-2026 edition, հայտորոշիչ, սեպտեմբեր-հոկտեմբեր. Q1-Q3 are listening items scored against the audio recording linked from the paper. Two cosmetic inconsistencies in the source: the Q3 key labels the speakers «A»/«B» where the paper says «Boy»/«Girl» (the values 98 and ice are unaffected), and Հավելված 3 cites the grade-4 textbook.",
+ "key":[
+  {"number":1,"points":0.5,"type":"fill_blank","answer":"It is sunny, humid, and very hot.","scoring_notes":"Listening — the gap is «s______» → sunny.","accepted_variants":["sunny"]},
+  {"number":2,"points":0.5,"type":"true_false","answer":"1) True 2) False","scoring_notes":"2 x 0,25 միավոր. Listening.","accepted_variants":[]},
+  {"number":3,"points":1,"type":"fill_blank","answer":"1) 98 (degrees) 2) ice (water)","scoring_notes":"2 x 0,5 միավոր. Listening.","accepted_variants":[]},
+  {"number":4,"points":1,"type":"matching","answer":"1-b, 2-a","scoring_notes":"2 x 0,5 միավոր. «c» (Ջերմաստիճանը բարձրանում է) is the extra translation.","accepted_variants":[]},
+  {"number":5,"points":1,"type":"multiple_choice","answer":"1) are playing 2) waters","scoring_notes":"2 x 0,5 միավոր.","accepted_variants":[]},
+  {"number":6,"points":1,"type":"short_answer","answer":"1) They have got two sons and a daughter. 2) She doesn't know English.","scoring_notes":"2 x 0,5 միավոր.","accepted_variants":[]},
+  {"number":7,"points":1,"type":"fill_blank","answer":"1) visited 2) wasn't 3) went 4) watched","scoring_notes":"4 x 0,25 միավոր.","accepted_variants":[]},
+  {"number":8,"points":0.5,"type":"short_answer","answer":"season, year","scoring_notes":"2 x 0,25 միավոր. Any two defensible keywords from the text.","accepted_variants":[]},
+  {"number":9,"points":0.5,"type":"short_answer","answer":"Seasons of the Year","scoring_notes":"Any title built on the pupil's own Task 8 keywords.","accepted_variants":[]},
+  {"number":10,"points":1,"type":"short_answer","answer":"Why do children like this season?","scoring_notes":"Any grammatical Wh- question about the underlined section.","accepted_variants":[]},
+  {"number":11,"points":1,"type":"short_answer","answer":"1) Did Ann go to the park yesterday? 2) Did Mr. Brown watch TV yesterday morning?","scoring_notes":"2 x 0,5 միավոր.","accepted_variants":[]},
+  {"number":12,"points":1,"type":"short_answer","answer":"1) I had breakfast in the kitchen yesterday. 2) She went to the cinema with her friends yesterday.","scoring_notes":"2 x 0,5 միավոր.","accepted_variants":[]},
+  {"number":13,"points":1.5,"type":"fill_blank","answer":"1) What are the rabbits doing now? 2) What is the lion doing now? 3) What is Ann doing in the garden?","scoring_notes":"3 x 0,5 միավոր.","accepted_variants":[]},
+  {"number":14,"points":1.5,"type":"short_answer","answer":"1) I wake up at 7 o'clock every day. 2) Aram is playing in the yard now. 3) We went to the beach last year.","scoring_notes":"3 x 0,5 միավոր.","accepted_variants":[]},
+  {"number":15,"points":2,"type":"essay","answer":"An invented season filled into the four-row table, e.g. Name: Golden Fall. Weather: cool and windy, no clouds, fresh air, sometimes rain then sun. Colors: gold, orange and red leaves, bright blue sky, still-green grass. Activities: walking in parks and collecting leaves, flying kites, small festivals, children playing in the leaves.","scoring_notes":"Critical thinking — at least four sentences across the four rows.","accepted_variants":[]}
+ ]}
