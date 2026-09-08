@@ -26,7 +26,10 @@ const KEYS_DIR = "supabase/seed-data/gnahatum-keys";
 const failures = [];
 const check = (ok, message) => { if (!ok) failures.push(message); };
 
-const src = readFileSync(SCORER, "utf8");
+// The prompts and schemas live in prompts.ts (import-free so a Node harness
+// can run them); the orchestration and provider calls stay in scorer.ts. The
+// contract spans both, so they are checked as one source.
+const src = readFileSync(SCORER, "utf8") + "\n" + readFileSync("lib/gnahatum/prompts.ts", "utf8");
 
 // --- the prompt must authorise sub-half-point awards ---
 check(
