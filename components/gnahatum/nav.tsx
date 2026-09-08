@@ -15,6 +15,7 @@ const LINKS: NavLink[] = [
   { href: "/gnahatum", label: "Tests", exact: true },
   { href: "/gnahatum/scan", label: "Upload & Score" },
   { href: "/gnahatum/results", label: "Results" },
+  { href: "/gnahatum/tests/import", label: "Import test", ldmOnly: true },
   { href: "/gnahatum/calibrate", label: "Calibrate", ldmOnly: true },
   { href: "/gnahatum/training", label: "Training", ldmOnly: true },
 ];
