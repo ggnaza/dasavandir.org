@@ -3,7 +3,7 @@
  "key":[
  {"number":1,"points":0.5,"type":"short_answer","answer":"Հասարակությունն իրար հետ ապրող և որոշակի ձևով կազմակերպված մարդկանց հանրություն է, որն ունի ընդհանուր կանոններ ու մշակույթ"},
  {"number":2,"points":0.5,"type":"short_answer","answer":"3 խումբ՝ բնական կամ կենսաբանական, հասարակական-սոցիալական և մշակութային","scoring_notes":"2 x 0,25 միավոր"},
- {"number":3,"points":1,"type":"fill_in_blank","answer":"1. մարդկանց խումբը; 2. կանոնները; 3. սովորույթները; 4. մարդու ամբողջ կյանքին","scoring_notes":"4 x 0,25 միավոր"},
+ {"number":3,"points":1,"type":"fill_blank","answer":"1. մարդկանց խումբը; 2. կանոնները; 3. սովորույթները; 4. մարդու ամբողջ կյանքին","scoring_notes":"4 x 0,25 միավոր"},
  {"number":4,"points":1,"type":"matching","answer":"1. Ուրախություն; 2. Տխրություն; 3. Վախ; 4. Զայրույթ","scoring_notes":"4 x 0,25 միավոր"},
  {"number":5,"points":1,"type":"multiple_choice","answer":"բ և գ","scoring_notes":"2 x 0,5 միավոր"},
  {"number":6,"points":1,"type":"matching","answer":"1-ա, 2-գ, 3-բ, 4-դ","scoring_notes":"4 x 0,25 միավոր"},
