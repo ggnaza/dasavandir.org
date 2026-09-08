@@ -275,7 +275,11 @@ interface GradedItem {
 type ImageMediaType = "image/jpeg" | "image/png" | "image/webp" | "image/gif";
 type ScanMediaType = "image/jpeg" | "image/png" | "image/webp" | "application/pdf";
 
+type ThinkingLevel = "low" | "medium" | "high";
+
 interface ModelCall {
+  /** Names the call in errors and logs: a failure must say which pass it was. */
+  pass: "transcription" | "grading";
   prompt: string;
   /** Present for the transcription pass only. The grading pass has no image. */
   scan?: { base64: string; mediaType: ScanMediaType };
@@ -326,7 +330,9 @@ async function callAnthropic(
   });
 
   const textBlock = response.content.find((b) => b.type === "text");
-  if (!textBlock || textBlock.type !== "text") throw new Error("No text response from scoring model");
+  if (!textBlock || textBlock.type !== "text") {
+    throw new Error(`${model.name} returned no text in the ${call.pass} pass`);
+  }
   return { text: textBlock.text, raw: response };
 }
 
@@ -347,78 +353,111 @@ async function callGemini(
   }
   parts.push({ text: call.prompt });
 
-  const generationConfig: Record<string, unknown> = {
-    // A 15-question breakdown with extracted answers and explanations is a lot
-    // of JSON; 4096 truncated it and the parse then failed. Thinking tokens are
-    // ALSO drawn from this budget, so it has to cover both — 8192 with thinking
-    // enabled left too little for the answer and the JSON came back truncated.
-    maxOutputTokens: 32768,
-    temperature: 0.1,
-    // Guarantees a parseable object. Previously the response was free text and
-    // the caller regex-matched the first {...}, which broke whenever an
-    // explanation happened to contain a brace.
-    responseMimeType: "application/json",
-    responseSchema: call.schema,
+  // Transcription is reading, not reasoning: "low" is enough and it is the pass
+  // where thinking ran away (5.5k thought tokens on a *successful* run). Grading
+  // applies a rubric and gets the default. Both fall back to "low" on a retry.
+  const preferredLevel: ThinkingLevel = call.pass === "transcription" ? "low" : "medium";
+
+  const attempt = async (level: ThinkingLevel) => {
+    const generationConfig: Record<string, unknown> = {
+      // A 15-question breakdown with extracted answers and explanations is a lot
+      // of JSON; 4096 truncated it and the parse then failed. Thinking tokens are
+      // ALSO drawn from this budget, so it has to cover both.
+      maxOutputTokens: 32768,
+      temperature: 0.1,
+      // Guarantees a parseable object. Previously the response was free text and
+      // the caller regex-matched the first {...}, which broke whenever an
+      // explanation happened to contain a brace.
+      responseMimeType: "application/json",
+      responseSchema: call.schema,
+    };
+
+    if (model.highResolutionScans) {
+      if (call.scan) {
+        // Gemini 3 only. A document page defaults to ~560 tokens; HIGH renders it
+        // at ~1120, which is the difference that matters for handwriting on a
+        // scanned answer sheet. Rejected by 2.5, hence the per-model flag.
+        generationConfig.media_resolution = "MEDIA_RESOLUTION_HIGH";
+      }
+      // Gemini 3 is steered with thinkingLevel, NOT thinkingBudget. A budget was
+      // sent here once; the docs say it "may result in unexpected performance"
+      // on Gemini 3, and what that meant in practice was the cap being ignored,
+      // thinking running to ~30k tokens and the JSON arriving truncated
+      // (MAX_TOKENS) or not at all. There is no "off" on Gemini 3 — "low" is the
+      // floor.
+      generationConfig.thinkingConfig = { thinkingLevel: level };
+    } else if (model.model.includes("flash")) {
+      // Gemini 2.5 counts thinking tokens against maxOutputTokens and will
+      // happily spend the whole budget before emitting anything, returning no
+      // text at all. On the legacy models thinking therefore stays off.
+      generationConfig.thinkingConfig = { thinkingBudget: 0 };
+    }
+
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${model.model}:generateContent?key=${apiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contents: [{ parts }], generationConfig }),
+      },
+    );
+
+    if (!response.ok) {
+      const err = await response.text();
+      throw new Error(`Gemini API error in the ${call.pass} pass: ${response.status} ${err}`);
+    }
+
+    const data = await response.json();
+    const candidate = data.candidates?.[0];
+    const allParts: Array<{ thought?: boolean; text?: string }> = candidate?.content?.parts ?? [];
+
+    // Every text part, not just parts[0]: with thinking enabled the answer is not
+    // guaranteed to be the first part, and a long answer can be split across
+    // several. Thought parts are excluded — they are prose and would poison the
+    // JSON parse.
+    const text = allParts
+      .filter((p) => !p.thought && typeof p.text === "string")
+      .map((p) => p.text as string)
+      .join("");
+
+    // Everything needed to explain a failure after the fact. "No text response"
+    // on its own said nothing about whether the model thought itself out of
+    // budget, was blocked, or returned only thoughts.
+    const usage = data.usageMetadata ?? {};
+    const where =
+      `${model.name}, ${call.pass} pass, thinking=${level}` +
+      ` — finish=${candidate?.finishReason ?? "none"}` +
+      (data.promptFeedback?.blockReason ? `, blocked=${data.promptFeedback.blockReason}` : "") +
+      `, parts=${allParts.length} (thought ${allParts.filter((p) => p.thought).length})` +
+      `, tokens: thoughts=${usage.thoughtsTokenCount ?? "?"} answer=${usage.candidatesTokenCount ?? "?"}`;
+
+    return { text, raw: data, finishReason: candidate?.finishReason as string | undefined, where };
   };
 
-  if (model.highResolutionScans) {
-    if (call.scan) {
-      // Gemini 3 only. A document page defaults to ~560 tokens; HIGH renders it
-      // at ~1120, which is the difference that matters for handwriting on a
-      // scanned answer sheet. Rejected by 2.5, hence the per-model flag.
-      generationConfig.media_resolution = "MEDIA_RESOLUTION_HIGH";
-    }
-    // Bounded, not unlimited. Grading a rubric benefits from reasoning, but an
-    // open budget lets the model spend the whole maxOutputTokens thinking and
-    // emit a truncated object — which is what an unbounded budget did here.
-    generationConfig.thinkingConfig = { thinkingBudget: 8192 };
-  } else if (model.model.includes("flash")) {
-    // Gemini 2.5 counts thinking tokens against maxOutputTokens and will
-    // happily spend the whole budget before emitting anything, returning no
-    // text at all. On the legacy models thinking therefore stays off.
-    generationConfig.thinkingConfig = { thinkingBudget: 0 };
+  let result = await attempt(preferredLevel);
+
+  // The failures are intermittent — the same scan scores on the next try — and
+  // they are all the same shape: thinking consumed the output. One retry at
+  // the floor level recovers them without costing a successful run anything.
+  const exhausted = (r: typeof result) => r.finishReason === "MAX_TOKENS" || !r.text;
+  if (exhausted(result) && model.highResolutionScans && preferredLevel !== "low") {
+    console.warn(`[gnahatum/scorer] retrying at thinking=low: ${result.where}`);
+    result = await attempt("low");
   }
-
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${model.model}:generateContent?key=${apiKey}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ contents: [{ parts }], generationConfig }),
-    },
-  );
-
-  if (!response.ok) {
-    const err = await response.text();
-    throw new Error(`Gemini API error: ${response.status} ${err}`);
-  }
-
-  const data = await response.json();
-  const candidate = data.candidates?.[0];
-
-  // Every text part, not just parts[0]: with thinking enabled the answer is not
-  // guaranteed to be the first part, and a long answer can be split across
-  // several. Thought parts are excluded — they are prose and would poison the
-  // JSON parse.
-  const text = (candidate?.content?.parts ?? [])
-    .filter((p: { thought?: boolean; text?: string }) => !p.thought && typeof p.text === "string")
-    .map((p: { text: string }) => p.text)
-    .join("");
 
   // A truncated response parses as broken JSON and used to surface as a raw
   // "Expected ',' or ']' ... at position N" with no indication of the cause.
   // finishReason names it precisely.
-  const finishReason = candidate?.finishReason;
-  if (finishReason && finishReason !== "STOP") {
+  if (result.finishReason && result.finishReason !== "STOP") {
     throw new Error(
-      finishReason === "MAX_TOKENS"
-        ? "Gemini hit its output limit before finishing the scoring JSON. The scan may have too many pages, or the model spent the budget thinking."
-        : `Gemini stopped early (${finishReason}) without returning a complete result.`,
+      result.finishReason === "MAX_TOKENS"
+        ? `Gemini ran out of output tokens before finishing (${result.where}).`
+        : `Gemini stopped early without a complete result (${result.where}).`,
     );
   }
 
-  if (!text) throw new Error("No text response from Gemini");
-  return { text, raw: data };
+  if (!result.text) throw new Error(`Gemini returned no answer text (${result.where}).`);
+  return { text: result.text, raw: result.raw };
 }
 
 async function callModel(call: ModelCall, model: ScoringModel) {
@@ -490,6 +529,7 @@ export async function scoreFromScan(
   // ---- Pass 1: read the paper --------------------------------------------
   const transcriptionReply = await callModel(
     {
+      pass: "transcription",
       prompt: buildTranscriptionPrompt(answerKey),
       scan: { base64: imageBase64, mediaType },
       schema: TRANSCRIPTION_SCHEMA,
@@ -517,6 +557,7 @@ export async function scoreFromScan(
   // ---- Pass 2: grade the transcript, image withheld ---------------------
   const gradingReply = await callModel(
     {
+      pass: "grading",
       prompt: buildGradingPrompt(answerKey, transcript, scoringNotes, learnedBlock),
       schema: GRADING_SCHEMA,
     },
