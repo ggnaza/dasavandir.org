@@ -1,0 +1,113 @@
+{
+ "subject": "geometry",
+ "grade": 10,
+ "doc": "1zkqDpw89inqeqYM9zDIpfrzkfgCrJnXTrw0CTs6eJYw",
+ "notes": "Exported from the live ararka.tests row on 2026-09-08 — this test was originally added through the Gnahatum importer UI, not from a seed file.",
+ "key": [
+  {
+   "number": 1,
+   "points": 0.5,
+   "type": "matching",
+   "answer": "ays: No common points, բ: Tangent (1 common point), գ: Intersecting (2 common points)",
+   "scoring_notes": "All correct 0.5"
+  },
+  {
+   "number": 2,
+   "points": 0.5,
+   "type": "multiple_choice",
+   "answer": "գ: S = πr² (circle area formula)",
+   "scoring_notes": "Correct selection 0.5"
+  },
+  {
+   "number": 3,
+   "points": 1,
+   "type": "fill_blank",
+   "answer": "a⃗·b⃗ = x₁x₂ + y₁y₂ (scalar/dot product formula)",
+   "scoring_notes": "Correct formula 1.0"
+  },
+  {
+   "number": 4,
+   "points": 1,
+   "type": "fill_blank",
+   "answer": "c² = a² + b² - 2ab·cos(γ) (law of cosines)",
+   "scoring_notes": "Correct formula 0.5"
+  },
+  {
+   "number": 5,
+   "points": 1,
+   "type": "short_answer",
+   "answer": "ays: Tangent perpendicular to radius at point of tangency TRUE, բ: Inscribed angle measured by arc FALSE (it's half the arc), գ: Tangent lines from same point are equal TRUE, դ: Two different circles can be circumscribed about same triangle FALSE",
+   "scoring_notes": "Each correct answer 0.25"
+  },
+  {
+   "number": 6,
+   "points": 1,
+   "type": "diagram",
+   "answer": "Geometric construction (specific to diagram in test)",
+   "scoring_notes": "Each correct element 0.5"
+  },
+  {
+   "number": 7,
+   "points": 1,
+   "type": "table",
+   "answer": "Regular polygon formulas: side aₙ=2R·sin(180/n), angle=(n-2)·180/n, r=R·cos(180/n), area S=n·r²·tan(180/n)",
+   "scoring_notes": "Each correct formula 0.25"
+  },
+  {
+   "number": 8,
+   "points": 0.5,
+   "type": "computation",
+   "answer": "x = (360-152-80)/2 = 64°",
+   "scoring_notes": "Correct angle calculation 0.5"
+  },
+  {
+   "number": 9,
+   "points": 0.5,
+   "type": "computation",
+   "answer": "24/sin45° = 2R → R = 12√2",
+   "scoring_notes": "Correct radius calculation 0.5"
+  },
+  {
+   "number": 10,
+   "points": 1,
+   "type": "computation",
+   "answer": "Area increases 4 times (when dimensions doubled, area quadruples)",
+   "scoring_notes": "Calculated areas 0.5, determined ratio 0.5"
+  },
+  {
+   "number": 11,
+   "points": 1,
+   "type": "computation",
+   "answer": "AK·KB = CK·KD → 5·12 = 6·KD → KD = 10",
+   "scoring_notes": "Each correct step 0.5"
+  },
+  {
+   "number": 12,
+   "points": 1,
+   "type": "computation",
+   "answer": "S = (1/2)·7·16·sin(π/2) = 28√2 [or similar area calculation]",
+   "scoring_notes": "Correct formula application and calculation 1.0"
+  },
+  {
+   "number": 13,
+   "points": 1.5,
+   "type": "computation",
+   "answer": "144π = πr² → r = 12. C = 2πr = 24π",
+   "scoring_notes": "Found radius 1.0, found circumference 0.5"
+  },
+  {
+   "number": 14,
+   "points": 1.5,
+   "type": "computation",
+   "answer": "a⃗·b⃗ = 4·3+4·3 = 24. |a⃗|=√32, |b⃗|=√18. cos(θ) = 24/√(32·18) = 1 → θ = 0°",
+   "scoring_notes": "Correct dot product 0.5, correct magnitudes 0.5, correct angle 0.5"
+  },
+  {
+   "number": 15,
+   "points": 2,
+   "type": "essay",
+   "answer": "Hexagonal honeycomb: regular hexagon = 6 equilateral triangles, area ≈ 2.598a². Triangle area ≈ 0.433a², Square area = a². Hexagon has largest area for given perimeter, most efficient for honey storage with least wax.",
+   "scoring_notes": "Calculated areas 1.0, explained principle 0.5, justified hexagon choice 0.5"
+  }
+ ]
+}

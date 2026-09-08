@@ -1,0 +1,113 @@
+{
+ "subject": "geography",
+ "grade": 11,
+ "doc": "1R8yfTo7ZAH5kEe0yIUwMWxW5luA_Bkr_LScAc9TMfXE",
+ "notes": "Exported from the live ararka.tests row on 2026-09-08 — this test was originally added through the Gnahatum importer UI, not from a seed file.",
+ "key": [
+  {
+   "number": 1,
+   "points": 0.5,
+   "type": "short_answer",
+   "answer": "River water expenditure/consumption",
+   "scoring_notes": "0.5 for correct concept"
+  },
+  {
+   "number": 2,
+   "points": 0.5,
+   "type": "multiple_choice",
+   "answer": "ays",
+   "scoring_notes": "Correct selection 0.5"
+  },
+  {
+   "number": 3,
+   "points": 1,
+   "type": "fill_blank",
+   "answer": "Coal basins / Oil basins examples",
+   "scoring_notes": "Each correct example 0.25"
+  },
+  {
+   "number": 4,
+   "points": 1,
+   "type": "matching",
+   "answer": "City types matching (industrial, port, capital, resort)",
+   "scoring_notes": "Each correct match 0.25"
+  },
+  {
+   "number": 5,
+   "points": 1,
+   "type": "matching",
+   "answer": "1-գ, 2-ays, 3-դ, 4-բ",
+   "scoring_notes": "Each correct match 0.25"
+  },
+  {
+   "number": 6,
+   "points": 1,
+   "type": "short_answer",
+   "answer": "Population distribution factors: climate, water, relief, economy",
+   "scoring_notes": "Each factor 0.25"
+  },
+  {
+   "number": 7,
+   "points": 1,
+   "type": "short_answer",
+   "answer": "1-false, 2-false, 3-true, 4-true",
+   "scoring_notes": "Each correct answer 0.25"
+  },
+  {
+   "number": 8,
+   "points": 0.5,
+   "type": "diagram",
+   "answer": "Mark G7 countries on world map",
+   "scoring_notes": "Each correctly marked country ~0.07"
+  },
+  {
+   "number": 9,
+   "points": 0.5,
+   "type": "computation",
+   "answer": "K (natural increase coefficient) = 0.2",
+   "scoring_notes": "Correct calculation 0.5"
+  },
+  {
+   "number": 10,
+   "points": 1,
+   "type": "computation",
+   "answer": "Urbanization level = 55%",
+   "scoring_notes": "Correct calculation 1.0"
+  },
+  {
+   "number": 11,
+   "points": 1,
+   "type": "essay",
+   "answer": "Population pyramid interpretation and analysis",
+   "scoring_notes": "Correct reading 0.5, demographic stage identification 0.5"
+  },
+  {
+   "number": 12,
+   "points": 1,
+   "type": "computation",
+   "answer": "Ore reserves will last 20 years",
+   "scoring_notes": "Correct calculation with reserves/consumption formula 1.0"
+  },
+  {
+   "number": 13,
+   "points": 1.5,
+   "type": "essay",
+   "answer": "Oil-producing countries analysis",
+   "scoring_notes": "Countries identified 0.5, production data 0.5, geopolitics 0.5"
+  },
+  {
+   "number": 14,
+   "points": 1.5,
+   "type": "essay",
+   "answer": "Water resources: distribution, usage, conservation",
+   "scoring_notes": "Distribution 0.5, usage patterns 0.5, conservation 0.5"
+  },
+  {
+   "number": 15,
+   "points": 2,
+   "type": "essay",
+   "answer": "Migration causes, types, and effects",
+   "scoring_notes": "Types 0.5, causes 0.5, effects on source/destination 0.5, coherent writing 0.5"
+  }
+ ]
+}

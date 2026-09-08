@@ -1,0 +1,123 @@
+{
+ "subject": "geography",
+ "grade": 7,
+ "doc": "1_laCwQGVeym8WDFJtCWI8yQGiRGtoCizt0f8hGbktso",
+ "notes": "Exported from the live ararka.tests row on 2026-09-08 — this test was originally added through the Gnahatum importer UI, not from a seed file.",
+ "key": [
+  {
+   "number": 1,
+   "points": 0.5,
+   "type": "multiple_choice",
+   "answer": "ա"
+  },
+  {
+   "number": 2,
+   "points": 0.5,
+   "type": "fill_blank",
+   "answer": "Dates: June 22, December 22, March 21, September 23",
+   "scoring_notes": "Each correct date 0.25 points"
+  },
+  {
+   "number": 3,
+   "points": 1,
+   "type": "short_answer",
+   "answer": "Igneous rocks / Sedimentary rocks classification"
+  },
+  {
+   "number": 4,
+   "points": 1,
+   "type": "short_answer",
+   "answer": "ա. Passats (trade winds)",
+   "scoring_notes": "Identify wind type"
+  },
+  {
+   "number": 5,
+   "points": 1,
+   "type": "matching",
+   "answer": "1-գ, 2-դ, 3-բ, 4- delays",
+   "scoring_notes": "Each correct match 0.25"
+  },
+  {
+   "number": 6,
+   "points": 1,
+   "type": "fill_blank",
+   "answer": "Wind / Saturated / Weather / Fog",
+   "scoring_notes": "Each correct term 0.25"
+  },
+  {
+   "number": 7,
+   "points": 1,
+   "type": "fill_blank",
+   "answer": "Thermal zones of the Earth",
+   "scoring_notes": "Complete table of thermal zones"
+  },
+  {
+   "number": 8,
+   "points": 0.5,
+   "type": "short_answer",
+   "answer": "Significance of glaciers as freshwater reserves",
+   "scoring_notes": "0.5 for complete explanation"
+  },
+  {
+   "number": 9,
+   "points": 0.5,
+   "type": "diagram",
+   "answer": "Rock classification scheme (igneous/sedimentary/metamorphic)",
+   "scoring_notes": "Correct classification diagram 0.5"
+  },
+  {
+   "number": 10,
+   "points": 1,
+   "type": "computation",
+   "answer": "4°C",
+   "scoring_notes": "Temperature calculation using elevation formula"
+  },
+  {
+   "number": 11,
+   "points": 1,
+   "type": "short_answer",
+   "answer": "Earth's rotation effects: day/night cycle, time zones",
+   "scoring_notes": "Each correct effect 0.5"
+  },
+  {
+   "number": 12,
+   "points": 1,
+   "type": "essay",
+   "answer": "Internal vs external forces shaping Earth's surface",
+   "scoring_notes": "Internal forces 0.5, External forces 0.5"
+  },
+  {
+   "number": 13,
+   "points": 1.5,
+   "type": "computation",
+   "answer": "15 km; larger scale map",
+   "scoring_notes": "Distance calculation 0.75, scale comparison 0.75",
+   "sub_parts": [
+    {
+     "label": "a",
+     "answer": "Distance = 15 km",
+     "points": 0.75
+    },
+    {
+     "label": "b",
+     "answer": "The map with larger denominator has smaller scale",
+     "points": 0.75
+    }
+   ]
+  },
+  {
+   "number": 14,
+   "points": 1.5,
+   "type": "computation",
+   "answer": "660 m elevation",
+   "scoring_notes": "Atmospheric pressure calculation: each 10.5m = 1mmHg drop. Full solution 1.5"
+  },
+  {
+   "number": 15,
+   "points": 2,
+   "type": "essay",
+   "answer": "Climate factors affecting Armenia: latitude, elevation, proximity to seas, relief",
+   "scoring_notes": "Each well-argued factor 0.5, coherent writing 0.5"
+  }
+ ]
+}

@@ -1,0 +1,113 @@
+{
+ "subject": "algebra",
+ "grade": 8,
+ "doc": "1zkqDpw89inqeqYM9zDIpfrzkfgCrJnXTrw0CTs6eJYw",
+ "notes": "Exported from the live ararka.tests row on 2026-09-08 — this test was originally added through the Gnahatum importer UI, not from a seed file.",
+ "key": [
+  {
+   "number": 1,
+   "points": 0.5,
+   "type": "computation",
+   "answer": "3^2 * 3^3 * 3^4 = 3^(2+1+1+4) = 3^8",
+   "scoring_notes": "Correct exponent calculation 0.5"
+  },
+  {
+   "number": 2,
+   "points": 0.5,
+   "type": "computation",
+   "answer": "ays: 4x-3=x, բ: 5x+3-2x=3x+3, գ: 9+3x-5y=2xy+9, դ: 2a+3-4a-b=-2a-b+3",
+   "scoring_notes": "Each correct simplification 0.25"
+  },
+  {
+   "number": 3,
+   "points": 1,
+   "type": "short_answer",
+   "answer": "ays: is a function, բ: is not a function",
+   "scoring_notes": "Each correct identification 0.5"
+  },
+  {
+   "number": 4,
+   "points": 1,
+   "type": "short_answer",
+   "answer": "ays: (a+b)^2=a^2+2ab+b^2 TRUE, բ: (a-b)^2=a^2+2ab-b^2 FALSE, գ: (a-b)(a+b)=a^2-b^2 TRUE, դ: a^3+b^3=(a+b)(a^2-ab+b^2) TRUE",
+   "scoring_notes": "Each correct answer 0.25"
+  },
+  {
+   "number": 5,
+   "points": 1,
+   "type": "diagram",
+   "answer": "Set operations/Venn diagrams: A∪B, A∩B, A\\B, B\\A",
+   "scoring_notes": "Each correct set operation 0.25"
+  },
+  {
+   "number": 6,
+   "points": 1,
+   "type": "fill_blank",
+   "answer": "Diagram/sketch of set operations",
+   "scoring_notes": "Each correct element 0.25"
+  },
+  {
+   "number": 7,
+   "points": 1,
+   "type": "computation",
+   "answer": "2a + 2b or 2(a+b)",
+   "scoring_notes": "Correct algebraic expression 1.0"
+  },
+  {
+   "number": 8,
+   "points": 0.5,
+   "type": "computation",
+   "answer": "(3a-4)^2 - 5a - 17 = 9a^2 - 24a + 16 - 5a - 17 = 9a^2 - 29a - 1",
+   "scoring_notes": "Correct expansion 0.5"
+  },
+  {
+   "number": 9,
+   "points": 0.5,
+   "type": "table",
+   "answer": "Function values: when x=2, y=0; when x=-2, y=8",
+   "scoring_notes": "Each correct value 0.25"
+  },
+  {
+   "number": 10,
+   "points": 1,
+   "type": "computation",
+   "answer": "2a(3-4b)+8ab-10a+3b = 6a-8ab+8ab-10a+3b = -4a+3b. When a=2, b=-1: -4*2+3*(-1) = -11",
+   "scoring_notes": "Correct simplification 0.5, correct numerical value 0.5"
+  },
+  {
+   "number": 11,
+   "points": 1,
+   "type": "computation",
+   "answer": "(2a^2+5x^2)^2 = 4a^4 + 20a^2*x^2 + 25x^4",
+   "scoring_notes": "Correct formula application and all terms 1.0"
+  },
+  {
+   "number": 12,
+   "points": 1,
+   "type": "computation",
+   "answer": "Number arrangement: 3*3*2*2*3*3*3 = 972",
+   "scoring_notes": "Correct count/calculation 1.0"
+  },
+  {
+   "number": 13,
+   "points": 1.5,
+   "type": "short_answer",
+   "answer": "Yes, graph is correct. Verification: y=0.5*2+2=3 and y=0.5*8+2=6, both points lie on the line. Two points define exactly one line.",
+   "scoring_notes": "Answered correctly 0.5, performed verification 0.5, justified uniqueness 0.5"
+  },
+  {
+   "number": 14,
+   "points": 1.5,
+   "type": "table",
+   "answer": "Venn diagram operations: A∪C=30, A∩C=4, A∩B∩C=2",
+   "scoring_notes": "Each correct formula/calculation 0.5"
+  },
+  {
+   "number": 15,
+   "points": 2,
+   "type": "essay",
+   "answer": "Candy box problem: Let x = weight of one box. 2x+3 = x+5, x=2 kg",
+   "scoring_notes": "Correct modeling 0.5, correct variable assignment 0.5, correct equation 0.5, solved correctly 0.5"
+  }
+ ]
+}

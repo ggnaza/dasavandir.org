@@ -1,0 +1,113 @@
+{
+ "subject": "geometry",
+ "grade": 8,
+ "doc": "1zkqDpw89inqeqYM9zDIpfrzkfgCrJnXTrw0CTs6eJYw",
+ "notes": "Exported from the live ararka.tests row on 2026-09-08 — this test was originally added through the Gnahatum importer UI, not from a seed file.",
+ "key": [
+  {
+   "number": 1,
+   "points": 0.5,
+   "type": "matching",
+   "answer": "Ray / Segment / Line / Point (match geometric figures to names)",
+   "scoring_notes": "Every two correct matches 0.25"
+  },
+  {
+   "number": 2,
+   "points": 0.5,
+   "type": "short_answer",
+   "answer": "ays: obtuse triangle, բ: right triangle, գ: acute triangle",
+   "scoring_notes": "All correct names 0.5"
+  },
+  {
+   "number": 3,
+   "points": 1,
+   "type": "short_answer",
+   "answer": "Sum of interior angles of a triangle equals 180 degrees",
+   "scoring_notes": "Correct theorem statement 1.0"
+  },
+  {
+   "number": 4,
+   "points": 1,
+   "type": "short_answer",
+   "answer": "ays: Through two points passes exactly one line TRUE, գ: Midpoint divides segment into two equal parts TRUE (only ays and գ are correct)",
+   "scoring_notes": "Each correct selection 0.5"
+  },
+  {
+   "number": 5,
+   "points": 1,
+   "type": "short_answer",
+   "answer": "Triangle congruence: If one side and its two adjacent angles of one triangle equal corresponding side and angles of another, triangles are congruent (ASA criterion)",
+   "scoring_notes": "Complete correct statement 1.0"
+  },
+  {
+   "number": 6,
+   "points": 1,
+   "type": "fill_blank",
+   "answer": "Alternate interior angles: e.g. ∠3 and ∠8; Co-interior angles: e.g. ∠4 and ∠8; Corresponding angles: e.g. ∠1 and ∠8",
+   "scoring_notes": "All three types correctly identified 1.0"
+  },
+  {
+   "number": 7,
+   "points": 1,
+   "type": "short_answer",
+   "answer": "Adjacent angles example: ∠2 and ∠1, ∠1 and ∠4. Adjacent angles sum = 180°",
+   "scoring_notes": "Correct pair 0.5, correct property 0.5"
+  },
+  {
+   "number": 8,
+   "points": 0.5,
+   "type": "computation",
+   "answer": "∠ABC = ∠ABD - ∠CBD = 90 - 60 = 30°",
+   "scoring_notes": "Correct angle calculation 0.5"
+  },
+  {
+   "number": 9,
+   "points": 0.5,
+   "type": "computation",
+   "answer": "60° (angle calculation from diagram)",
+   "scoring_notes": "Correct answer with diagram 0.5"
+  },
+  {
+   "number": 10,
+   "points": 1,
+   "type": "computation",
+   "answer": "16 (segment length calculation)",
+   "scoring_notes": "Correct calculation with diagram 1.0"
+  },
+  {
+   "number": 11,
+   "points": 1,
+   "type": "computation",
+   "answer": "148° (angle calculation)",
+   "scoring_notes": "Correct answer 1.0"
+  },
+  {
+   "number": 12,
+   "points": 1,
+   "type": "computation",
+   "answer": "∠AOC = 60°, ∠COB = 120°",
+   "scoring_notes": "Correct diagram 0.25, correct angles 0.75"
+  },
+  {
+   "number": 13,
+   "points": 1.5,
+   "type": "computation",
+   "answer": "Rod lengths: 22, 88, 110. Cannot form triangle because 110 ≮ 22+88 violates triangle inequality (110=110, not strictly less)",
+   "scoring_notes": "Correct lengths 0.5, correct triangle inequality check 0.5, justified answer 0.5"
+  },
+  {
+   "number": 14,
+   "points": 1.5,
+   "type": "short_answer",
+   "answer": "Largest side: BC (opposite largest angle). Smallest side: AB (opposite smallest angle)",
+   "scoring_notes": "Largest side 0.5, smallest side 0.5, correct diagram 0.5"
+  },
+  {
+   "number": 15,
+   "points": 2,
+   "type": "essay",
+   "answer": "Proof that AB ∥ CD: Step 1: △ABC ≅ △CDE → ∠BAC = ∠DCE. Step 2: AB and CD cut by AE. Step 3: ∠BAC and ∠DCE are corresponding angles. Step 4: Equal corresponding angles → parallel lines.",
+   "scoring_notes": "Each correct step 0.5"
+  }
+ ]
+}

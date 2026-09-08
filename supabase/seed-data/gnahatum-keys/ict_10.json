@@ -1,0 +1,113 @@
+{
+ "subject": "ict",
+ "grade": 10,
+ "doc": "1URdhVxSgwYzTSmHWdBx_4zXH6Sy8_uaJ-BzNekBebI4",
+ "notes": "Exported from the live ararka.tests row on 2026-09-08 — this test was originally added through the Gnahatum importer UI, not from a seed file.",
+ "key": [
+  {
+   "number": 1,
+   "points": 0.5,
+   "type": "short_answer",
+   "answer": "Algorithm definition",
+   "scoring_notes": "Correct definition 0.5"
+  },
+  {
+   "number": 2,
+   "points": 0.5,
+   "type": "multiple_choice",
+   "answer": "ays - Ctrl+Enter",
+   "scoring_notes": "Correct selection 0.5"
+  },
+  {
+   "number": 3,
+   "points": 1,
+   "type": "multiple_choice",
+   "answer": "դ - formula",
+   "scoring_notes": "Correct selection 1.0"
+  },
+  {
+   "number": 4,
+   "points": 1,
+   "type": "short_answer",
+   "answer": "Word features true/false",
+   "scoring_notes": "Each correct answer 0.25"
+  },
+  {
+   "number": 5,
+   "points": 1,
+   "type": "multiple_choice",
+   "answer": "բ - OR function",
+   "scoring_notes": "Correct selection 1.0"
+  },
+  {
+   "number": 6,
+   "points": 1,
+   "type": "short_answer",
+   "answer": "Browser navigation buttons (back, forward, refresh, home)",
+   "scoring_notes": "Correct identification 1.0"
+  },
+  {
+   "number": 7,
+   "points": 1,
+   "type": "table",
+   "answer": "Flowchart blocks and their meanings",
+   "scoring_notes": "Each correct block description 0.25"
+  },
+  {
+   "number": 8,
+   "points": 0.5,
+   "type": "computation",
+   "answer": "Answer = 23 (algorithm execution result)",
+   "scoring_notes": "Correct calculation 0.5"
+  },
+  {
+   "number": 9,
+   "points": 0.5,
+   "type": "short_answer",
+   "answer": "Formatting tools identification",
+   "scoring_notes": "Correct identification 0.5"
+  },
+  {
+   "number": 10,
+   "points": 1,
+   "type": "table",
+   "answer": "Spreadsheet data entry and formulas",
+   "scoring_notes": "Correct data and formulas 1.0"
+  },
+  {
+   "number": 11,
+   "points": 1,
+   "type": "computation",
+   "answer": "Answer = 6 (calculation/algorithm result)",
+   "scoring_notes": "Correct answer 1.0"
+  },
+  {
+   "number": 12,
+   "points": 1,
+   "type": "diagram",
+   "answer": "Block diagram construction",
+   "scoring_notes": "Correct diagram 1.0"
+  },
+  {
+   "number": 13,
+   "points": 1.5,
+   "type": "table",
+   "answer": "AVERAGE function in spreadsheet",
+   "scoring_notes": "Correct formulas and calculations 1.5"
+  },
+  {
+   "number": 14,
+   "points": 1.5,
+   "type": "computation",
+   "answer": "Algorithm steps execution (sequence of operations)",
+   "scoring_notes": "Correct execution 1.5"
+  },
+  {
+   "number": 15,
+   "points": 2,
+   "type": "essay",
+   "answer": "Graphic editors: raster vs vector - pros and cons of each",
+   "scoring_notes": "Raster pros/cons 0.5, vector pros/cons 0.5, comparison 0.5, writing quality 0.5"
+  }
+ ]
+}

@@ -1,0 +1,113 @@
+{
+ "subject": "geography",
+ "grade": 9,
+ "doc": "1hAoqiYaTHkTKYeoKfYD0RiN1LRDRTJDY6zEWLjCsWcU",
+ "notes": "Exported from the live ararka.tests row on 2026-09-08 — this test was originally added through the Gnahatum importer UI, not from a seed file.",
+ "key": [
+  {
+   "number": 1,
+   "points": 0.5,
+   "type": "multiple_choice",
+   "answer": "բ (Alpine-Himalayan fold belt)",
+   "scoring_notes": "Correct answer 0.5"
+  },
+  {
+   "number": 2,
+   "points": 0.5,
+   "type": "multiple_choice",
+   "answer": "դ (rice cultivation region)",
+   "scoring_notes": "Correct answer 0.5"
+  },
+  {
+   "number": 3,
+   "points": 1,
+   "type": "matching",
+   "answer": "Georgia-բ, Azerbaijan-ays, Iran-դ, Turkey-գ",
+   "scoring_notes": "Each correct match 0.25"
+  },
+  {
+   "number": 4,
+   "points": 1,
+   "type": "fill_blank",
+   "answer": "Climate zones of the Caucasus region",
+   "scoring_notes": "Each correct zone 0.25"
+  },
+  {
+   "number": 5,
+   "points": 1,
+   "type": "fill_blank",
+   "answer": "Metals/Oil/Copper/Herring - resource classification",
+   "scoring_notes": "Each correct resource identification 0.25"
+  },
+  {
+   "number": 6,
+   "points": 1,
+   "type": "matching",
+   "answer": "Seas matching (Black Sea, Caspian Sea, etc.)",
+   "scoring_notes": "Each correct match 0.25"
+  },
+  {
+   "number": 7,
+   "points": 1,
+   "type": "short_answer",
+   "answer": "Middle East characteristics: oil reserves, arid climate, strategic location",
+   "scoring_notes": "Each characteristic 0.25"
+  },
+  {
+   "number": 8,
+   "points": 0.5,
+   "type": "computation",
+   "answer": "65.6%",
+   "scoring_notes": "Correct percentage calculation 0.5"
+  },
+  {
+   "number": 9,
+   "points": 0.5,
+   "type": "short_answer",
+   "answer": "Country ordering by given criterion",
+   "scoring_notes": "Correct order 0.5"
+  },
+  {
+   "number": 10,
+   "points": 1,
+   "type": "fill_blank",
+   "answer": "Armenian regions/provinces (marzer)",
+   "scoring_notes": "Each correct region 0.1, all correct 1.0"
+  },
+  {
+   "number": 11,
+   "points": 1,
+   "type": "short_answer",
+   "answer": "Armenia's geographic position description",
+   "scoring_notes": "Latitude/longitude 0.5, neighbors 0.5"
+  },
+  {
+   "number": 12,
+   "points": 1,
+   "type": "computation",
+   "answer": "Population density = 100.5 people/km²",
+   "scoring_notes": "Correct formula and calculation 1.0"
+  },
+  {
+   "number": 13,
+   "points": 1.5,
+   "type": "essay",
+   "answer": "Silk Road: historical significance and modern relevance",
+   "scoring_notes": "Historical context 0.5, trade routes 0.5, modern relevance 0.5"
+  },
+  {
+   "number": 14,
+   "points": 1.5,
+   "type": "essay",
+   "answer": "Agriculture-industry economic links",
+   "scoring_notes": "Links described 0.75, examples 0.75"
+  },
+  {
+   "number": 15,
+   "points": 2,
+   "type": "essay",
+   "answer": "Causes of population decline in Armenia",
+   "scoring_notes": "Each cause explained 0.5, coherent argument 0.5, data/evidence 0.5"
+  }
+ ]
+}

@@ -1,0 +1,113 @@
+{
+ "subject": "ict",
+ "grade": 11,
+ "doc": "1URdhVxSgwYzTSmHWdBx_4zXH6Sy8_uaJ-BzNekBebI4",
+ "notes": "Exported from the live ararka.tests row on 2026-09-08 — this test was originally added through the Gnahatum importer UI, not from a seed file.",
+ "key": [
+  {
+   "number": 1,
+   "points": 0.5,
+   "type": "short_answer",
+   "answer": "Loop definition (cycle/iteration in programming)",
+   "scoring_notes": "Correct definition 0.5"
+  },
+  {
+   "number": 2,
+   "points": 0.5,
+   "type": "multiple_choice",
+   "answer": "գ - White hat (ethical hacking)",
+   "scoring_notes": "Correct selection 0.5"
+  },
+  {
+   "number": 3,
+   "points": 1,
+   "type": "multiple_choice",
+   "answer": "ays - A=1, B=1 (variable values)",
+   "scoring_notes": "Correct selection 1.0"
+  },
+  {
+   "number": 4,
+   "points": 1,
+   "type": "short_answer",
+   "answer": "True/false about programming concepts",
+   "scoring_notes": "Each correct answer 0.25"
+  },
+  {
+   "number": 5,
+   "points": 1,
+   "type": "multiple_choice",
+   "answer": "բ",
+   "scoring_notes": "Correct selection 1.0"
+  },
+  {
+   "number": 6,
+   "points": 1,
+   "type": "fill_blank",
+   "answer": "Operating system names: Windows, Linux, iOS, Android",
+   "scoring_notes": "Each correct OS 0.25"
+  },
+  {
+   "number": 7,
+   "points": 1,
+   "type": "matching",
+   "answer": "ays-3, բ-1, գ-2, դ-4",
+   "scoring_notes": "Each correct match 0.25"
+  },
+  {
+   "number": 8,
+   "points": 0.5,
+   "type": "table",
+   "answer": "Technology impacts on society table",
+   "scoring_notes": "Correct entries 0.5"
+  },
+  {
+   "number": 9,
+   "points": 0.5,
+   "type": "table",
+   "answer": "Data types table (int, float, string, bool)",
+   "scoring_notes": "Correct data types 0.5"
+  },
+  {
+   "number": 10,
+   "points": 1,
+   "type": "table",
+   "answer": "OR truth table (logical OR operation)",
+   "scoring_notes": "Complete correct truth table 1.0"
+  },
+  {
+   "number": 11,
+   "points": 1,
+   "type": "computation",
+   "answer": "Array declarations (correct syntax)",
+   "scoring_notes": "Correct declarations 1.0"
+  },
+  {
+   "number": 12,
+   "points": 1,
+   "type": "computation",
+   "answer": "Code debugging (find and fix errors)",
+   "scoring_notes": "Errors identified and corrected 1.0"
+  },
+  {
+   "number": 13,
+   "points": 1.5,
+   "type": "computation",
+   "answer": "Boolean logic: A = T OR (F AND D). Evaluate expression.",
+   "scoring_notes": "Correct evaluation 1.5"
+  },
+  {
+   "number": 14,
+   "points": 1.5,
+   "type": "table",
+   "answer": "NAND truth table",
+   "scoring_notes": "Complete correct truth table 1.5"
+  },
+  {
+   "number": 15,
+   "points": 2,
+   "type": "essay",
+   "answer": "C++ program to find maximum of two numbers (with code, explanation, and testing)",
+   "scoring_notes": "Correct code 0.5, explanation 0.5, test cases 0.5, writing quality 0.5"
+  }
+ ]
+}

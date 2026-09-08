@@ -1,0 +1,113 @@
+{
+ "subject": "ict",
+ "grade": 5,
+ "doc": "1URdhVxSgwYzTSmHWdBx_4zXH6Sy8_uaJ-BzNekBebI4",
+ "notes": "Exported from the live ararka.tests row on 2026-09-08 — this test was originally added through the Gnahatum importer UI, not from a seed file.",
+ "key": [
+  {
+   "number": 1,
+   "points": 0.5,
+   "type": "multiple_choice",
+   "answer": "դ - Internet",
+   "scoring_notes": "Correct selection 0.5"
+  },
+  {
+   "number": 2,
+   "points": 0.5,
+   "type": "short_answer",
+   "answer": "Copyright (Հdelays)",
+   "scoring_notes": "Correct concept 0.5"
+  },
+  {
+   "number": 3,
+   "points": 1,
+   "type": "table",
+   "answer": "Animal weights matching/sorting",
+   "scoring_notes": "Correct table 1.0"
+  },
+  {
+   "number": 4,
+   "points": 1,
+   "type": "short_answer",
+   "answer": "Google tools true/false statements",
+   "scoring_notes": "Each correct answer 0.25"
+  },
+  {
+   "number": 5,
+   "points": 1,
+   "type": "short_answer",
+   "answer": "Cell formatting tools in spreadsheet",
+   "scoring_notes": "Correct tools identified 1.0"
+  },
+  {
+   "number": 6,
+   "points": 1,
+   "type": "matching",
+   "answer": "Google apps matching to their functions",
+   "scoring_notes": "Each correct match 0.25"
+  },
+  {
+   "number": 7,
+   "points": 1,
+   "type": "short_answer",
+   "answer": "True/false about digital tools",
+   "scoring_notes": "Each correct answer 0.25"
+  },
+  {
+   "number": 8,
+   "points": 0.5,
+   "type": "diagram",
+   "answer": "Toolbar identification - identify tool functions",
+   "scoring_notes": "Correct identifications 0.5"
+  },
+  {
+   "number": 9,
+   "points": 0.5,
+   "type": "short_answer",
+   "answer": "Font formatting changes (size, style, color)",
+   "scoring_notes": "Correct observations 0.5"
+  },
+  {
+   "number": 10,
+   "points": 1,
+   "type": "computation",
+   "answer": "Decryption algorithm application",
+   "scoring_notes": "Correct decryption 1.0"
+  },
+  {
+   "number": 11,
+   "points": 1,
+   "type": "short_answer",
+   "answer": "Pattern recognition in sequence",
+   "scoring_notes": "Pattern identified 1.0"
+  },
+  {
+   "number": 12,
+   "points": 1,
+   "type": "computation",
+   "answer": "Binary coding (encode image in binary)",
+   "scoring_notes": "Correct binary representation 1.0"
+  },
+  {
+   "number": 13,
+   "points": 1.5,
+   "type": "computation",
+   "answer": "Binary image coding (larger grid)",
+   "scoring_notes": "Correct encoding 1.5"
+  },
+  {
+   "number": 14,
+   "points": 1.5,
+   "type": "short_answer",
+   "answer": "Algorithm steps (sequence of operations)",
+   "scoring_notes": "Correct steps in order 1.5"
+  },
+  {
+   "number": 15,
+   "points": 2,
+   "type": "essay",
+   "answer": "Copyright history and importance in digital age",
+   "scoring_notes": "Historical context 0.5, modern relevance 0.5, examples 0.5, writing quality 0.5"
+  }
+ ]
+}

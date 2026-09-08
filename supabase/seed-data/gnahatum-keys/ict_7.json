@@ -1,0 +1,113 @@
+{
+ "subject": "ict",
+ "grade": 7,
+ "doc": "1URdhVxSgwYzTSmHWdBx_4zXH6Sy8_uaJ-BzNekBebI4",
+ "notes": "Exported from the live ararka.tests row on 2026-09-08 — this test was originally added through the Gnahatum importer UI, not from a seed file.",
+ "key": [
+  {
+   "number": 1,
+   "points": 0.5,
+   "type": "fill_blank",
+   "answer": "Data types: digital/text/video/graphic",
+   "scoring_notes": "Each correct type 0.125"
+  },
+  {
+   "number": 2,
+   "points": 0.5,
+   "type": "short_answer",
+   "answer": "Power off procedure",
+   "scoring_notes": "Correct procedure 0.5"
+  },
+  {
+   "number": 3,
+   "points": 1,
+   "type": "matching",
+   "answer": "Computer parts: processor/monitor/mouse/keyboard",
+   "scoring_notes": "Each correct match 0.25"
+  },
+  {
+   "number": 4,
+   "points": 1,
+   "type": "short_answer",
+   "answer": "Paint application true/false statements",
+   "scoring_notes": "Each correct answer 0.25"
+  },
+  {
+   "number": 5,
+   "points": 1,
+   "type": "table",
+   "answer": "Fill in table with correct values",
+   "scoring_notes": "Correct table completion 1.0"
+  },
+  {
+   "number": 6,
+   "points": 1,
+   "type": "short_answer",
+   "answer": "Fill tool in Paint",
+   "scoring_notes": "Correct identification 1.0"
+  },
+  {
+   "number": 7,
+   "points": 1,
+   "type": "table",
+   "answer": "Drawing steps in correct order",
+   "scoring_notes": "Correct sequence 1.0"
+  },
+  {
+   "number": 8,
+   "points": 0.5,
+   "type": "short_answer",
+   "answer": "Bold (B) / Italic (I) / Underline (U)",
+   "scoring_notes": "All three correct 0.5"
+  },
+  {
+   "number": 9,
+   "points": 0.5,
+   "type": "computation",
+   "answer": "Unit = 15 (calculation result)",
+   "scoring_notes": "Correct answer 0.5"
+  },
+  {
+   "number": 10,
+   "points": 1,
+   "type": "computation",
+   "answer": "If-then-else example execution",
+   "scoring_notes": "Correct execution 1.0"
+  },
+  {
+   "number": 11,
+   "points": 1,
+   "type": "short_answer",
+   "answer": "Ctrl+C (copy) / Ctrl+V (paste)",
+   "scoring_notes": "Both correct 1.0"
+  },
+  {
+   "number": 12,
+   "points": 1,
+   "type": "computation",
+   "answer": "Sequence: 3, 6, 5, 4, 1, 2",
+   "scoring_notes": "Correct sequence 1.0"
+  },
+  {
+   "number": 13,
+   "points": 1.5,
+   "type": "diagram",
+   "answer": "Flowchart construction for given algorithm",
+   "scoring_notes": "Correct flowchart elements 1.5"
+  },
+  {
+   "number": 14,
+   "points": 1.5,
+   "type": "diagram",
+   "answer": "Computer parts diagram (label components)",
+   "scoring_notes": "Correct labeling 1.5"
+  },
+  {
+   "number": 15,
+   "points": 2,
+   "type": "essay",
+   "answer": "Medieval artist vs modern programmer: Venn diagram comparison (shared skills, unique skills)",
+   "scoring_notes": "Artist unique traits 0.5, programmer unique traits 0.5, shared traits 0.5, writing quality 0.5"
+  }
+ ]
+}

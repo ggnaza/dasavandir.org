@@ -1,0 +1,113 @@
+{
+ "subject": "math_elementary",
+ "grade": 2,
+ "doc": "1kKFgNO3qXHLBN6ClbL9XIawUonspHNQfb92oCPlZZbQ",
+ "notes": "Exported from the live ararka.tests row on 2026-09-08 — this test was originally added through the Gnahatum importer UI, not from a seed file.",
+ "key": [
+  {
+   "number": 1,
+   "points": 0.5,
+   "type": "multiple_choice",
+   "answer": "Next (Հdelays) - sequence pattern",
+   "scoring_notes": "Correct answer 0.5"
+  },
+  {
+   "number": 2,
+   "points": 0.5,
+   "type": "multiple_choice",
+   "answer": "False (Սdelays)",
+   "scoring_notes": "Correct identification 0.5"
+  },
+  {
+   "number": 3,
+   "points": 1,
+   "type": "computation",
+   "answer": "Arithmetic operation (addition/subtraction within 100)",
+   "scoring_notes": "Correct calculation 1.0"
+  },
+  {
+   "number": 4,
+   "points": 1,
+   "type": "computation",
+   "answer": "Subtraction problem",
+   "scoring_notes": "Correct answer 1.0"
+  },
+  {
+   "number": 5,
+   "points": 1,
+   "type": "table",
+   "answer": "Subtraction table completion",
+   "scoring_notes": "Each correct entry 0.25"
+  },
+  {
+   "number": 6,
+   "points": 1,
+   "type": "computation",
+   "answer": "dm/cm unit conversions",
+   "scoring_notes": "Each correct conversion 0.5"
+  },
+  {
+   "number": 7,
+   "points": 1,
+   "type": "computation",
+   "answer": "Word problem (elementary level)",
+   "scoring_notes": "Correct setup and answer 1.0"
+  },
+  {
+   "number": 8,
+   "points": 0.5,
+   "type": "computation",
+   "answer": "Number comparison or ordering",
+   "scoring_notes": "Correct comparison 0.5"
+  },
+  {
+   "number": 9,
+   "points": 0.5,
+   "type": "computation",
+   "answer": "Simple arithmetic chain",
+   "scoring_notes": "Correct result 0.5"
+  },
+  {
+   "number": 10,
+   "points": 1,
+   "type": "computation",
+   "answer": "Measurement or geometry (basic shapes)",
+   "scoring_notes": "Correct answer 1.0"
+  },
+  {
+   "number": 11,
+   "points": 1,
+   "type": "computation",
+   "answer": "Pattern completion with numbers",
+   "scoring_notes": "Correct pattern 1.0"
+  },
+  {
+   "number": 12,
+   "points": 1,
+   "type": "computation",
+   "answer": "Multi-step word problem",
+   "scoring_notes": "Correct setup 0.5, correct answer 0.5"
+  },
+  {
+   "number": 13,
+   "points": 1.5,
+   "type": "computation",
+   "answer": "Applied math problem",
+   "scoring_notes": "Correct solution 1.5"
+  },
+  {
+   "number": 14,
+   "points": 1.5,
+   "type": "computation",
+   "answer": "Challenge problem",
+   "scoring_notes": "Correct approach 0.75, correct answer 0.75"
+  },
+  {
+   "number": 15,
+   "points": 2,
+   "type": "essay",
+   "answer": "Mathematical reasoning / explanation",
+   "scoring_notes": "Reasoning 1.0, clarity 0.5, completeness 0.5"
+  }
+ ]
+}

@@ -1,0 +1,113 @@
+{
+ "subject": "ict",
+ "grade": 8,
+ "doc": "1URdhVxSgwYzTSmHWdBx_4zXH6Sy8_uaJ-BzNekBebI4",
+ "notes": "Exported from the live ararka.tests row on 2026-09-08 — this test was originally added through the Gnahatum importer UI, not from a seed file.",
+ "key": [
+  {
+   "number": 1,
+   "points": 0.5,
+   "type": "short_answer",
+   "answer": "Strong password characteristics",
+   "scoring_notes": "Correct criteria 0.5"
+  },
+  {
+   "number": 2,
+   "points": 0.5,
+   "type": "multiple_choice",
+   "answer": "դ - MS Word",
+   "scoring_notes": "Correct selection 0.5"
+  },
+  {
+   "number": 3,
+   "points": 1,
+   "type": "matching",
+   "answer": "Application matching to functions",
+   "scoring_notes": "Each correct match 0.25"
+  },
+  {
+   "number": 4,
+   "points": 1,
+   "type": "short_answer",
+   "answer": "True/false about software",
+   "scoring_notes": "Each correct answer 0.25"
+  },
+  {
+   "number": 5,
+   "points": 1,
+   "type": "short_answer",
+   "answer": "Text formatting tools identification",
+   "scoring_notes": "All tools correctly identified 1.0"
+  },
+  {
+   "number": 6,
+   "points": 1,
+   "type": "short_answer",
+   "answer": "PAGE LAYOUT tab",
+   "scoring_notes": "Correct tab identification 1.0"
+  },
+  {
+   "number": 7,
+   "points": 1,
+   "type": "table",
+   "answer": "Google tools correspondence table",
+   "scoring_notes": "Correct table 1.0"
+  },
+  {
+   "number": 8,
+   "points": 0.5,
+   "type": "short_answer",
+   "answer": "Bold/Italic/Underline/Numbering formatting options",
+   "scoring_notes": "All four correct 0.5"
+  },
+  {
+   "number": 9,
+   "points": 0.5,
+   "type": "short_answer",
+   "answer": "Sharing function (collaborate/share document)",
+   "scoring_notes": "Correct explanation 0.5"
+  },
+  {
+   "number": 10,
+   "points": 1,
+   "type": "computation",
+   "answer": "Binary division result",
+   "scoring_notes": "Correct binary operation 1.0"
+  },
+  {
+   "number": 11,
+   "points": 1,
+   "type": "short_answer",
+   "answer": "Translation output (Google Translate result)",
+   "scoring_notes": "Correct translation 1.0"
+  },
+  {
+   "number": 12,
+   "points": 1,
+   "type": "short_answer",
+   "answer": "Cybersecurity tips (at least 3)",
+   "scoring_notes": "Each valid tip 0.33"
+  },
+  {
+   "number": 13,
+   "points": 1.5,
+   "type": "diagram",
+   "answer": "Flowchart steps for given process",
+   "scoring_notes": "Correct flowchart 1.5"
+  },
+  {
+   "number": 14,
+   "points": 1.5,
+   "type": "diagram",
+   "answer": "Chart construction with given data",
+   "scoring_notes": "Correct chart 1.5"
+  },
+  {
+   "number": 15,
+   "points": 2,
+   "type": "essay",
+   "answer": "Python vs manual problem solving comparison",
+   "scoring_notes": "Python advantages 0.5, manual advantages 0.5, balanced analysis 0.5, writing quality 0.5"
+  }
+ ]
+}

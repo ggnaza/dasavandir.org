@@ -1,0 +1,113 @@
+{
+ "subject": "armenian_elementary",
+ "grade": 1,
+ "doc": "1b41RC4PB5zKUN0oD00zkoybFuMwx-7ExLauHNyR-U44",
+ "notes": "Exported from the live ararka.tests row on 2026-09-08 — this test was originally added through the Gnahatum importer UI, not from a seed file.",
+ "key": [
+  {
+   "number": 1,
+   "points": 0.5,
+   "type": "fill_blank",
+   "answer": "Letter tracing exercise",
+   "scoring_notes": "Correct tracing 0.5"
+  },
+  {
+   "number": 2,
+   "points": 0.5,
+   "type": "matching",
+   "answer": "Word-picture matching",
+   "scoring_notes": "Each correct match 0.25"
+  },
+  {
+   "number": 3,
+   "points": 1,
+   "type": "fill_blank",
+   "answer": "Color identification",
+   "scoring_notes": "Correct colors 0.5"
+  },
+  {
+   "number": 4,
+   "points": 1,
+   "type": "short_answer",
+   "answer": "Syllable identification",
+   "scoring_notes": "Correct syllables 1.0"
+  },
+  {
+   "number": 5,
+   "points": 1,
+   "type": "fill_blank",
+   "answer": "Letter recognition",
+   "scoring_notes": "Correct letters 1.0"
+  },
+  {
+   "number": 6,
+   "points": 1,
+   "type": "short_answer",
+   "answer": "Word completion",
+   "scoring_notes": "Correct completions 1.0"
+  },
+  {
+   "number": 7,
+   "points": 1,
+   "type": "short_answer",
+   "answer": "Simple sentence construction",
+   "scoring_notes": "Correct sentences 1.0"
+  },
+  {
+   "number": 8,
+   "points": 0.5,
+   "type": "fill_blank",
+   "answer": "Pattern recognition",
+   "scoring_notes": "Correct pattern 0.5"
+  },
+  {
+   "number": 9,
+   "points": 0.5,
+   "type": "computation",
+   "answer": "Counting exercise",
+   "scoring_notes": "Correct count 0.5"
+  },
+  {
+   "number": 10,
+   "points": 1,
+   "type": "matching",
+   "answer": "Shape identification",
+   "scoring_notes": "Correct shapes 1.0"
+  },
+  {
+   "number": 11,
+   "points": 1,
+   "type": "short_answer",
+   "answer": "Coloring logic exercise",
+   "scoring_notes": "Correct coloring 1.0"
+  },
+  {
+   "number": 12,
+   "points": 1,
+   "type": "diagram",
+   "answer": "Connecting dots by number",
+   "scoring_notes": "Correct connections 1.0"
+  },
+  {
+   "number": 13,
+   "points": 1.5,
+   "type": "computation",
+   "answer": "Simple arithmetic",
+   "scoring_notes": "Correct calculation 1.5"
+  },
+  {
+   "number": 14,
+   "points": 1.5,
+   "type": "short_answer",
+   "answer": "More/less comparison",
+   "scoring_notes": "Correct comparison 1.5"
+  },
+  {
+   "number": 15,
+   "points": 2,
+   "type": "essay",
+   "answer": "Creative drawing/explanation",
+   "scoring_notes": "Creative response 2.0"
+  }
+ ]
+}
