@@ -91,9 +91,6 @@ const TRANSCRIPTION_SCHEMA = {
     teacher_name: { type: "STRING", nullable: true },
     answers: {
       type: "ARRAY",
-      // The largest seeded test has 40 questions. A repetition loop that emits
-      // items forever is cut off here instead of at the token ceiling.
-      maxItems: 40,
       items: {
         type: "OBJECT",
         properties: {
@@ -245,7 +242,6 @@ const GRADING_SCHEMA = {
   properties: {
     items: {
       type: "ARRAY",
-      maxItems: 40,
       items: {
         type: "OBJECT",
         properties: {
@@ -371,7 +367,12 @@ async function callGemini(
       // grading answer is ~1.7k tokens, so its ceiling is lower — a runaway
       // there is a repetition loop, and a lower cap makes it fail at half the
       // cost rather than "succeed" at 32k.
-      maxOutputTokens: call.pass === "transcription" ? 32768 : 16384,
+      // One ceiling for both passes. #345 lowered grading to 16384 and every
+      // grading call began returning 400 INVALID_ARGUMENT with no details; the
+      // transcription pass, unchanged at 32768, kept working. Restored to the
+      // shape that graded successfully. The loop protection that matters is the
+      // temperature retry below, not the cap.
+      maxOutputTokens: 32768,
       temperature,
       // Guarantees a parseable object. Previously the response was free text and
       // the caller regex-matched the first {...}, which broke whenever an
@@ -412,7 +413,20 @@ async function callGemini(
 
     if (!response.ok) {
       const err = await response.text();
-      throw new Error(`Gemini API error in the ${call.pass} pass: ${response.status} ${err}`);
+      // Google's 400 body is often just "Request contains an invalid argument."
+      // with no field named. The only way to know what it objected to is to
+      // see what was sent, so the config travels with the error (the prompt
+      // and scan bytes do not — they are large and never the cause of a 400).
+      const sent = JSON.stringify({
+        model: model.model,
+        pass: call.pass,
+        hasScan: !!call.scan,
+        generationConfig: { ...generationConfig, responseSchema: "<schema omitted>" },
+        schemaKeys: Object.keys((call.schema as { properties?: object }).properties ?? {}),
+      });
+      throw new Error(
+        `Gemini API error in the ${call.pass} pass: ${response.status} ${err.trim()} — sent: ${sent}`,
+      );
     }
 
     const data = await response.json();
