@@ -6,6 +6,14 @@ import { createClient as createSupabaseClient } from "@/lib/supabase/client";
 import { SCAN_BUCKET, MAX_SCAN_BYTES } from "@/lib/gnahatum/storage";
 import { formatPoints } from "@/lib/gnahatum/format";
 
+/**
+ * Students scored in flight at once. Each is two Gemini calls (transcribe,
+ * grade) and can take up to a couple of minutes with a large scan. Five keeps a
+ * 30-student batch ~5x faster than serial without tripping the provider's
+ * per-minute request limit; raise it once a benchmark shows headroom.
+ */
+const SCORE_CONCURRENCY = 5;
+
 interface Subject {
   id: string;
   name_hy: string;
@@ -304,11 +312,21 @@ export function BatchUploader({
   const handleScoreAll = useCallback(async () => {
     abortRef.current = false;
     setScoring(true);
-    for (let i = 0; i < students.length; i++) {
-      if (abortRef.current) break;
-      if (students[i].status === "scored") continue;
-      await scoreStudent(i);
-    }
+    // A shared queue drained by a fixed number of workers. Scoring was strictly
+    // sequential — 30 students meant 30 serial round trips of two model calls
+    // each. Each student is independent (own upload, own request, functional
+    // state updates), so the only reason not to run everything at once is the
+    // provider's rate limit; the pool keeps that bounded. Stop is honoured
+    // between students by every worker, and scoreStudent re-checks it itself.
+    const queue = students.filter((s) => s.status !== "scored").map((s) => s.index);
+    const workers = Array.from({ length: Math.min(SCORE_CONCURRENCY, queue.length) }, async () => {
+      while (!abortRef.current) {
+        const index = queue.shift();
+        if (index === undefined) return;
+        await scoreStudent(index);
+      }
+    });
+    await Promise.all(workers);
     setScoring(false);
   }, [students, scoreStudent]);
 
