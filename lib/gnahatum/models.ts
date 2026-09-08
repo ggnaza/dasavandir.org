@@ -6,19 +6,30 @@ export interface ScoringModel {
   provider: "anthropic" | "google" | "openai";
   model: string;
   description: string;
+  /**
+   * Whether the model accepts `media_resolution` in `generation_config`.
+   *
+   * Gemini-3-only. A scanned test page is rendered at ~560 tokens by default,
+   * which is where handwriting misreads come from; MEDIA_RESOLUTION_HIGH
+   * doubles that to ~1120. Sending the field to a 2.5 model is rejected, so
+   * the scorer branches on this flag rather than sniffing the model string.
+   */
+  highResolutionScans?: boolean;
 }
 
 export const SCORING_MODELS: ScoringModel[] = [
   // Model ids are exact and carry no date suffix. A stale pinned id is how the
   // Gemini scorer broke once already (see fix_deprecated_gemini_model_ids.sql)
   // — when refreshing these, check them against current provider docs rather
-  // than from memory.
+  // than from memory. Gemini ids below verified against ai.google.dev/gemini-api/docs/models
+  // on 2026-09-08; the local key is blocked for ListModels (OQ-020), so they
+  // could not be confirmed against the live catalogue.
   {
     id: "claude-sonnet",
     name: "Claude Sonnet 5",
     provider: "anthropic",
     model: "claude-sonnet-5",
-    description: "Default. Best balance of accuracy and cost for test scoring.",
+    description: "Best balance of accuracy and cost for test scoring.",
   },
   {
     id: "claude-haiku",
@@ -35,18 +46,60 @@ export const SCORING_MODELS: ScoringModel[] = [
     description: "Most capable. Best for complex or ambiguous handwriting.",
   },
   {
+    id: "gemini-3-8-flash",
+    name: "Gemini 3.8 Flash",
+    provider: "google",
+    model: "gemini-3.8-flash",
+    description: "Default for Gemini. Newest Flash, reads scans at high resolution.",
+    highResolutionScans: true,
+  },
+  {
+    id: "gemini-3-7-flash",
+    name: "Gemini 3.7 Flash",
+    provider: "google",
+    model: "gemini-3.7-flash",
+    description: "Previous-generation Flash. High-resolution scans.",
+    highResolutionScans: true,
+  },
+  {
+    id: "gemini-3-6-flash",
+    name: "Gemini 3.6 Flash",
+    provider: "google",
+    model: "gemini-3.6-flash",
+    description: "Balances speed and multimodal quality. High-resolution scans.",
+    highResolutionScans: true,
+  },
+  {
+    id: "gemini-3-1-pro",
+    name: "Gemini 3.1 Pro (preview)",
+    provider: "google",
+    model: "gemini-3.1-pro-preview",
+    description: "Google's most capable. Preview — expect stricter rate limits.",
+    highResolutionScans: true,
+  },
+  {
+    id: "gemini-3-5-flash-lite",
+    name: "Gemini 3.5 Flash Lite",
+    provider: "google",
+    model: "gemini-3.5-flash-lite",
+    description: "Cheapest Gemini 3. For high-volume runs where cost dominates.",
+    highResolutionScans: true,
+  },
+  // Kept so results scored before the Gemini 3 rollout remain reproducible and
+  // so a benchmark can compare against the model that produced them.
+  {
     id: "gemini-flash",
-    name: "Gemini 2.5 Flash",
+    name: "Gemini 2.5 Flash (legacy)",
     provider: "google",
     model: "gemini-2.5-flash",
-    description: "Google's fast model.",
+    description: "Previous default. No high-resolution scan support.",
   },
   {
     id: "gemini-pro",
-    name: "Gemini 2.5 Pro",
+    name: "Gemini 2.5 Pro (legacy)",
     provider: "google",
     model: "gemini-2.5-pro",
-    description: "Google's most capable model.",
+    description: "Previous Gemini Pro. No high-resolution scan support.",
   },
 ];
 
