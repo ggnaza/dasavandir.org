@@ -59,7 +59,14 @@ export interface ScoredItem {
   extracted_answer: string;
   correct_answer: string;
   is_correct: boolean;
+  /**
+   * min(legibility, grading confidence). Reading the handwriting and judging
+   * the answer are separate passes with separate certainties; the item is only
+   * as trustworthy as the weaker one.
+   */
   confidence: number;
+  /** Transcription pass: how sure the reader was of the student's writing, 0-1. */
+  legibility?: number;
   /** The model's own arithmetic for the award, e.g. "3 of 4 pairs = 3 x 0.25 = 0.75". */
   points_breakdown?: string;
   explanation?: string;

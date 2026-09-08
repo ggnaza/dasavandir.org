@@ -91,6 +91,13 @@ here carry the claim-as-carry-away **plus status**. Route by status first (don't
   added for the later subscription phase. *(status: proposed — shipped to prod; PAYMENTS_MODE=disabled
   until a gateway is wired.)*
 
+- ⭐ `0008-gnahatum-two-pass-scoring.md` — **Open when:** touching `lib/gnahatum/scorer.ts`, or asking
+  "why two model calls per scan?" / "can the grader see the teacher's marks?" **Carry-away:** pass 1
+  transcribes from the image knowing only question structure (never the answers); pass 2 grades the
+  transcript + key + learned block and **never receives the image**. Structural independence from
+  red ink; hand-graded papers become a safe gold set. `scripts/check-gnahatum-prompt.mjs` guards it.
+  *(status: accepted — shipped to staging 2026-09-08.)*
+
 ## Maintenance
 
 APPEND-ONLY for new ADRs; existing ADRs change `status:` in place, never move (supersession via
