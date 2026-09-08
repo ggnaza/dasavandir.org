@@ -98,6 +98,11 @@ export function BatchUploader({
   const [savingCorrections, setSavingCorrections] = useState(false);
   const partsRef = useRef<{ blob: Blob; filename: string }[]>([]);
   const abortRef = useRef(false);
+  // Aborts the in-flight fetches when Stop is pressed. The flag above only
+  // stops NEW students from starting; with five in flight (each two model
+  // calls, up to minutes) that left Stop looking dead until they all finished.
+  const abortCtrlRef = useRef<AbortController | null>(null);
+  const [stopping, setStopping] = useState(false);
 
   useEffect(() => {
     fetch("/api/gnahatum/models")
@@ -243,10 +248,12 @@ export function BatchUploader({
         // would hit Vercel's 4.5MB request body limit, which rejects the
         // request before the route runs and yields a non-JSON 413.
         const contentType = part.blob.type || "application/pdf";
+        const signal = abortCtrlRef.current?.signal;
         const urlRes = await fetch("/api/gnahatum/upload-url", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ content_type: contentType, batch_id: batchId }),
+          signal,
         });
         if (!urlRes.ok) {
           const b = await urlRes.json().catch(() => ({ error: "Could not start upload" }));
@@ -260,6 +267,10 @@ export function BatchUploader({
           .uploadToSignedUrl(path, token, part.blob, { contentType });
         if (uploadErr) throw new Error(`Upload failed: ${uploadErr.message}`);
 
+        // The storage upload cannot be aborted, but the scoring call — the
+        // long one — must not begin once Stop has been pressed.
+        if (abortRef.current) throw new DOMException("Stopped", "AbortError");
+
         const res = await fetch("/api/gnahatum/score", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -270,6 +281,7 @@ export function BatchUploader({
             model_id: modelId || undefined,
             on_behalf_of: onBehalfOf || undefined,
           }),
+          signal,
         });
         if (!res.ok) {
           const body = await res.json().catch(() => ({ error: "Scoring failed" }));
@@ -295,10 +307,16 @@ export function BatchUploader({
           ),
         );
       } catch (err) {
+        // Stopped, not failed: back to pending so Score All picks it up again.
+        // The server may still finish this one — a Vercel function cannot be
+        // cancelled from the browser — but the UI stops waiting on it.
+        const aborted = err instanceof DOMException && err.name === "AbortError";
         setStudents((prev) =>
           prev.map((s) =>
             s.index === index
-              ? { ...s, status: "error", error: err instanceof Error ? err.message : "Failed" }
+              ? aborted
+                ? { ...s, status: "pending", error: null }
+                : { ...s, status: "error", error: err instanceof Error ? err.message : "Failed" }
               : s,
           ),
         );
@@ -311,6 +329,8 @@ export function BatchUploader({
 
   const handleScoreAll = useCallback(async () => {
     abortRef.current = false;
+    abortCtrlRef.current = new AbortController();
+    setStopping(false);
     setScoring(true);
     // A shared queue drained by a fixed number of workers. Scoring was strictly
     // sequential — 30 students meant 30 serial round trips of two model calls
@@ -327,11 +347,17 @@ export function BatchUploader({
       }
     });
     await Promise.all(workers);
+    abortCtrlRef.current = null;
     setScoring(false);
+    setStopping(false);
   }, [students, scoreStudent]);
 
   const handleStop = useCallback(() => {
     abortRef.current = true;
+    setStopping(true);
+    // Rejects every in-flight fetch with AbortError; the workers then drain
+    // within a tick instead of after the slowest student's second model call.
+    abortCtrlRef.current?.abort();
   }, []);
 
   const handleRetry = useCallback(
@@ -612,9 +638,10 @@ export function BatchUploader({
               {scoring ? (
                 <button
                   onClick={handleStop}
-                  className="px-4 py-2 rounded-lg bg-red-600 text-white font-medium hover:bg-red-700 transition-colors text-sm"
+                  disabled={stopping}
+                  className="px-4 py-2 rounded-lg bg-red-600 text-white font-medium hover:bg-red-700 transition-colors text-sm disabled:opacity-60"
                 >
-                  Stop
+                  {stopping ? "Stopping…" : "Stop"}
                 </button>
               ) : (
                 <button
