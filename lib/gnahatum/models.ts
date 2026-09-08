@@ -85,6 +85,39 @@ export const SCORING_MODELS: ScoringModel[] = [
     description: "Cheapest Gemini 3. For high-volume runs where cost dominates.",
     highResolutionScans: true,
   },
+  // OpenAI ids verified against the account's live /v1/models on 2026-09-08
+  // and the current models page: these four are the flagships; gpt-5.5, 5.4,
+  // o3, o4-mini and 4.1 are still callable but no longer listed, so they are
+  // treated as legacy and not offered. Responses API, strict structured
+  // outputs, PDF input; see lib/gnahatum/openai.ts.
+  {
+    id: "gpt-6-astra",
+    name: "GPT-6 Astra",
+    provider: "openai",
+    model: "gpt-6-astra",
+    description: "OpenAI's flagship. Strongest reasoning; slowest and dearest.",
+  },
+  {
+    id: "gpt-5-6-sol",
+    name: "GPT-5.6 Sol",
+    provider: "openai",
+    model: "gpt-5.6-sol",
+    description: "OpenAI high-end general model.",
+  },
+  {
+    id: "gpt-5-6-terra",
+    name: "GPT-5.6 Terra",
+    provider: "openai",
+    model: "gpt-5.6-terra",
+    description: "OpenAI balanced quality and cost. Good default for OpenAI.",
+  },
+  {
+    id: "gpt-5-6-luna",
+    name: "GPT-5.6 Luna",
+    provider: "openai",
+    model: "gpt-5.6-luna",
+    description: "OpenAI cost-optimised, for high-volume scoring.",
+  },
   // Kept so results scored before the Gemini 3 rollout remain reproducible and
   // so a benchmark can compare against the model that produced them.
   {

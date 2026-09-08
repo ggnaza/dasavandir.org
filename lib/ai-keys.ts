@@ -37,6 +37,7 @@ export function providerApiKey(provider: AIProvider): string | undefined {
 
 export const anthropicApiKey = () => providerApiKey("anthropic");
 export const geminiApiKey = () => providerApiKey("google");
+export const openaiApiKey = () => providerApiKey("openai");
 
 /** Whether a provider has a usable key. Never returns the key itself. */
 export function hasProviderKey(provider: AIProvider): boolean {
