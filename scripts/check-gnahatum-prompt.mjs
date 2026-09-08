@@ -72,7 +72,7 @@ check(
 
 // --- Gemini must get guaranteed JSON, and Gemini 3 must get full-resolution scans ---
 check(
-  /responseMimeType: "application\/json"/.test(src) && /responseSchema: call\.schema/.test(src),
+  /responseMimeType: "application\/json"/.test(src) && /responseSchema: schema,/.test(src),
   "Gemini structured output was removed — the response falls back to fragile regex extraction",
 );
 check(
@@ -108,9 +108,24 @@ check(
 );
 // A runaway ANSWER (thoughts ~0, answer at the cap) is a repetition loop, not
 // thinking; only a higher temperature breaks it. The retry must change both.
+// A string field can loop; a number cannot. The grading retry must drop the
+// free-text fields — in production the loop recurred at thinking=low and
+// temperature 0.6 with the full schema.
 check(
-  /result = await attempt\("low", 0\.6\);/.test(src),
-  "the retry no longer raises temperature — a JSON repetition loop will recur identically on retry",
+  /await attempt\("low", 0\.6, call\.fallback\.schema, call\.prompt \+ call\.fallback\.promptSuffix, "minimal schema"\)/.test(src),
+  "the grading retry no longer switches to the numbers-only fallback schema — a points_breakdown loop will recur on retry",
+);
+check(
+  /fallback: \{ schema: GRADING_SCHEMA_MINIMAL, promptSuffix: GRADING_FALLBACK_SUFFIX \}/.test(src),
+  "the grading call no longer declares its fallback",
+);
+check(
+  !/GRADING_SCHEMA_MINIMAL = \{[\s\S]*?type: "STRING"[\s\S]*?\} as const;/.test(src.slice(src.indexOf("const GRADING_SCHEMA_MINIMAL"), src.indexOf("const GRADING_FALLBACK_SUFFIX"))),
+  "GRADING_SCHEMA_MINIMAL contains a STRING field — the fallback exists precisely because strings loop",
+);
+check(
+  /KEEP EVERY TEXT FIELD SHORT/.test(src),
+  "the grading prompt no longer bounds points_breakdown/explanation length",
 );
 check(
   /Output ended: \$\{JSON\.stringify\(result\.text\.slice\(-300\)\)\}/.test(src),
