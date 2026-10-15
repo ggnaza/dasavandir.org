@@ -1,6 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import Link from "next/link";
+import { headers } from "next/headers";
+import { moduleUrl } from "@/lib/modules";
 
 export const dynamic = "force-dynamic";
 
@@ -56,6 +58,38 @@ const ACTION_ICON: Record<string, string> = {
   reactivate_learner: "▶️",
 };
 
+type EfficacyScores = {
+  observations_sent: number;
+  observation_avg: number | null;
+  last_observation_at: string | null;
+  latest_competency_avg: number | null;
+  latest_competency_at: string | null;
+  reflections_count: number;
+  ai_evaluation_accepted_avg: number | null;
+};
+
+/**
+ * The person's scores in the Efficacy tool, from the read-only cross-tool view
+ * `public.efficacy_teacher_scores_v` (shipped by the Efficacy repo's migrations, ADR-0009 §5).
+ * Null — and the section is hidden — when they have no Efficacy access or the view isn't applied.
+ */
+async function getEfficacyScores(
+  admin: ReturnType<typeof createAdminClient>,
+  userId: string
+): Promise<EfficacyScores | null> {
+  const { data, error } = await admin
+    .from("efficacy_teacher_scores_v")
+    .select(
+      "observations_sent, observation_avg, last_observation_at, latest_competency_avg, latest_competency_at, reflections_count, ai_evaluation_accepted_avg"
+    )
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (error || !data) return null;
+  return data as EfficacyScores;
+}
+
+const score = (v: number | string | null) => (v === null || v === undefined ? "—" : `${Number(v).toFixed(2)} / 5`);
+
 export default async function UserActivityPage({ params }: { params: { id: string } }) {
   const supabase = createClient();
   const admin = createAdminClient();
@@ -77,7 +111,7 @@ export default async function UserActivityPage({ params }: { params: { id: strin
     .eq("id", params.id)
     .single();
 
-  const [{ data: logs }, { data: { user: authUser } }] = await Promise.all([
+  const [{ data: logs }, { data: { user: authUser } }, efficacy] = await Promise.all([
     admin
       .from("audit_logs")
       .select("id, action, meta, created_at")
@@ -85,7 +119,9 @@ export default async function UserActivityPage({ params }: { params: { id: strin
       .order("created_at", { ascending: false })
       .limit(200),
     admin.auth.admin.getUserById(params.id),
+    getEfficacyScores(admin, params.id),
   ]);
+  const efficacyUrl = moduleUrl("efficacy", headers().get("host") ?? "");
 
   const lastSignInAt: string | null = authUser?.last_sign_in_at ?? null;
   const loginLogs = (logs ?? []).filter((l) => l.action === "login");
@@ -104,6 +140,48 @@ export default async function UserActivityPage({ params }: { params: { id: strin
           Joined: <span className="font-medium">{user?.created_at ? toArmenianTime(user.created_at) : "—"}</span>
         </p>
       </div>
+
+      {/* ── Efficacy tool scores ──────────────────────────── */}
+      {efficacy && (
+        <section className="mb-8">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-sm font-semibold text-gray-700">Efficacy tool</h2>
+            {efficacyUrl && (
+              <a href={efficacyUrl} className="text-brand-600 hover:underline text-xs" target="_blank" rel="noopener noreferrer">
+                Open Efficacy →
+              </a>
+            )}
+          </div>
+          <div className="bg-white border rounded-xl grid grid-cols-2 sm:grid-cols-3 divide-x divide-y">
+            <div className="px-5 py-4">
+              <p className="text-xs text-gray-500">Observations sent</p>
+              <p className="text-lg font-semibold">{efficacy.observations_sent}</p>
+              <p className="text-xs text-gray-400">
+                {efficacy.last_observation_at ? `Last: ${toArmenianTime(efficacy.last_observation_at)}` : "None yet"}
+              </p>
+            </div>
+            <div className="px-5 py-4">
+              <p className="text-xs text-gray-500">Observation average</p>
+              <p className="text-lg font-semibold">{score(efficacy.observation_avg)}</p>
+            </div>
+            <div className="px-5 py-4">
+              <p className="text-xs text-gray-500">Latest competency average</p>
+              <p className="text-lg font-semibold">{score(efficacy.latest_competency_avg)}</p>
+              <p className="text-xs text-gray-400">
+                {efficacy.latest_competency_at ? toArmenianTime(efficacy.latest_competency_at) : "Not evaluated yet"}
+              </p>
+            </div>
+            <div className="px-5 py-4">
+              <p className="text-xs text-gray-500">Reflections</p>
+              <p className="text-lg font-semibold">{efficacy.reflections_count}</p>
+            </div>
+            <div className="px-5 py-4">
+              <p className="text-xs text-gray-500">Accepted AI evaluations (avg)</p>
+              <p className="text-lg font-semibold">{score(efficacy.ai_evaluation_accepted_avg)}</p>
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* ── Login history ─────────────────────────────────── */}
       <section className="mb-8">

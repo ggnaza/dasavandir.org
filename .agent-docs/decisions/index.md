@@ -98,6 +98,14 @@ here carry the claim-as-carry-away **plus status**. Route by status first (don't
   red ink; hand-graded papers become a safe gold set. `scripts/check-gnahatum-prompt.mjs` guards it.
   *(status: accepted — shipped to staging 2026-09-08.)*
 
+- `0009-efficacy-rehost-vahe-original.md` — **Open when:** working on the Efficacy tool, its repo,
+  its login, or the LMS⇄Efficacy data views. **Carry-away:** Vahe's original (React/Vite + Express)
+  moves nearly unchanged into its own repo + Vercel project. Mongoose is swapped for a Supabase model
+  layer in schema `efficacy_app`, login is swapped for LMS Supabase Auth, the video evaluation is
+  restructured into background steps, the LMS and Efficacy integrate only through two read-only views,
+  and the August rebuild is deleted after cutover.
+  *(status: accepted 2026-10-15 — on condition: never write to Vahe's repo/deploy; LMS changes additive only until cutover.)*
+
 ## Maintenance
 
 APPEND-ONLY for new ADRs; existing ADRs change `status:` in place, never move (supersession via
