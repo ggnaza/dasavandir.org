@@ -16,3 +16,4 @@ build/
 # playwright run output
 test-results/
 playwright-report/
+.env.staging
