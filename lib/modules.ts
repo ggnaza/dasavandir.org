@@ -33,6 +33,11 @@ export interface ModuleDef {
   hosts: string[];
   /** Local dev subdomain prefix. */
   localHost: string;
+  /**
+   * Runs as its own deployment (its own repo + Vercel project), not as routes of this app, so
+   * links to it must go to its subdomain — `path` here only serves the legacy in-LMS copy.
+   */
+  standalone?: boolean;
 }
 
 export const MODULES: ModuleDef[] = [
@@ -57,6 +62,8 @@ export const MODULES: ModuleDef[] = [
     ldmLabel: "LDM",
     hosts: ["efficacy.dasavandir.org", "staging.efficacy.dasavandir.org"],
     localHost: "efficacy.localhost",
+    // Vahe's original tool, re-hosted as its own Vercel project (ggnaza/efficacy, ADR-0009).
+    standalone: true,
   },
   {
     id: "gnahatum",
@@ -94,6 +101,18 @@ export function moduleUrl(id: ModuleId, currentHost: string): string | null {
   const isStaging = currentHost.split(":")[0].startsWith("staging.");
   const host = mod.hosts.find((h) => h.startsWith("staging.") === isStaging) ?? mod.hosts[0];
   return `https://${host}`;
+}
+
+/**
+ * Where the module switcher should send a user for `mod`, given the host they are on.
+ * A standalone module lives on its own subdomain (staging → staging.<module>, otherwise
+ * production); everything else — and any module during local development — is a path on this app.
+ */
+export function switcherHref(mod: ModuleDef, currentHost: string): string {
+  const bare = currentHost.split(":")[0];
+  const isLocal = bare === "localhost" || bare.endsWith(".localhost") || bare === "127.0.0.1";
+  if (mod.standalone && !isLocal) return moduleUrl(mod.id, currentHost) ?? mod.href;
+  return mod.href;
 }
 
 /** An empty grant map — every module denied. Callers layer grants on top. */

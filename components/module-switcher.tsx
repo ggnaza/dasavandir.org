@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useRef, useEffect } from "react";
-import { MODULES, type ModuleId } from "@/lib/modules";
+import { MODULES, switcherHref, type ModuleDef, type ModuleId } from "@/lib/modules";
 
 /**
  * Cross-module switcher.
@@ -69,6 +69,15 @@ export function ModuleSwitcher({
     }
   }
 
+  /** Standalone modules (Efficacy) live on their own subdomain; the rest are paths here. */
+  function linkFor(m: ModuleDef): string {
+    if (m.standalone && origin) {
+      const target = switcherHref(m, new URL(origin).host);
+      if (target !== m.href) return target;
+    }
+    return hrefFor(m.href);
+  }
+
   if (available.length <= 1) return null;
 
   return (
@@ -95,7 +104,7 @@ export function ModuleSwitcher({
             return (
               <Link
                 key={m.id}
-                href={hrefFor(m.href)}
+                href={linkFor(m)}
                 onClick={() => setOpen(false)}
                 className={`flex items-center gap-2 px-3 py-2 text-sm hover:bg-gray-50 ${
                   isActive ? "bg-gray-50 font-medium text-gray-900" : "text-gray-600"

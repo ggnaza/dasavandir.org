@@ -269,3 +269,19 @@ resumable across ticks, no `/tmp`) → one Gemini processing check per tick (30-
 - **Known follow-up:** RAG retrieval still loads up to 4000 chunk embeddings and ranks them in JS
   (unchanged behaviour). Over PostgREST that gets slow as the knowledge base grows. Move ranking to
   pgvector when chunk count passes about 1000.
+
+## Addendum C (2026-10-15) — dev environment verified (`efficacy-dev`, ref `hkxymaiizvmtbtneflav`)
+- Applied: `supabase/dev/0000_lms_stubs.sql`, then migrations 0001–0003. Seeded with `scripts/seed-dev.js`.
+- `scripts/smoke-api.js`: **66/66** checks pass against the real Supabase/PostgREST.
+- Checked by hand in a browser: sign-in, Vahe's LDM dashboard, the teacher matrix with the LMS
+  courses card (50%, 2/4), and admin User Management. No console errors.
+- **Gotcha (applies to production too):** after ticking `efficacy_app` under *Data API → Exposed
+  schemas* and saving, the dashboard showed "3 of 3" but PostgREST kept serving only
+  `public, graphql_public` (PGRST106), even after a project restart. Unticking, saving,
+  re-ticking and saving again sent a fresh `PATCH …/config/postgrest`, which took effect within
+  seconds. After exposing a schema, always verify with a REST call that sends
+  `Accept-Profile: <schema>`.
+- Not verified: Google sign-in (needs the dev project's Google provider and redirect URLs), and an
+  AI evaluation with real Gemini and Drive (no `GEMINI_API_KEY` / `GOOGLE_API_KEY` in dev yet).
+  The runner's failure path was verified: the job is claimed, fails cleanly, and the reason is
+  recorded.
