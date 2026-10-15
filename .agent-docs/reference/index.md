@@ -61,6 +61,9 @@ re-verified) · Last-verified (facts drift — date the check) · See also.
 - `security-audit-2026-07-open-items.md` — **Open when:** prioritizing security work or checking an
   audit item's status. **Carry-away:** one 🔴 critical (leaked service-role key → rotate, OQ-001)
   plus HIGH/MED items; full evidence in `AUDIT_REPORT.md`.
+- `efficacy-original-vs-port.md` — **Open when:** working on the Efficacy tool or comparing it to
+  Vahe's original repo. **Carry-away:** the 2026 port is a rebuild that skipped the AI video evaluation,
+  knowledge base, PDFs and Vahe's UI; the original is Express + Mongo + React/Vite on Render. (Verified 2026-10-15.)
 
 ## Maintenance
 

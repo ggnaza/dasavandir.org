@@ -83,6 +83,19 @@ export function moduleForHost(host: string): ModuleDef | undefined {
   return MODULES.find((m) => m.hosts.includes(bare) || (m.localHost && bare === m.localHost));
 }
 
+/**
+ * Absolute URL of a module's own subdomain for the environment serving `currentHost`:
+ * staging hosts (`staging.…`) link to the module's staging host, everything else to production.
+ * Null for a module without subdomains (the LMS itself).
+ */
+export function moduleUrl(id: ModuleId, currentHost: string): string | null {
+  const mod = moduleById(id);
+  if (!mod || mod.hosts.length === 0) return null;
+  const isStaging = currentHost.split(":")[0].startsWith("staging.");
+  const host = mod.hosts.find((h) => h.startsWith("staging.") === isStaging) ?? mod.hosts[0];
+  return `https://${host}`;
+}
+
 /** An empty grant map — every module denied. Callers layer grants on top. */
 export function noAccess(): Record<ModuleId, AccessLevel> {
   return { courses: "none", efficacy: "none", gnahatum: "none" };
