@@ -3,7 +3,7 @@ import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 
-const LAST_UPDATED = "May 6, 2026";
+const LAST_UPDATED = "November 11, 2026";
 const LAST_UPDATED_HY = "Մայիս 6, 2026";
 
 function PrivacyPageInner() {
@@ -223,13 +223,9 @@ function PrivacyEN() {
 
       <h2>9. Children&apos;s Privacy</h2>
       <p>
-        Dasavandir.org is intended for users aged <strong>16 and above</strong>. We do not
-        knowingly collect personal data from children under 16. If you believe a child under 16 has
+        Dasavandir.org is intended for users aged <strong>18 and above</strong>. We do not
+        knowingly collect personal data from anyone under 18. If you believe someone under 18 has
         created an account, please contact us immediately and we will delete the account.
-      </p>
-      <p>
-        For learners between 16 and 18, parental or guardian consent may be required depending on
-        your jurisdiction.
       </p>
 
       <h2>10. Changes to This Policy</h2>
@@ -445,10 +441,10 @@ function PrivacyHY() {
 
       <h2>9. Երեխաների Գաղտնիություն</h2>
       <p>
-        Dasavandir.org-ը նախատեսված է <strong>16 և բարձր</strong> տարեկան
-        օգտատերերի համար։ Մենք գիտակցաբար չենք հավաքում 16 տարեկանից փոքր
-        երեխաների անձնական տվյալներ։ Եթե կարծում եք, որ 16 տարեկանից փոքր
-        երեխա հաշիվ է ստեղծել, անմիջապես կապ հաստատեք մեզ հետ, և մենք
+        Dasavandir.org-ը նախատեսված է <strong>18 և բարձր</strong> տարեկան
+        օգտատերերի համար։ Մենք գիտակցաբար չենք հավաքում 18 տարեկանից փոքր
+        անձանց անձնական տվյալներ։ Եթե կարծում եք, որ 18 տարեկանից փոքր
+        անձը հաշիվ է ստեղծել, անմիջապես կապ հաստատեք մեզ հետ, և մենք
         կջնջենք հաշիվը։
       </p>
 
