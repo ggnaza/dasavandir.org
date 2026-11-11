@@ -3,7 +3,7 @@ import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 
-const LAST_UPDATED = "May 6, 2026";
+const LAST_UPDATED = "November 11, 2026";
 const LAST_UPDATED_HY = "Մայիս 6, 2026";
 
 function TermsPageInner() {
@@ -67,10 +67,8 @@ function TermsEN() {
 
       <h2>1. Eligibility</h2>
       <p>
-        You must be at least <strong>16 years old</strong> to create an account on Dasavandir.org.
-        If you are between 16 and 18, you confirm that you have obtained the necessary parental or
-        guardian consent required in your jurisdiction. By using the platform, you represent and
-        warrant that you meet these requirements.
+        You must be at least <strong>18 years old</strong> to create an account on Dasavandir.org.
+        By using the platform, you represent and warrant that you meet this requirement.
       </p>
 
       <h2>2. Account Registration</h2>
@@ -261,10 +259,8 @@ function TermsHY() {
       <h2>1. Իրավունակություն</h2>
       <p>
         Dasavandir.org-ում հաշիվ ստեղծելու համար Դուք պետք է լինեք առնվազն{" "}
-        <strong>16 տարեկան</strong>։ Եթե Դուք 16-ից 18 տարեկան եք, Դուք հաստատում եք, որ
-        ձեռք եք բերել ձեր երկրի օրենսդրությամբ պահանջվող ծնողական կամ խնամակալի
-        համաձայնությունը։ Հարթակն օգտագործելով՝ Դուք հայտարարում եք, որ բավարարում եք
-        այս պայմանները։
+        <strong>18 տարեկան</strong>։ Հարթակն օգտագործելով՝ Դուք հայտարարում եք, որ
+        բավարարում եք այս պայմանը։
       </p>
 
       <h2>2. Հաշվի Գրանցում</h2>
