@@ -13,6 +13,7 @@ import { VideoTracker } from "./video-tracker";
 import { ChapterView } from "./chapter-view";
 import { SlideAudioPlayer } from "./slide-audio-player";
 import { PdfViewer } from "@/components/pdf-viewer";
+import { lessonDocumentFiles, lessonDocumentStoragePath } from "@/lib/lesson-documents";
 import { MediaWatermark } from "@/components/media-watermark";
 
 function getLinkIcon(url: string): string {
@@ -282,39 +283,30 @@ export default async function LessonPage({
   // not copy prevention. Email is the most recognisable per-learner identifier.
   const watermarkLabel = user?.email ?? user?.id ?? "";
 
-  // If document_url is a Supabase storage file (lesson-documents bucket is private),
-  // generate a signed URL so the learner's browser can load it in the iframe.
-  let resolvedDocumentUrl = lesson.document_url ?? null;
-  if (resolvedDocumentUrl && resolvedDocumentUrl.includes("/lesson-documents/")) {
-    const marker = "/lesson-documents/";
-    const idx = resolvedDocumentUrl.indexOf(marker);
-    if (idx !== -1) {
-      const storagePath = decodeURIComponent(
-        resolvedDocumentUrl.slice(idx + marker.length).split("?")[0]
-      );
-      const { data: signedDoc } = await admin.storage
-        .from("lesson-documents")
-        .createSignedUrl(storagePath, 3600);
-      if (signedDoc?.signedUrl) resolvedDocumentUrl = signedDoc.signedUrl;
-    }
-  }
-
-  // Decide how to render the document. Direct PDFs (Supabase signed URL or a
-  // .pdf link) use the JS PdfViewer, which fits to width with zoom controls
-  // and works consistently on iOS (the native viewer ignores fit params there).
-  // Everything else (Google Docs/Drive previews) stays in an iframe.
-  let pdfUrl: string | null = null;
-  let documentSrc: string | null = null;
-  if (resolvedDocumentUrl) {
-    const isDirectPdf =
-      resolvedDocumentUrl.includes("/storage/v1/object/sign/") ||
-      resolvedDocumentUrl.split("?")[0].toLowerCase().endsWith(".pdf");
-    if (isDirectPdf) {
-      pdfUrl = resolvedDocumentUrl;
-    } else {
-      documentSrc = getDocumentEmbedUrl(resolvedDocumentUrl);
-    }
-  }
+  // Lesson documents (lib/lesson-documents). Files in the private
+  // lesson-documents bucket get a signed URL so the learner's browser can load them.
+  // Direct PDFs (signed URL or a .pdf link) use the JS PdfViewer, which fits to
+  // width with zoom controls and works consistently on iOS (the native viewer
+  // ignores fit params there). Everything else (Google Docs/Drive previews)
+  // stays in an iframe.
+  const docFiles = lessonDocumentFiles(lesson);
+  const documents = await Promise.all(
+    docFiles.map(async (f) => {
+      let url = f.url;
+      const storagePath = lessonDocumentStoragePath(url);
+      if (storagePath) {
+        const { data: signedDoc } = await admin.storage
+          .from("lesson-documents")
+          .createSignedUrl(storagePath, 3600);
+        if (signedDoc?.signedUrl) url = signedDoc.signedUrl;
+      }
+      const isDirectPdf =
+        url.includes("/storage/v1/object/sign/") || url.split("?")[0].toLowerCase().endsWith(".pdf");
+      return isDirectPdf
+        ? { name: f.name, pdfUrl: url, embedSrc: null }
+        : { name: f.name, pdfUrl: null, embedSrc: getDocumentEmbedUrl(url) };
+    })
+  );
 
   // Generate signed URLs for lesson file attachments (bucket is private)
   const signedFiles = await Promise.all(
@@ -379,17 +371,19 @@ export default async function LessonPage({
           </div>
         )}
 
-        {pdfUrl && <PdfViewer url={pdfUrl} />}
-
-        {documentSrc && (
-          <div className="mb-6 rounded-xl overflow-hidden border bg-gray-50 w-full h-[80vh] max-h-[720px]">
-            <iframe
-              src={documentSrc}
-              className="w-full h-full"
-              title="Document viewer"
-            />
+        {documents.map((d, i) => (
+          <div key={i}>
+            {documents.length > 1 && (
+              <p className="text-sm font-medium text-gray-700 mb-2">📄 {d.name}</p>
+            )}
+            {d.pdfUrl && <PdfViewer url={d.pdfUrl} />}
+            {d.embedSrc && (
+              <div className="mb-6 rounded-xl overflow-hidden border bg-gray-50 w-full h-[80vh] max-h-[720px]">
+                <iframe src={d.embedSrc} className="w-full h-full" title={d.name || "Document viewer"} />
+              </div>
+            )}
           </div>
-        )}
+        ))}
 
         {Array.isArray(lesson.slide_audio_urls) && lesson.slide_audio_urls.length > 0 ? (
           <SlideAudioPlayer urls={lesson.slide_audio_urls as string[]} />

@@ -30,7 +30,7 @@ function InviteModal({ courseId, onClose }: { courseId: string; onClose: () => v
   const router = useRouter();
   const [mode, setMode] = useState<Mode>("single");
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<{ invited?: number; error?: string } | null>(null);
+  const [result, setResult] = useState<{ invited?: number; emailFailures?: string[]; error?: string } | null>(null);
 
   // Single mode state
   const [firstName, setFirstName] = useState("");
@@ -82,7 +82,7 @@ function InviteModal({ courseId, onClose }: { courseId: string; onClose: () => v
 
     if (res.ok) {
       const data = await res.json();
-      setResult({ invited: data.invited });
+      setResult({ invited: data.invited, emailFailures: data.emailFailures ?? [] });
       setFirstName(""); setLastName(""); setEmail(""); setBulkInput("");
       router.refresh();
     } else {
@@ -183,6 +183,11 @@ function InviteModal({ courseId, onClose }: { courseId: string; onClose: () => v
         {result?.invited !== undefined && (
           <p className="mt-3 text-sm text-green-600 font-medium">
             ✓ {result.invited} invitation{result.invited !== 1 ? "s" : ""} sent.
+          </p>
+        )}
+        {result?.emailFailures && result.emailFailures.length > 0 && (
+          <p className="mt-3 text-sm text-amber-700">
+            ⚠ The email could not be delivered to {result.emailFailures.length} address{result.emailFailures.length !== 1 ? "es" : ""}: {result.emailFailures.join(", ")}. They are still on the invitation list — try inviting them again in a minute.
           </p>
         )}
         {result?.error && (

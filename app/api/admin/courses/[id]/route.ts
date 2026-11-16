@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { assertCourseOwner } from "@/lib/assert-course-owner";
 import { logAudit } from "@/lib/audit-log";
+import { COURSE_STATUSES } from "@/lib/course-status";
 
 // DELETE /api/admin/courses/[id] — delete a course and all of its dependent data.
 //
@@ -118,6 +119,7 @@ const UPDATABLE_COLUMNS = [
   "title",
   "description",
   "published",
+  "status",
   "cover_image_url",
   "course_type",
   "space_id",
@@ -156,6 +158,9 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   const update: Record<string, unknown> = {};
   for (const col of UPDATABLE_COLUMNS) {
     if (col in body) update[col] = body[col];
+  }
+  if ("status" in update && !(COURSE_STATUSES as readonly unknown[]).includes(update.status)) {
+    return new Response("Invalid course status", { status: 400 });
   }
   if (Object.keys(update).length === 0) {
     return new Response("No updatable fields in request", { status: 400 });

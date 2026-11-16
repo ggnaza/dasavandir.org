@@ -3,6 +3,8 @@ import { notFound } from "next/navigation";
 import { LessonHtmlRenderer } from "@/components/lesson-html-renderer";
 import { ChapterView } from "@/app/learn/courses/[id]/lessons/[lessonId]/chapter-view";
 import { PreviewVideoPlayer } from "./preview-video-player";
+import { PdfViewer } from "@/components/pdf-viewer";
+import { lessonDocumentFiles, lessonDocumentStoragePath } from "@/lib/lesson-documents";
 
 function getEmbedUrl(url: string): string | null {
   try {
@@ -86,6 +88,20 @@ export default async function LessonPreviewPage({
     })
   );
 
+
+  // Same document resolution as the learner lesson page: sign private-bucket files.
+  const documents = await Promise.all(
+    lessonDocumentFiles(lesson ?? {}).map(async (f) => {
+      let url = f.url;
+      const storagePath = lessonDocumentStoragePath(url);
+      if (storagePath) {
+        const { data } = await admin.storage.from("lesson-documents").createSignedUrl(storagePath, 3600);
+        if (data?.signedUrl) url = data.signedUrl;
+      }
+      const isDirectPdf = url.includes("/storage/v1/object/sign/") || url.split("?")[0].toLowerCase().endsWith(".pdf");
+      return { name: f.name, url, pdfUrl: isDirectPdf ? url : null };
+    })
+  );
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Preview banner */}
@@ -116,16 +132,19 @@ export default async function LessonPreviewPage({
           </div>
         )}
 
-        {/* Document */}
-        {lesson.document_url && (
-          <div className="mb-6 rounded-xl overflow-hidden border bg-gray-50" style={{ height: "500px" }}>
-            <iframe
-              src={getDocumentEmbedUrl(lesson.document_url)}
-              className="w-full h-full"
-              title="Document viewer"
-            />
+        {/* Documents */}
+        {documents.map((d, i) => (
+          <div key={i}>
+            {documents.length > 1 && <p className="text-sm font-medium text-gray-700 mb-2">📄 {d.name}</p>}
+            {d.pdfUrl ? (
+              <PdfViewer url={d.pdfUrl} />
+            ) : (
+              <div className="mb-6 rounded-xl overflow-hidden border bg-gray-50" style={{ height: "500px" }}>
+                <iframe src={getDocumentEmbedUrl(d.url)} className="w-full h-full" title={d.name || "Document viewer"} />
+              </div>
+            )}
           </div>
-        )}
+        ))}
 
         {/* Audio */}
         {lesson.audio_url && (
