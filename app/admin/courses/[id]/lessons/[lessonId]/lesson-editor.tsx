@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { LessonContentEditor } from "@/components/lesson-content-editor-dynamic";
 import { ChaptersEditor } from "./chapters-editor";
+import { lessonDocumentFiles, MAX_LESSON_DOCUMENTS, type LessonDocFile } from "@/lib/lesson-documents";
 
 function PreviewModal({ courseId, lessonId, onClose }: { courseId: string; lessonId: string; onClose: () => void }) {
   return (
@@ -31,6 +32,7 @@ type Lesson = {
   video_url: string | null;
   audio_url: string | null;
   document_url: string | null;
+  document_files?: unknown;
   slides_url: string | null;
   slide_audio_urls: string[] | null;
   what_you_learn: string | null;
@@ -73,9 +75,10 @@ export function LessonEditor({
   const [content, setContent] = useState(lesson.content ?? "");
   const [videoUrl, setVideoUrl] = useState(lesson.video_url ?? "");
   const [audioUrl, setAudioUrl] = useState(lesson.audio_url ?? "");
-  const [documentUrl, setDocumentUrl] = useState(lesson.document_url ?? "");
+  const [docFiles, setDocFiles] = useState<LessonDocFile[]>(() => lessonDocumentFiles(lesson));
   const [slidesUrl, setSlidesUrl] = useState(lesson.slides_url ?? "");
-  const [uploadingDoc, setUploadingDoc] = useState(false);
+  // index being replaced, "new" while adding a file, null when idle
+  const [uploadingDoc, setUploadingDoc] = useState<number | "new" | null>(null);
   const [docError, setDocError] = useState("");
   const [whatYouLearn, setWhatYouLearn] = useState(lesson.what_you_learn ?? "");
   const [skills, setSkills] = useState<string[]>(lesson.skills ?? [""]);
@@ -101,11 +104,39 @@ export function LessonEditor({
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [uploadError, setUploadError] = useState("");
 
-  async function handleDocumentUpload(e: React.ChangeEvent<HTMLInputElement>) {
+  // Persist the document list right away (upload / replace / remove), then
+  // refresh the AI coach's extracted text from every file.
+  async function saveDocFiles(next: LessonDocFile[]) {
+    const res = await fetch(`/api/admin/lessons/${lesson.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ document_files: next }),
+    });
+    if (!res.ok) {
+      setDocError("Could not save documents: " + (await res.text()));
+      return false;
+    }
+    setDocFiles(next);
+    extractDocText(next);
+    router.refresh();
+    return true;
+  }
+
+  function extractDocText(files: LessonDocFile[]) {
+    fetch("/api/admin/extract-document", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ documentUrls: files.map((f) => f.url), lessonId: lesson.id }),
+    }).catch(() => {});
+  }
+
+  /** index = file to replace; omitted = add a new file. */
+  async function handleDocumentUpload(e: React.ChangeEvent<HTMLInputElement>, index?: number) {
     const file = e.target.files?.[0];
+    e.target.value = ""; // allow choosing the same file again
     if (!file) return;
     if (file.size > 500 * 1024 * 1024) { setDocError("Max file size is 500MB."); return; }
-    setUploadingDoc(true);
+    setUploadingDoc(index ?? "new");
     setDocError("");
     // Upload server-side (admin client) — direct browser Storage writes fail.
     const formData = new FormData();
@@ -115,24 +146,34 @@ export function LessonEditor({
     if (!res.ok) {
       const { error } = await res.json().catch(() => ({ error: "Upload failed" }));
       setDocError(error ?? "Upload failed");
-      setUploadingDoc(false);
+      setUploadingDoc(null);
       return;
     }
     const { url: publicUrl } = await res.json();
-    setDocumentUrl(publicUrl);
-    await fetch(`/api/admin/lessons/${lesson.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ document_url: publicUrl }),
-    });
-    // Auto-extract PDF text for AI coach
-    fetch("/api/admin/extract-document", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ documentUrl: publicUrl, lessonId: lesson.id }),
-    }).catch(() => {});
-    setUploadingDoc(false);
-    router.refresh();
+    const entry = { url: publicUrl, name: file.name };
+    const next = index === undefined ? [...docFiles, entry] : docFiles.map((f, i) => (i === index ? entry : f));
+    await saveDocFiles(next);
+    setUploadingDoc(null);
+  }
+
+  async function removeDocFile(index: number) {
+    if (!confirm(`Remove "${docFiles[index].name}" from this lesson?`)) return;
+    setDocError("");
+    await saveDocFiles(docFiles.filter((_, i) => i !== index));
+  }
+
+  async function previewDocFile(f: LessonDocFile) {
+    // Open the tab synchronously so pop-up blockers allow it, then point it at the signed URL.
+    const win = window.open("", "_blank");
+    const res = await fetch(`/api/admin/lesson-document?lessonId=${encodeURIComponent(lesson.id)}&url=${encodeURIComponent(f.url)}`);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.url) {
+      win?.close();
+      setDocError(data.error ?? "Could not open the file");
+      return;
+    }
+    if (win) win.location.href = data.url;
+    else window.location.href = data.url;
   }
 
   async function handleLinkFileUpload(e: React.ChangeEvent<HTMLInputElement>, index: number) {
@@ -275,7 +316,7 @@ export function LessonEditor({
         content,
         video_url: videoUrl || null,
         slides_url: slidesUrl || null,
-        document_url: documentUrl || null,
+        document_files: docFiles,
         what_you_learn: whatYouLearn.trim() || null,
         skills: skills.filter((s) => s.trim()),
         deadline_days: deadlineMode === "days" && deadlineDays ? parseInt(deadlineDays) : null,
@@ -301,13 +342,7 @@ export function LessonEditor({
     }
 
     // Auto-extract PDF text for AI coach
-    if (documentUrl) {
-      fetch("/api/admin/extract-document", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ documentUrl, lessonId: lesson.id }),
-      }).catch(() => {});
-    }
+    if (docFiles.length) extractDocText(docFiles);
 
     // Track save event (fire-and-forget)
     fetch("/api/admin/track-edit", {
@@ -463,34 +498,70 @@ export function LessonEditor({
           <p className="text-sm font-medium">PDF Document</p>
           <p className="text-xs text-gray-400">Learners view it inline — no download button shown.</p>
         </div>
-        <label className="cursor-pointer flex items-center gap-3 border-2 border-dashed rounded-lg p-3 hover:bg-white transition">
-          <span className="text-xl shrink-0">📄</span>
-          <div>
-            <p className="text-sm font-medium">
-              {uploadingDoc ? "Uploading…" : documentUrl ? "PDF uploaded — click to replace" : "Upload PDF"}
-            </p>
-            <p className="text-xs text-gray-400">Max 500MB</p>
-          </div>
-          <input
-            type="file"
-            accept=".pdf"
-            className="hidden"
-            disabled={uploadingDoc}
-            onChange={handleDocumentUpload}
-          />
-        </label>
+        {docFiles.length > 0 && (
+          <ul className="space-y-2">
+            {docFiles.map((f, i) => (
+              <li key={f.url + i} className="flex items-center gap-2 bg-white border rounded-lg px-3 py-2">
+                <span className="text-lg shrink-0">📄</span>
+                <button
+                  type="button"
+                  onClick={() => previewDocFile(f)}
+                  className="flex-1 min-w-0 text-left text-sm font-medium text-brand-600 hover:underline truncate"
+                  title="Preview"
+                >
+                  {uploadingDoc === i ? "Uploading…" : f.name}
+                </button>
+                <label
+                  className={`text-xs text-gray-500 hover:text-gray-800 hover:underline shrink-0 ${uploadingDoc !== null ? "pointer-events-none opacity-50" : "cursor-pointer"}`}
+                >
+                  Replace
+                  <input
+                    type="file"
+                    accept=".pdf"
+                    className="hidden"
+                    disabled={uploadingDoc !== null}
+                    onChange={(e) => handleDocumentUpload(e, i)}
+                  />
+                </label>
+                <button
+                  type="button"
+                  onClick={() => removeDocFile(i)}
+                  disabled={uploadingDoc !== null}
+                  className="shrink-0 w-6 h-6 flex items-center justify-center rounded-full text-red-500 hover:bg-red-50 disabled:opacity-50"
+                  title="Remove"
+                  aria-label={`Remove ${f.name}`}
+                >
+                  ✕
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+        {docFiles.length < MAX_LESSON_DOCUMENTS && (
+          <label
+            className={`flex items-center gap-3 border-2 border-dashed rounded-lg p-3 hover:bg-white transition ${uploadingDoc !== null ? "pointer-events-none opacity-60" : "cursor-pointer"}`}
+          >
+            <span className="text-xl shrink-0">{docFiles.length ? "➕" : "📄"}</span>
+            <div>
+              <p className="text-sm font-medium">
+                {uploadingDoc === "new" ? "Uploading…" : docFiles.length ? "Add more files" : "Upload PDF"}
+              </p>
+              <p className="text-xs text-gray-400">Max 500MB per file</p>
+            </div>
+            <input
+              type="file"
+              accept=".pdf"
+              className="hidden"
+              disabled={uploadingDoc !== null}
+              onChange={(e) => handleDocumentUpload(e)}
+            />
+          </label>
+        )}
         {docError && <p className="text-xs text-red-500">{docError}</p>}
-        {documentUrl && !uploadingDoc && (
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-green-600 font-medium">✓ PDF ready for learners</span>
-            <button
-              type="button"
-              onClick={() => setDocumentUrl("")}
-              className="text-xs text-red-400 hover:underline"
-            >
-              Remove
-            </button>
-          </div>
+        {docFiles.length > 0 && uploadingDoc === null && (
+          <p className="text-xs text-green-600 font-medium">
+            ✓ {docFiles.length} document{docFiles.length !== 1 ? "s" : ""} ready for learners · click a name to preview
+          </p>
         )}
       </div>
 
