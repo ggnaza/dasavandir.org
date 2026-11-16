@@ -2,7 +2,8 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { assertCourseOwner } from "@/lib/assert-course-owner";
 import { logAudit } from "@/lib/audit-log";
-import { sendInvitationEmail } from "@/lib/email";
+import { invitationEmail, sendEmailBatch } from "@/lib/email";
+import type { BatchResult } from "@/lib/email-batch";
 import { z } from "zod";
 
 const studentSchema = z.object({
@@ -71,22 +72,31 @@ export async function POST(req: Request) {
     .from("invitations")
     .upsert(rows, { onConflict: "course_id,email", ignoreDuplicates: true });
 
+  let emailResult: BatchResult | null = null;
   if (course) {
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
     const signupUrl = `${siteUrl}/auth/signup`;
 
-    const results = await Promise.allSettled(
+    emailResult = await sendEmailBatch(
       studentList.map(({ email, firstName }) =>
-        sendInvitationEmail({ to: email, firstName, courseTitle: course.title, signupUrl })
+        invitationEmail({ to: email, firstName, courseTitle: course.title, signupUrl })
       )
     );
-    const failed = results.filter((r) => r.status === "rejected");
-    if (failed.length) console.error("[invite] Resend errors:", failed);
+    if (emailResult.failed.length) console.error("[invite] Resend errors:", emailResult.failed);
   }
 
-  await logAudit("invite_users", user.id, req, { course_id: courseId, count: studentList.length });
+  await logAudit("invite_users", user.id, req, {
+    course_id: courseId,
+    count: studentList.length,
+    emails_sent: emailResult?.sent ?? 0,
+    emails_failed: emailResult?.failed.length ?? 0,
+  });
 
-  return Response.json({ invited: studentList.length });
+  return Response.json({
+    invited: studentList.length,
+    emailsSent: emailResult?.sent ?? 0,
+    emailFailures: emailResult?.failed.map((f) => f.to) ?? [],
+  });
 }
 
 export async function DELETE(req: Request) {

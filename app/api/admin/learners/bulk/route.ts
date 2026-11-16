@@ -1,7 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { logAudit } from "@/lib/audit-log";
-import { sendEnrollmentEmail } from "@/lib/email";
+import { enrollmentEmail, sendEmailBatch } from "@/lib/email";
 import { z } from "zod";
 
 const enrollSchema = z.object({
@@ -43,7 +43,7 @@ export async function POST(req: Request) {
     if (error) return new Response(JSON.stringify({ error: error.message }), { status: 500 });
     await logAudit("bulk_enroll", user.id, req, { course_id: body.courseId, count: body.userIds.length });
 
-    // Send enrollment notification emails in the background
+    // Send enrollment notification emails (batched — see sendEmailBatch)
     const [{ data: course }, { data: profiles }] = await Promise.all([
       admin.from("courses").select("id, title").eq("id", body.courseId).single(),
       admin.from("profiles").select("id, full_name, email").in("id", body.userIds),
@@ -51,16 +51,21 @@ export async function POST(req: Request) {
     if (course && profiles) {
       const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://dasavandir.org";
       const courseUrl = `${siteUrl}/learn/courses/${course.id}`;
-      Promise.allSettled(
-        profiles.map((p) =>
-          p.email ? sendEnrollmentEmail({
-            to: p.email,
-            firstName: p.full_name?.split(" ")[0] ?? "",
-            courseTitle: course.title,
-            courseUrl,
-          }) : Promise.resolve()
-        )
-      ).catch(() => {});
+      // Awaited (not fire-and-forget): on serverless the function can be frozen
+      // as soon as the response is sent, dropping un-sent emails.
+      const r = await sendEmailBatch(
+        profiles
+          .filter((p) => p.email)
+          .map((p) =>
+            enrollmentEmail({
+              to: p.email as string,
+              firstName: p.full_name?.split(" ")[0] ?? "",
+              courseTitle: course.title,
+              courseUrl,
+            })
+          )
+      );
+      if (r.failed.length) console.error("[bulk-enroll] Resend errors:", r.failed);
     }
 
     return Response.json({ success: true, count: body.userIds.length });

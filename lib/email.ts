@@ -1,4 +1,5 @@
 import { Resend } from "resend";
+import { sendInBatches, type BatchEmail, type BatchResult } from "./email-batch";
 
 // Lazy-initialize so the constructor doesn't run at module load during Next.js build
 let _resend: Resend | null = null;
@@ -8,6 +9,17 @@ function getResend() {
 }
 
 const FROM = "Dasavandir <info@dasavandir.org>";
+
+/**
+ * Send many emails through Resend's batch endpoint (100 per request) instead of
+ * one request per email fired all at once. The parallel version hit Resend's
+ * per-second rate limit on group invites (KAITS: batches of 25–48) and, since
+ * the SDK returns `{ error }` rather than throwing, most recipients silently got
+ * nothing. Returns who failed so callers can tell the inviter.
+ */
+export function sendEmailBatch(emails: BatchEmail[]): Promise<BatchResult> {
+  return sendInBatches(emails, (chunk) => getResend().batch.send(chunk));
+}
 
 export async function sendActivationEmail({
   to,
@@ -75,13 +87,27 @@ export async function sendInvitationEmail({
   courseTitle: string;
   signupUrl: string;
 }) {
+  return getResend().emails.send(invitationEmail({ to, firstName, courseTitle, signupUrl }));
+}
+
+export function invitationEmail({
+  to,
+  firstName,
+  courseTitle,
+  signupUrl,
+}: {
+  to: string;
+  firstName: string;
+  courseTitle: string;
+  signupUrl: string;
+}): BatchEmail {
   const name = firstName || "there";
-  return getResend().emails.send({
+  return {
     from: FROM,
     to,
     subject: `You're invited to "${courseTitle}"`,
     html: invitationHtml({ name, courseTitle, signupUrl, email: to }),
-  });
+  };
 }
 
 export async function sendInviteLinkEmail({
@@ -150,8 +176,22 @@ export async function sendEnrollmentEmail({
   courseTitle: string;
   courseUrl: string;
 }) {
+  return getResend().emails.send(enrollmentEmail({ to, firstName, courseTitle, courseUrl }));
+}
+
+export function enrollmentEmail({
+  to,
+  firstName,
+  courseTitle,
+  courseUrl,
+}: {
+  to: string;
+  firstName: string;
+  courseTitle: string;
+  courseUrl: string;
+}): BatchEmail {
   const name = firstName || "there";
-  return getResend().emails.send({
+  return {
     from: FROM,
     to,
     subject: `You've been enrolled in "${courseTitle}"`,
@@ -190,7 +230,7 @@ export async function sendEnrollmentEmail({
   </table>
 </body>
 </html>`,
-  });
+  };
 }
 
 export async function sendModeratorAddedEmail({
