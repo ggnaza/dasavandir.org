@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { acceptPendingInvitations } from "@/lib/invitations/accept-pending";
 import Link from "next/link";
+import { COURSE_STATUS_BADGE, COURSE_STATUS_LABEL, normalizeCourseStatus, sortByCourseStatus } from "@/lib/course-status";
 
 export const dynamic = "force-dynamic";
 
@@ -34,7 +35,7 @@ export default async function LearnDashboard() {
   const [{ data: allCourses }, { data: allLessons }, { data: progress }] = await Promise.all([
     admin
       .from("courses")
-      .select("id, title, description, cover_image_url, is_paid, price_amd, category, hours_to_complete, language")
+      .select("id, title, description, cover_image_url, is_paid, price_amd, category, hours_to_complete, language, status")
       .eq("published", true)
       .order("created_at", { ascending: false }),
     admin.from("lessons").select("id, course_id"),
@@ -44,14 +45,19 @@ export default async function LearnDashboard() {
   const completedIds = new Set((progress ?? []).map((p) => p.lesson_id));
   const courses = allCourses ?? [];
 
-  const enrolledCourses = courses.filter((c) => enrolledIds.has(c.id));
-
   function progressFor(courseId: string) {
     const lessons = (allLessons ?? []).filter((l) => l.course_id === courseId);
     const total = lessons.length;
     const done = lessons.filter((l) => completedIds.has(l.id)).length;
     return { total, done, pct: total > 0 ? Math.round((done / total) * 100) : 0 };
   }
+
+  // Order: in-progress courses first, then ones this learner has finished, then
+  // courses staff marked Completed, then Archived (lib/course-status).
+  const enrolledCourses = sortByCourseStatus(
+    courses.filter((c) => enrolledIds.has(c.id)),
+    (c) => (progressFor(c.id).pct === 100 ? 1 : 0),
+  );
 
   return (
     <div className="max-w-6xl mx-auto">
@@ -63,11 +69,12 @@ export default async function LearnDashboard() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {enrolledCourses.map((course) => {
               const { total, done, pct } = progressFor(course.id);
+              const status = normalizeCourseStatus(course.status);
               return (
                 <Link
                   key={course.id}
                   href={`/learn/courses/${course.id}`}
-                  className="bg-white border rounded-xl overflow-hidden hover:shadow-sm transition flex flex-col"
+                  className={`bg-white border rounded-xl overflow-hidden hover:shadow-sm transition flex flex-col ${status === "archived" ? "opacity-70" : ""}`}
                 >
                   {course.cover_image_url ? (
                     <img src={course.cover_image_url} alt={course.title} className="w-full h-32 object-cover" />
@@ -76,6 +83,11 @@ export default async function LearnDashboard() {
                   )}
                   <div className="p-4 flex flex-col flex-1 gap-3">
                     <div>
+                      {status !== "active" && (
+                        <span className={`inline-block text-[11px] px-2 py-0.5 rounded-full mb-1 ${COURSE_STATUS_BADGE[status]}`}>
+                          {COURSE_STATUS_LABEL[status]}
+                        </span>
+                      )}
                       <h3 className="font-semibold text-gray-900 text-sm leading-snug mb-1">{course.title}</h3>
                       {course.description && (
                         <p className="text-xs text-gray-500 line-clamp-2">{course.description}</p>

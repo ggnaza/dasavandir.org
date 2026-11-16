@@ -6,7 +6,7 @@ export function InviteForm({ courseId }: { courseId: string }) {
   const router = useRouter();
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<{ invited?: number; error?: string } | null>(null);
+  const [result, setResult] = useState<{ invited?: number; emailFailures?: string[]; error?: string } | null>(null);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -24,7 +24,7 @@ export function InviteForm({ courseId }: { courseId: string }) {
 
     if (res.ok) {
       const data = await res.json();
-      setResult({ invited: data.invited });
+      setResult({ invited: data.invited, emailFailures: data.emailFailures ?? [] });
       setInput("");
       router.refresh();
     } else {
@@ -54,7 +54,12 @@ export function InviteForm({ courseId }: { courseId: string }) {
           ✓ {result.invited} invitation{result.invited !== 1 ? "s" : ""} sent.
         </p>
       )}
-      {result?.error && (
+      {result?.emailFailures && result.emailFailures.length > 0 && (
+          <p className="text-sm text-amber-700">
+            ⚠ The email could not be delivered to {result.emailFailures.length} address{result.emailFailures.length !== 1 ? "es" : ""}: {result.emailFailures.join(", ")}. They are still on the invitation list — try inviting them again in a minute.
+          </p>
+        )}
+        {result?.error && (
         <p className="text-sm text-red-600">{result.error}</p>
       )}
 

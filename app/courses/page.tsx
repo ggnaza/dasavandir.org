@@ -22,6 +22,7 @@ export default async function CourseCatalogPage({
     .select("id, title, description, cover_image_url, is_paid, price_amd, language, access_type")
     .eq("published", true)
     .in("access_type", ["public", "paid"])
+    .neq("status", "archived") // archived courses stay reachable for enrolled learners, not discoverable
     .order("created_at", { ascending: false });
 
   const visible = courses ?? [];

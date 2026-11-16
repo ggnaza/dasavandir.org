@@ -39,6 +39,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       ...courseFields,
       title: `Copy of ${source.title}`,
       published: false,
+      status: "active",
       created_by: user.id,
     })
     .select("id")

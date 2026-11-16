@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { assertCourseOwner } from "@/lib/assert-course-owner";
 import { z } from "zod";
+import { MAX_LESSON_DOCUMENTS } from "@/lib/lesson-documents";
 
 const updateSchema = z.object({
   title: z.string().min(1).max(300).optional(),
@@ -9,6 +10,10 @@ const updateSchema = z.object({
   video_url: z.string().max(2000).nullable().optional(),
   audio_url: z.string().max(2000).nullable().optional(),
   document_url: z.string().max(2000).nullable().optional(),
+  document_files: z
+    .array(z.object({ url: z.string().min(1).max(2000), name: z.string().max(300) }))
+    .max(MAX_LESSON_DOCUMENTS)
+    .optional(),
   slides_url: z.string().max(2000).nullable().optional(),
   what_you_learn: z.string().max(2000).nullable().optional(),
   skills: z.array(z.string()).nullable().optional(),
@@ -51,7 +56,11 @@ export async function PATCH(req: Request, { params }: { params: { lessonId: stri
     if (!phase) return new Response("Phase does not belong to this course", { status: 400 });
   }
 
-  const { error } = await admin.from("lessons").update(parsed.data).eq("id", params.lessonId);
+  // document_url mirrors the first document so legacy readers stay correct.
+  const update: Record<string, unknown> = { ...parsed.data };
+  if (parsed.data.document_files) update.document_url = parsed.data.document_files[0]?.url ?? null;
+
+  const { error } = await admin.from("lessons").update(update).eq("id", params.lessonId);
   if (error) return new Response(error.message, { status: 500 });
   return new Response("OK");
 }
