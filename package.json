@@ -8,6 +8,7 @@
     "prebuild": "node scripts/copy-pdf-worker.js",
     "build": "next build",
     "start": "next start",
+    "test:unit": "node --test lib/*.test.ts",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui"
   },
