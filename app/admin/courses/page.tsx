@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getCurrentOrgId, getManagedSpaceIds } from "@/lib/org";
 import Link from "next/link";
 import { CoursesBoard, type BoardCourse } from "./courses-board";
+import { normalizeCourseStatus, sortByCourseStatus } from "@/lib/course-status";
 
 export const dynamic = "force-dynamic";
 
@@ -28,7 +29,7 @@ export default async function CoursesPage({
   // Spaces a space_manager administers (drives both their course list and their subtabs).
   const managedSpaceIds = isSpaceManager ? await getManagedSpaceIds(admin, user!.id) : [];
 
-  const COLS = "id, title, description, published, created_at, created_by, space_id";
+  const COLS = "id, title, description, published, status, created_at, created_by, space_id";
   let courses: any[] = [];
 
   if (isAdmin) {
@@ -89,11 +90,12 @@ export default async function CoursesPage({
   // course_managers get a read-only list (View cohort), so dragging is disabled for them.
   const canMove = !isManager;
 
-  const boardCourses: BoardCourse[] = courses.map((c) => ({
+  const boardCourses: BoardCourse[] = sortByCourseStatus(courses).map((c) => ({
     id: c.id as string,
     title: c.title as string,
     description: (c.description as string | null) ?? null,
     published: Boolean(c.published),
+    status: normalizeCourseStatus(c.status),
     space_id: (c.space_id as string | null) ?? null,
     enrolled: enrollmentCounts[c.id] ?? 0,
     creatorName: c.created_by ? creatorNames[c.created_by] ?? null : null,

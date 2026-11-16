@@ -1,12 +1,14 @@
 "use client";
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { COURSE_STATUSES, COURSE_STATUS_LABEL, normalizeCourseStatus, type CourseStatus } from "@/lib/course-status";
 
 type Course = {
   id: string;
   title: string;
   description: string | null;
   published: boolean;
+  status?: string | null;
   cover_image_url: string | null;
   space_id: string | null;
   access_type: "public" | "private" | "paid" | null;
@@ -37,6 +39,7 @@ export function CourseEditor({ course, spaces = [], lessonDeadlineDates = [] }: 
   const [deleting, setDeleting] = useState(false);
   const [description, setDescription] = useState(course.description ?? "");
   const [published, setPublished] = useState(course.published);
+  const [status, setStatus] = useState<CourseStatus>(normalizeCourseStatus(course.status));
   const [spaceId, setSpaceId] = useState(course.space_id ?? "");
   const [accessType, setAccessType] = useState<"public" | "private" | "paid">(
     course.access_type ?? (course.is_paid ? "paid" : "private")
@@ -123,6 +126,7 @@ export function CourseEditor({ course, spaces = [], lessonDeadlineDates = [] }: 
         title,
         description,
         published,
+        status,
         cover_image_url: coverUrl || null,
         space_id: spaceId || null,
         access_type: accessType,
@@ -362,6 +366,24 @@ export function CourseEditor({ course, spaces = [], lessonDeadlineDates = [] }: 
       <div className="flex items-center gap-2">
         <input type="checkbox" id="published" checked={published} onChange={(e) => setPublished(e.target.checked)} className="w-4 h-4" />
         <label htmlFor="published" className="text-sm font-medium">Published (visible to learners)</label>
+      </div>
+
+      {/* Course status */}
+      <div>
+        <label htmlFor="course-status" className="block text-sm font-medium mb-1">Course status</label>
+        <select
+          id="course-status"
+          value={status}
+          onChange={(e) => setStatus(e.target.value as CourseStatus)}
+          className="border rounded-lg px-3 py-2 text-sm"
+        >
+          {COURSE_STATUSES.map((s) => (
+            <option key={s} value={s}>{COURSE_STATUS_LABEL[s]}</option>
+          ))}
+        </select>
+        <p className="text-xs text-gray-400 mt-1">
+          Completed and Archived courses move to the bottom of course lists. Archived courses are also hidden from the public catalog; enrolled learners can still open them.
+        </p>
       </div>
 
       {/* Course completion deadline */}

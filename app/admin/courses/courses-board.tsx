@@ -17,12 +17,14 @@ import {
 } from "@dnd-kit/core";
 import { CloneCourseButton } from "./clone-course-button";
 import { DeleteCourseButton } from "./delete-course-button";
+import { COURSE_STATUS_BADGE, COURSE_STATUS_LABEL, type CourseStatus } from "@/lib/course-status";
 
 export type BoardCourse = {
   id: string;
   title: string;
   description: string | null;
   published: boolean;
+  status: CourseStatus;
   space_id: string | null;
   enrolled: number;
   creatorName: string | null;
@@ -271,6 +273,11 @@ function CourseCard({
             >
               {course.published ? "Published" : "Draft"}
             </span>
+            {course.status !== "active" && (
+              <span className={`text-xs px-2 py-0.5 rounded-full ${COURSE_STATUS_BADGE[course.status]}`}>
+                {COURSE_STATUS_LABEL[course.status]}
+              </span>
+            )}
             <span className="text-xs text-gray-400">{course.enrolled} enrolled</span>
           </div>
           {course.description && (
