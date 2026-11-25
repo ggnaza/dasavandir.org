@@ -1,22 +1,12 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
-import { z } from "zod";
+import { submitSchema, submitErrorMessage } from "@/lib/submissions/submit-schema";
 import { getAIModel, callLLM } from "@/lib/llm";
 import { buildReviewerMap, resolveReviewer } from "@/lib/reviewer-map";
 import { sendReviewNeededEmail } from "@/lib/email";
 
 export const runtime = "nodejs";
-
-const schema = z.object({
-  assignment_id: z.string().uuid(),
-  // Client sends explicit null for empty fields → accept null as well as undefined.
-  content: z.string().max(10_000).nullish(),
-  file_path: z.string().max(500).nullish(),
-  file_name: z.string().max(255).nullish(),
-  link_url: z.string().url().max(2000).nullish(),
-  group_id: z.string().uuid().nullable().optional(),
-});
 
 export async function POST(req: Request) {
   const supabase = createClient();
@@ -31,8 +21,8 @@ export async function POST(req: Request) {
   const { allowed: dailyOk } = await checkRateLimit(`submit-daily:${user.id}`, 30, 24 * 60 * 60_000);
   if (!dailyOk) return rateLimitResponse({ limit: 30, windowSecs: 86400 });
 
-  const parsed = schema.safeParse(await req.json());
-  if (!parsed.success) return new Response("Invalid input", { status: 400 });
+  const parsed = submitSchema.safeParse(await req.json());
+  if (!parsed.success) return new Response(submitErrorMessage(parsed.error), { status: 400 });
 
   const { assignment_id, content, file_path, file_name, link_url, group_id } = parsed.data;
 
