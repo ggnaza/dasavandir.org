@@ -25,7 +25,7 @@ CREATE TABLE IF NOT EXISTS public.module_access (
 ALTER TABLE public.module_access DROP CONSTRAINT IF EXISTS module_access_module_check;
 ALTER TABLE public.module_access
   ADD CONSTRAINT module_access_module_check
-  CHECK (module IN ('courses', 'efficacy', 'gnahatum'));
+  CHECK (module IN ('courses', 'efficacy', 'gnahatum', 'attestation'));
 
 ALTER TABLE public.module_access DROP CONSTRAINT IF EXISTS module_access_access_check;
 ALTER TABLE public.module_access

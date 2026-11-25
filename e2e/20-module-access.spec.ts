@@ -13,7 +13,7 @@ import { allowedModules, canEnter, isLdmIn } from "../lib/access/module-access";
  */
 
 function grants(over: Partial<Record<ModuleId, AccessLevel>>) {
-  return { courses: "none", efficacy: "none", gnahatum: "none", ...over } as Record<
+  return { courses: "none", efficacy: "none", gnahatum: "none", attestation: "none", ...over } as Record<
     ModuleId,
     AccessLevel
   >;

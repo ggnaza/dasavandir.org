@@ -10,7 +10,7 @@
  * Safe to import from client components — no Node.js dependencies.
  */
 
-export type ModuleId = "courses" | "efficacy" | "gnahatum";
+export type ModuleId = "courses" | "efficacy" | "gnahatum" | "attestation";
 
 /** What a user may do inside a module. `none` means the module is hidden. */
 export type AccessLevel = "none" | "member" | "ldm";
@@ -76,6 +76,18 @@ export const MODULES: ModuleDef[] = [
     hosts: ["gnahatum.dasavandir.org", "staging.gnahatum.dasavandir.org"],
     localHost: "gnahatum.localhost",
   },
+  {
+    id: "attestation",
+    label: "Attestation",
+    path: "/attestation",
+    href: "/attestation",
+    color: "#7C3AED",
+    // Members take published tests; managers build tests and see results (ADR-0010).
+    memberLabel: "Test taker",
+    ldmLabel: "Manager",
+    hosts: [],
+    localHost: "",
+  },
 ];
 
 export const MODULE_IDS = MODULES.map((m) => m.id);
@@ -117,5 +129,5 @@ export function switcherHref(mod: ModuleDef, currentHost: string): string {
 
 /** An empty grant map — every module denied. Callers layer grants on top. */
 export function noAccess(): Record<ModuleId, AccessLevel> {
-  return { courses: "none", efficacy: "none", gnahatum: "none" };
+  return { courses: "none", efficacy: "none", gnahatum: "none", attestation: "none" };
 }

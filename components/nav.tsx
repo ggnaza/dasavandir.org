@@ -42,6 +42,7 @@ export function Nav({ role, userName, unreadNotifications = 0, lang = "en", modu
           { href: "/admin/audit", label: "Activity" },
           { href: "/admin/settings", label: "Settings" },
           { href: "/gnahatum", label: "Gnahatum" },
+          { href: "/attestation", label: "Attestation" },
         ]
       : role === "creator"
       ? [

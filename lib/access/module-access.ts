@@ -27,7 +27,7 @@ export type ModuleGrants = Record<ModuleId, AccessLevel>;
 
 /** Platform admins are implicitly LDM everywhere; nothing is granted per-row. */
 function adminGrants(): ModuleGrants {
-  return { courses: "ldm", efficacy: "ldm", gnahatum: "ldm" };
+  return { courses: "ldm", efficacy: "ldm", gnahatum: "ldm", attestation: "ldm" };
 }
 
 /**
@@ -152,8 +152,9 @@ export async function setModuleGrants(
   return {};
 }
 
+/** Deny by default: a module missing from the map (e.g. one added later) is not enterable. */
 export function canEnter(grants: ModuleGrants, id: ModuleId): boolean {
-  return grants[id] !== "none";
+  return grants[id] === "member" || grants[id] === "ldm";
 }
 
 export function isLdmIn(grants: ModuleGrants, id: ModuleId): boolean {
@@ -162,5 +163,5 @@ export function isLdmIn(grants: ModuleGrants, id: ModuleId): boolean {
 
 /** Module ids the user may enter — the list the nav switcher renders. */
 export function allowedModules(grants: ModuleGrants): ModuleId[] {
-  return MODULE_IDS.filter((id) => grants[id] !== "none");
+  return MODULE_IDS.filter((id) => canEnter(grants, id));
 }

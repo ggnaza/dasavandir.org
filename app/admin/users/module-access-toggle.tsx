@@ -6,7 +6,7 @@ import { MODULES, type AccessLevel, type ModuleId } from "@/lib/modules";
 
 type Grants = Record<ModuleId, AccessLevel>;
 
-const EMPTY: Grants = { courses: "none", efficacy: "none", gnahatum: "none" };
+const EMPTY: Grants = { courses: "none", efficacy: "none", gnahatum: "none", attestation: "none" };
 
 const PANEL_WIDTH = 288; // w-72
 const PANEL_MAX_HEIGHT = 320;
