@@ -58,12 +58,13 @@ export async function POST(req: Request) {
   if (bundle.passages.length) {
     const { data: inserted, error } = await admin
       .from("attestation_passages")
-      .insert(bundle.passages.map(({ key: _key, ...p }, i) => ({ ...p, position: p.position ?? i, test_id: test.id })))
+      // Position is the bundle order: unique, so each row maps back to its key.
+      .insert(bundle.passages.map(({ key: _key, ...p }, i) => ({ ...p, position: i, test_id: test.id })))
       .select("id, position");
     if (error || !inserted) return fail(error?.message ?? "Could not save passages");
     const byPos = new Map(inserted.map((r) => [r.position, r.id]));
     bundle.passages.forEach((p, i) => {
-      const id = byPos.get(p.position ?? i);
+      const id = byPos.get(i);
       if (id) passageIds.set(p.key, id);
     });
   }

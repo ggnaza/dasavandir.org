@@ -185,3 +185,28 @@ export function zodMessage(err: unknown): string {
   }
   return err instanceof Error ? err.message : "Invalid input";
 }
+
+/** Test id + status of a question's test, for edit guards. */
+export async function testOfQuestion(questionId: string): Promise<{ test_id: string; status: TestRow["status"]; question: QuestionRow } | null> {
+  const admin = createAdminClient();
+  const { data: q } = await admin.from("attestation_questions").select("*").eq("id", questionId).maybeSingle();
+  if (!q) return null;
+  const { data: t } = await admin.from("attestation_tests").select("status").eq("id", q.test_id).single();
+  return { test_id: q.test_id, status: (t?.status ?? "draft") as TestRow["status"], question: q as QuestionRow };
+}
+
+export async function testStatus(testId: string): Promise<TestRow["status"] | null> {
+  const admin = createAdminClient();
+  const { data } = await admin.from("attestation_tests").select("status").eq("id", testId).maybeSingle();
+  return (data?.status as TestRow["status"] | undefined) ?? null;
+}
+
+/** True when the passage exists and belongs to the given test (null passage is always fine). */
+export async function passageInTest(passageId: string | null | undefined, testId: string): Promise<boolean> {
+  if (!passageId) return true;
+  const admin = createAdminClient();
+  const { data } = await admin.from("attestation_passages").select("test_id").eq("id", passageId).maybeSingle();
+  return data?.test_id === testId;
+}
+
+export const PUBLISHED_LOCKED = "This test is published. Unpublish it first to add, remove or restructure questions.";

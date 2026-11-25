@@ -40,9 +40,25 @@ export default function ResultsPage({ params }: { params: { testId: string } }) 
     await load();
   }
 
+  async function regrade() {
+    if (!confirm("Re-grade every submitted attempt against the current answer key?")) return;
+    const res = await fetch(`/api/attestation/tests/${params.testId}/regrade`, { method: "POST" });
+    const body = (await res.json()) as { regraded?: number; changed?: number; error?: string };
+    if (!res.ok) setError(body.error ?? "Regrade failed");
+    else {
+      alert(`Re-graded ${body.regraded} attempts; ${body.changed} scores changed.`);
+      await load();
+    }
+  }
+
   function downloadCsv() {
     if (!attempts || !test) return;
-    const esc = (v: unknown) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+    // Neutralise spreadsheet formulas in user-controlled cells (names starting = + - @).
+    const esc = (v: unknown) => {
+      const s = String(v ?? "");
+      const safe = /^[=+\-@\t\r]/.test(s) ? `'${s}` : s;
+      return `"${safe.replace(/"/g, '""')}"`;
+    };
     const rows = [
       ["Name", "Email", "Status", "Submitted", "Score", "Max", "Percent"],
       ...attempts.map((a) => [a.full_name, a.email, a.status, a.submitted_at, a.score, a.max_score, a.percent]),
@@ -75,9 +91,14 @@ export default function ResultsPage({ params }: { params: { testId: string } }) 
             {avg !== null && ` · average ${avg.toFixed(1)}%`}
           </p>
         </div>
-        <button type="button" onClick={downloadCsv} className="px-3 py-2 rounded-lg border text-sm">
-          Download CSV
-        </button>
+        <div className="flex gap-2">
+          <button type="button" onClick={() => void regrade()} className="px-3 py-2 rounded-lg border text-sm" title="Use after correcting the answer key">
+            Regrade
+          </button>
+          <button type="button" onClick={downloadCsv} className="px-3 py-2 rounded-lg border text-sm">
+            Download CSV
+          </button>
+        </div>
       </div>
 
       <div className="bg-white rounded-xl border overflow-hidden">

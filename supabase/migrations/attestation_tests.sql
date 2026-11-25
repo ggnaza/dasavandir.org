@@ -128,7 +128,34 @@ CREATE UNIQUE INDEX IF NOT EXISTS attestation_attempts_one_open_idx
   ON public.attestation_attempts (user_id, test_id) WHERE status = 'in_progress';
 
 -- ============================================================
--- 6. RLS — service role only
+-- 6. Atomic answer merge (autosave)
+-- ============================================================
+-- Two overlapping autosaves must not overwrite each other. Merging inside one
+-- UPDATE (answers || patch, minus cleared ids) makes each save atomic. Only the
+-- service role may call it: it takes the user id as a parameter.
+CREATE OR REPLACE FUNCTION public.attestation_merge_answers(
+  p_attempt uuid,
+  p_user    uuid,
+  p_patch   jsonb,
+  p_remove  text[]
+) RETURNS boolean
+LANGUAGE sql
+AS $$
+  UPDATE public.attestation_attempts
+     SET answers    = (answers || p_patch) - p_remove,
+         updated_at = now()
+   WHERE id = p_attempt
+     AND user_id = p_user
+     AND status = 'in_progress'
+  RETURNING true;
+$$;
+
+REVOKE ALL ON FUNCTION public.attestation_merge_answers(uuid, uuid, jsonb, text[]) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.attestation_merge_answers(uuid, uuid, jsonb, text[]) FROM anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.attestation_merge_answers(uuid, uuid, jsonb, text[]) TO service_role;
+
+-- ============================================================
+-- 7. RLS — service role only
 -- ============================================================
 ALTER TABLE public.attestation_tests     ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.attestation_passages  ENABLE ROW LEVEL SECURITY;
@@ -136,7 +163,7 @@ ALTER TABLE public.attestation_questions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.attestation_attempts  ENABLE ROW LEVEL SECURITY;
 
 -- ============================================================
--- 7. Private bucket for question figures
+-- 8. Private bucket for question figures
 -- ============================================================
 INSERT INTO storage.buckets (id, name, public)
 VALUES ('attestation', 'attestation', false)

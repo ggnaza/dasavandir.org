@@ -115,3 +115,67 @@ export async function startOrResume(userId: string, test: TestRow, questions: Qu
     submittedCount,
   };
 }
+
+/**
+ * Validate a learner's answers against the test's question types and merge them
+ * into the open attempt atomically (one UPDATE in Postgres). Null clears an answer.
+ * Returns false when the attempt is no longer open.
+ */
+export async function mergeAnswers(
+  attemptId: string,
+  userId: string,
+  questions: Pick<QuestionRow, "id" | "answer_type">[],
+  answers: Record<string, unknown>,
+  coerce: (type: QuestionRow["answer_type"], value: unknown) => unknown,
+): Promise<boolean> {
+  const types = new Map(questions.map((q) => [q.id, q.answer_type]));
+  const patch: Record<string, unknown> = {};
+  const remove: string[] = [];
+  for (const qid of Object.keys(answers)) {
+    const type = types.get(qid);
+    if (!type) throw new AnswerError("Unknown question");
+    const v = coerce(type, answers[qid]);
+    if (v === null) remove.push(qid);
+    else patch[qid] = v;
+  }
+  const admin = createAdminClient();
+  const { data, error } = await admin.rpc("attestation_merge_answers", {
+    p_attempt: attemptId,
+    p_user: userId,
+    p_patch: patch,
+    p_remove: remove,
+  });
+  if (error) throw new Error(error.message, { cause: error });
+  return data === true;
+}
+
+/** A learner sent an answer that does not fit the question. */
+export class AnswerError extends Error {
+  readonly kind = "answer";
+}
+
+/**
+ * Submit, as it stands, every open attempt whose time ran out — so a teacher who
+ * closed the tab still gets a result. Called before results or the home list are read.
+ */
+export async function finalizeExpired(testIds: string[]): Promise<void> {
+  if (testIds.length === 0) return;
+  const admin = createAdminClient();
+  const [{ data: tests }, { data: open }] = await Promise.all([
+    admin.from("attestation_tests").select("id, time_limit_minutes").in("id", testIds).not("time_limit_minutes", "is", null),
+    admin.from("attestation_attempts").select("*").in("test_id", testIds).eq("status", "in_progress"),
+  ]);
+  const limits = new Map((tests ?? []).map((t) => [t.id as string, t as Pick<TestRow, "time_limit_minutes">]));
+  const expired = ((open ?? []) as AttemptRow[]).filter((a) => {
+    const t = limits.get(a.test_id);
+    return t ? isExpired(deadlineOf(a, t)) : false;
+  });
+  const byTest = new Map<string, QuestionRow[]>();
+  for (const a of expired) {
+    if (!byTest.has(a.test_id)) {
+      const { data } = await admin.from("attestation_questions").select("*").eq("test_id", a.test_id);
+      byTest.set(a.test_id, (data ?? []) as QuestionRow[]);
+    }
+    await finalizeAttempt(a, byTest.get(a.test_id) ?? []);
+  }
+}

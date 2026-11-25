@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getAttestationUser } from "@/lib/attestation/server";
+import { finalizeExpired } from "@/lib/attestation/attempts";
 
 export const dynamic = "force-dynamic";
 
@@ -11,6 +12,14 @@ export default async function AttestationHome() {
   if (!user) redirect("/learn");
 
   const admin = createAdminClient();
+  // An attempt whose time ran out counts as submitted, not "continue".
+  const { data: openRows } = await admin
+    .from("attestation_attempts")
+    .select("test_id")
+    .eq("user_id", user.id)
+    .eq("status", "in_progress");
+  await finalizeExpired(Array.from(new Set((openRows ?? []).map((r) => r.test_id as string))));
+
   const [{ data: tests }, { data: attempts }] = await Promise.all([
     admin
       .from("attestation_tests")

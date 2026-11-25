@@ -43,6 +43,10 @@ have caught it — or `unbound → <owner>`). Schema authority: `../CONVENTIONS.
 | REV | WU | Type | Target | Verdict | Open when |
 |---|---|---|---|---|---|
 
+- `REV-001-attestation-module.md` — independent review of the attestation module (ADR-0010).
+  **Open when:** touching attestation autosave/submit, grading, or published-test editing.
+  **Carry-away:** no authz leaks; 3 major / 5 minor / 3 nit, all FIXED (atomic answer merge, submit carries answers, deny-by-default module grants).
+
 ## Maintenance
 
 Filing a review adds a row here **in the same change** (backtick-token filename). Rows are never

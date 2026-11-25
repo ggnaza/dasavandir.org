@@ -1,5 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
-import { denyUnlessManager, getAttestationUser, jsonError, readJson, zodMessage } from "@/lib/attestation/server";
+import { denyUnlessManager, getAttestationUser, jsonError, passageInTest, PUBLISHED_LOCKED, readJson, testStatus, zodMessage } from "@/lib/attestation/server";
 import { coerceCorrect, questionInputSchema } from "@/lib/attestation/schemas";
 
 export const dynamic = "force-dynamic";
@@ -21,6 +21,11 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   } catch (e) {
     return jsonError(`correct: ${zodMessage(e)}`, 400);
   }
+
+  const status = await testStatus(params.id);
+  if (!status) return jsonError("Test not found", 404);
+  if (status === "published") return jsonError(PUBLISHED_LOCKED, 409);
+  if (!(await passageInTest(input.data.passage_id, params.id))) return jsonError("That passage belongs to another test", 400);
 
   const admin = createAdminClient();
   let position = input.data.position;

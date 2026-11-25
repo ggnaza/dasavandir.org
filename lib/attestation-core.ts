@@ -70,15 +70,21 @@ export function normText(s: string): string {
  * "0101" must not match "101").
  */
 export function numericEquals(given: string, accepted: string): boolean {
-  const clean = (s: string) => s.normalize("NFC").trim().replace(/[\s ]/g, "").replace(",", ".");
+  // Spaces (incl. NBSP) are digit grouping; U+2212 is a minus sign. One comma is the
+  // decimal separator — the Armenian convention used by the source tests ("0,25").
+  const clean = (s: string) =>
+    s.normalize("NFC").trim().replace(/[\s\u00a0\u202f]/g, "").replace(/\u2212/g, "-");
   const g = clean(given);
   const a = clean(accepted);
   if (g === "" || a === "") return false;
   if (g.toLowerCase() === a.toLowerCase()) return true;
-  const leadingZero = (s: string) => /^-?0\d/.test(s);
+  // Only plain decimals compare by value: no 0x / 0b / 1e3 literals, no second separator.
+  const DECIMAL = /^[+-]?(\d+([.,]\d+)?|[.,]\d+)$/;
+  if (!DECIMAL.test(g) || !DECIMAL.test(a)) return false;
+  const leadingZero = (s: string) => /^[+-]?0\d/.test(s);
   if (leadingZero(a) || leadingZero(g)) return false;
-  const gn = Number(g);
-  const an = Number(a);
+  const gn = Number(g.replace(",", "."));
+  const an = Number(a.replace(",", "."));
   return Number.isFinite(gn) && Number.isFinite(an) && Math.abs(gn - an) < 1e-9;
 }
 

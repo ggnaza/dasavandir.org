@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { denyUnlessManager, getAttestationUser, jsonError, type AttemptRow } from "@/lib/attestation/server";
+import { finalizeExpired } from "@/lib/attestation/attempts";
 
 export const dynamic = "force-dynamic";
 
@@ -8,6 +9,9 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   const user = await getAttestationUser();
   const denied = denyUnlessManager(user);
   if (denied) return denied;
+
+  // Score attempts whose time ran out but whose teacher never came back to submit.
+  await finalizeExpired([params.id]);
 
   const admin = createAdminClient();
   const { data: attempts, error } = await admin

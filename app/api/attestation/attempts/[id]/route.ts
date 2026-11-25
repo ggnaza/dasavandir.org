@@ -11,7 +11,7 @@ import {
   type AttemptRow,
 } from "@/lib/attestation/server";
 import { coerceResponse } from "@/lib/attestation/schemas";
-import { deadlineOf, isExpired } from "@/lib/attestation/attempts";
+import { AnswerError, deadlineOf, isExpired, mergeAnswers } from "@/lib/attestation/attempts";
 
 export const dynamic = "force-dynamic";
 
@@ -38,26 +38,16 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
   if (!data) return jsonError("Test not found", 404);
   if (isExpired(deadlineOf(attempt, data.test))) return jsonError("Time is up", 409);
 
-  const types = new Map(data.questions.map((q) => [q.id, q.answer_type]));
-  const merged: Record<string, unknown> = { ...(attempt.answers ?? {}) };
-  for (const [qid, value] of Object.entries(input.data.answers)) {
-    const type = types.get(qid);
-    if (!type) return jsonError("Unknown question", 400);
-    try {
-      const v = coerceResponse(type, value);
-      if (v === null) delete merged[qid];
-      else merged[qid] = v;
-    } catch (e) {
-      return jsonError(zodMessage(e), 400);
-    }
+  // Merged in one UPDATE inside Postgres, so overlapping saves cannot drop each other's answers.
+  let ok: boolean;
+  try {
+    ok = await mergeAnswers(attempt.id, user!.id, data.questions, input.data.answers, coerceResponse);
+  } catch (e) {
+    if (e instanceof AnswerError) return jsonError(e.message, 400);
+    if (e && typeof e === "object" && "issues" in e) return jsonError(zodMessage(e), 400);
+    return jsonError(e instanceof Error ? e.message : "Save failed", 500);
   }
-
-  const { error } = await admin
-    .from("attestation_attempts")
-    .update({ answers: merged, updated_at: new Date().toISOString() })
-    .eq("id", attempt.id)
-    .eq("status", "in_progress");
-  if (error) return jsonError(error.message, 500);
+  if (!ok) return jsonError("This attempt is already submitted", 409);
   return Response.json({ ok: true });
 }
 

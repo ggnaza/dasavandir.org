@@ -47,6 +47,9 @@ export function TestRunner({ testId }: { testId: string }) {
   const [confirming, setConfirming] = useState(false);
   const pending = useRef<Record<string, AnswerValue>>({});
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Saves run one at a time: each flush is chained after the previous one.
+  const chain = useRef<Promise<void>>(Promise.resolve());
+  const latest = useRef<Record<string, AnswerValue>>({});
 
   useEffect(() => {
     let cancelled = false;
@@ -65,6 +68,7 @@ export function TestRunner({ testId }: { testId: string }) {
       }
       setData(body);
       setAnswers(body.answers ?? {});
+      latest.current = body.answers ?? {};
       setPhase("taking");
     }
     load().catch(() => {
@@ -78,29 +82,34 @@ export function TestRunner({ testId }: { testId: string }) {
     };
   }, [testId]);
 
-  const flush = useCallback(async () => {
-    if (!data?.attemptId) return;
-    const batch = pending.current;
-    if (Object.keys(batch).length === 0) return;
-    pending.current = {};
-    setSaveState("saving");
-    try {
-      const res = await fetch(`/api/attestation/attempts/${data.attemptId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ answers: batch }),
-      });
-      if (!res.ok) throw new Error(String(res.status));
-      setSaveState("saved");
-    } catch {
-      // Put the batch back so the next change (or submit) retries it.
-      pending.current = { ...batch, ...pending.current };
-      setSaveState("error");
-    }
+  const flush = useCallback((): Promise<void> => {
+    const run = async () => {
+      if (!data?.attemptId) return;
+      const batch = pending.current;
+      if (Object.keys(batch).length === 0) return;
+      pending.current = {};
+      setSaveState("saving");
+      try {
+        const res = await fetch(`/api/attestation/attempts/${data.attemptId}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ answers: batch }),
+        });
+        if (!res.ok) throw new Error(String(res.status));
+        setSaveState("saved");
+      } catch {
+        // Put the batch back so the next change retries it; submit sends everything anyway.
+        pending.current = { ...batch, ...pending.current };
+        setSaveState("error");
+      }
+    };
+    chain.current = chain.current.then(run, run);
+    return chain.current;
   }, [data?.attemptId]);
 
   const change = (qid: string, v: AnswerValue) => {
     setAnswers((a) => ({ ...a, [qid]: v }));
+    latest.current = { ...latest.current, [qid]: v };
     pending.current[qid] = v;
     if (timer.current) clearTimeout(timer.current);
     timer.current = setTimeout(() => void flush(), 700);
@@ -109,8 +118,14 @@ export function TestRunner({ testId }: { testId: string }) {
   const submit = useCallback(async () => {
     if (!data?.attemptId) return;
     if (timer.current) clearTimeout(timer.current);
+    // Wait for any save in flight, then send the full answer set with the submit,
+    // so nothing depends on autosave having succeeded.
     await flush();
-    const res = await fetch(`/api/attestation/attempts/${data.attemptId}/submit`, { method: "POST" });
+    const res = await fetch(`/api/attestation/attempts/${data.attemptId}/submit`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ answers: latest.current }),
+    });
     if (!res.ok) {
       const body = (await res.json().catch(() => ({}))) as { error?: string };
       setError(body.error ?? "Չհաջողվեց հանձնել");

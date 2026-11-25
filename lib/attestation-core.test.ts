@@ -192,3 +192,12 @@ test("sameCorrect compares maps regardless of key order", () => {
   assert.ok(sameCorrect({ A: "1", B: "2" }, { B: "2", A: "1" }));
   assert.ok(!sameCorrect(["1", "2"], ["2", "1"]));
 });
+
+test("numericEquals rejects JS literals and second separators, accepts the Unicode minus", () => {
+  assert.ok(!numericEquals("0b10000", "16"));
+  assert.ok(!numericEquals("0x10", "16"));
+  assert.ok(!numericEquals("1e3", "1000"));
+  assert.ok(!numericEquals("1,2,5", "1.25"));
+  assert.ok(numericEquals("−5", "-5"));
+  assert.ok(numericEquals("0,25", "0.25"));
+});

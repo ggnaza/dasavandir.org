@@ -116,6 +116,10 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
     } catch (e) {
       return jsonError(`Q${q.number}: ${zodMessage(e)}`, 400);
     }
+    if (data.test.status === "published") {
+      const problems = validateCorrect({ ...q, correct });
+      if (problems.length) return jsonError(`Published test, Q${q.number}: ${problems.join("; ")}`, 409);
+    }
     const { error } = await admin.from("attestation_questions").update({ correct, updated_at: now }).eq("id", q.id);
     if (error) return jsonError(error.message, 500);
     saved++;
