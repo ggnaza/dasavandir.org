@@ -1,5 +1,6 @@
 "use client";
 import { useState, useRef } from "react";
+import { MAX_SUBMISSION_CONTENT_CHARS } from "@/lib/submissions/submit-schema";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
@@ -118,6 +119,10 @@ export function AssignmentSubmitter({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!hasAnything) { setError("Please add a written response, file, or link."); return; }
+    if (content.length > MAX_SUBMISSION_CONTENT_CHARS) {
+      setError(`Written response is too long (${content.length.toLocaleString("en-US")} characters) — max ${MAX_SUBMISSION_CONTENT_CHARS.toLocaleString("en-US")}. Shorten it or attach it as a file.`);
+      return;
+    }
     setSubmitting(true);
     setError("");
 
@@ -339,6 +344,9 @@ export function AssignmentSubmitter({
           placeholder="Write your response here…"
           className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
         />
+        <p className={`mt-1 text-xs text-right ${content.length > MAX_SUBMISSION_CONTENT_CHARS ? "text-red-600" : "text-gray-400"}`}>
+          {content.length.toLocaleString("en-US")} / {MAX_SUBMISSION_CONTENT_CHARS.toLocaleString("en-US")}
+        </p>
       </div>
 
       {/* File upload */}
