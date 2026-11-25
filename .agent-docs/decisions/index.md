@@ -105,6 +105,11 @@ here carry the claim-as-carry-away **plus status**. Route by status first (don't
   restructured into background steps, the LMS and Efficacy integrate only through two read-only views,
   and the August rebuild is deleted after cutover.
   *(status: accepted 2026-10-15 — on condition: never write to Vahe's repo/deploy; LMS changes additive only until cutover.)*
+- `0010-attestation-tests-native-questions.md` — voluntary-attestation tests as native questions in a new
+  `attestation` module. **Open when:** working on `/attestation`, its tables, key import or grading.
+  **Carry-away:** native markdown+KaTeX questions with optional private figure; keys imported mechanically
+  from the key PDF text layer (never AI); scoring mode and points are per-question data; teachers see only
+  "submitted", results go to admins + module managers. *(status: proposed 2026-11-25 — operator chose C.)*
 
 ## Maintenance
 

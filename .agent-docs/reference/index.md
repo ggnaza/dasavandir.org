@@ -69,3 +69,6 @@ re-verified) · Last-verified (facts drift — date the check) · See also.
 
 UPDATE-IN-PLACE; adding/retiring a reference doc updates this index in the same change. Carry-away
 claims must be traceable to the source doc — never approximate from memory.
+- 📝 `attestation-tests-recreatability-audit-2026-11.md` — verified audit of the 15 voluntary-attestation tests (872 questions): % recreatable as native questions per subject, answer types, 0 open-ended, verified official-key defects, and the AI key-misread finding.
+  **Open when:** designing the attestation-test feature (native vs image questions), importing a test + key, or deciding which key items need an expert ruling.
+  **Carry-away:** 95.5% native-feasible (39 items need a figure: physics/bio/chem); never trust AI-transcribed keys — diff mechanically against the key PDF.

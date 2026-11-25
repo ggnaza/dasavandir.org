@@ -27,7 +27,7 @@ export type ModuleGrants = Record<ModuleId, AccessLevel>;
 
 /** Platform admins are implicitly LDM everywhere; nothing is granted per-row. */
 function adminGrants(): ModuleGrants {
-  return { courses: "ldm", efficacy: "ldm", gnahatum: "ldm" };
+  return { courses: "ldm", efficacy: "ldm", gnahatum: "ldm", attestation: "ldm" };
 }
 
 /**
