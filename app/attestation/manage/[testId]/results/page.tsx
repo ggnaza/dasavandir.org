@@ -15,6 +15,7 @@ export default function ResultsPage({ params }: { params: { testId: string } }) 
   const [attempts, setAttempts] = useState<Attempt[] | null>(null);
   const [open, setOpen] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
 
   const load = useCallback(async () => {
     const [t, r] = await Promise.all([
@@ -36,7 +37,14 @@ export default function ResultsPage({ params }: { params: { testId: string } }) 
 
   async function reset(a: Attempt) {
     if (!confirm(`Delete ${a.full_name ?? a.email ?? "this"} attempt so they can take the test again?`)) return;
-    await fetch(`/api/attestation/attempts/${a.id}`, { method: "DELETE" });
+    setNotice(null);
+    const res = await fetch(`/api/attestation/attempts/${a.id}`, { method: "DELETE" });
+    if (!res.ok) {
+      const body = (await res.json().catch(() => ({}))) as { error?: string };
+      setNotice({ kind: "error", text: body.error ?? "Reset failed" });
+      return;
+    }
+    if (open === a.id) setOpen(null);
     await load();
   }
 
@@ -44,9 +52,10 @@ export default function ResultsPage({ params }: { params: { testId: string } }) 
     if (!confirm("Re-grade every submitted attempt against the current answer key?")) return;
     const res = await fetch(`/api/attestation/tests/${params.testId}/regrade`, { method: "POST" });
     const body = (await res.json()) as { regraded?: number; changed?: number; error?: string };
-    if (!res.ok) setError(body.error ?? "Regrade failed");
+    // Shown on the page, not in alert(): a native dialog blocks the page until dismissed.
+    if (!res.ok) setNotice({ kind: "error", text: body.error ?? "Regrade failed" });
     else {
-      alert(`Re-graded ${body.regraded} attempts; ${body.changed} scores changed.`);
+      setNotice({ kind: "ok", text: `Re-graded ${body.regraded} attempts; ${body.changed} scores changed.` });
       await load();
     }
   }
@@ -100,6 +109,12 @@ export default function ResultsPage({ params }: { params: { testId: string } }) 
           </button>
         </div>
       </div>
+
+      {notice && (
+        <p role="status" className={`text-sm ${notice.kind === "error" ? "text-red-600" : "text-green-700"}`}>
+          {notice.text}
+        </p>
+      )}
 
       <div className="bg-white rounded-xl border overflow-hidden">
         <table className="w-full text-sm">
