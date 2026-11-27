@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import { oauthCallbackUrl } from "@/lib/auth/oauth-redirect";
 import { Suspense } from "react";
 
 function LoginForm() {
@@ -53,7 +54,7 @@ function LoginForm() {
     setSuccessMsg("");
 
     const { error: err } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL ?? window.location.origin}/auth/set-password`,
+      redirectTo: `${window.location.origin}/auth/set-password`,
     });
 
     if (err) {
@@ -87,7 +88,7 @@ function LoginForm() {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL ?? window.location.origin}/auth/callback`,
+        redirectTo: oauthCallbackUrl(searchParams.get("next")),
       },
     });
     if (error) {

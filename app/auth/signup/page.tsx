@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Turnstile } from "@marsidev/react-turnstile";
 import { createClient } from "@/lib/supabase/client";
+import { oauthCallbackUrl } from "@/lib/auth/oauth-redirect";
 
 export default function SignupPage() {
   const router = useRouter();
@@ -63,7 +64,7 @@ export default function SignupPage() {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL ?? window.location.origin}/auth/callback`,
+        redirectTo: oauthCallbackUrl(),
       },
     });
     if (error) {
