@@ -527,3 +527,29 @@ export function formatCorrect(type: AnswerType, c: Correct | null | undefined): 
     .map(([k, v]) => `${k}→${v}`)
     .join(", ");
 }
+
+// --- test-taker invitations ----------------------------------------------------
+
+const EMAIL = /^[^@\s,;<>()]+@[^@\s,;<>()]+\.[^@\s,;<>()]+$/;
+
+/**
+ * Emails pasted by a manager — one per line, or separated by commas, semicolons or
+ * spaces (a column copied from a spreadsheet works). Lower-cased and de-duplicated;
+ * anything that is not an address comes back in `invalid` so it can be shown.
+ */
+export function parseEmails(text: string): { emails: string[]; invalid: string[] } {
+  const emails: string[] = [];
+  const invalid: string[] = [];
+  const parts = text.split(/[\s,;]+/);
+  for (let i = 0; i < parts.length; i++) {
+    const raw = parts[i]!.replace(/^<|>$/g, "").trim();
+    if (!raw) continue;
+    const e = raw.toLowerCase();
+    if (!EMAIL.test(e)) {
+      if (invalid.indexOf(raw) === -1) invalid.push(raw);
+    } else if (emails.indexOf(e) === -1) {
+      emails.push(e);
+    }
+  }
+  return { emails, invalid };
+}
