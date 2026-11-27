@@ -12,6 +12,7 @@ import {
   splitKeyCell,
   validateCorrect,
   sameCorrect,
+  parseEmails,
   type Choice,
 } from "./attestation-core.ts";
 
@@ -200,4 +201,19 @@ test("numericEquals rejects JS literals and second separators, accepts the Unico
   assert.ok(!numericEquals("1,2,5", "1.25"));
   assert.ok(numericEquals("−5", "-5"));
   assert.ok(numericEquals("0,25", "0.25"));
+});
+
+// --- test-taker invitations ------------------------------------------------------
+
+test("parseEmails: lines, commas, semicolons and spaces; lower-cased, de-duplicated", () => {
+  const r = parseEmails("A.Teacher@Example.org\nb@x.am, c@y.com;  a.teacher@example.org\t<d@z.org>");
+  assert.deepEqual(r.emails, ["a.teacher@example.org", "b@x.am", "c@y.com", "d@z.org"]);
+  assert.deepEqual(r.invalid, []);
+});
+
+test("parseEmails: reports what is not an address", () => {
+  const r = parseEmails("Anna Asatryan, ok@x.am, broken@, @nope.com");
+  assert.deepEqual(r.emails, ["ok@x.am"]);
+  assert.deepEqual(r.invalid, ["Anna", "Asatryan", "broken@", "@nope.com"]);
+  assert.deepEqual(parseEmails("  \n ,; ").emails, []);
 });

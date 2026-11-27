@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { TakersPanel } from "@/components/attestation/takers-panel";
 
 interface TestSummary {
   id: string;
@@ -114,6 +115,8 @@ export default function ManageTestsPage() {
       </div>
 
       {error && <p className="text-red-600 text-sm">{error}</p>}
+
+      <TakersPanel />
 
       {tests === null ? (
         <p className="text-gray-500">Loading…</p>
