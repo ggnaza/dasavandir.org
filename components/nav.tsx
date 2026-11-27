@@ -11,9 +11,11 @@ type NavProps = {
   userName?: string;
   unreadNotifications?: number;
   lang?: Lang;
+  /** The user may enter the Attestation module (admin, or a module_access grant). */
+  attestation?: boolean;
 };
 
-export function Nav({ role, userName, unreadNotifications = 0, lang = "en" }: NavProps) {
+export function Nav({ role, userName, unreadNotifications = 0, lang = "en", attestation = false }: NavProps) {
   const router = useRouter();
   const T = translations[lang];
   const [menuOpen, setMenuOpen] = useState(false);
@@ -24,7 +26,7 @@ export function Nav({ role, userName, unreadNotifications = 0, lang = "en" }: Na
     router.refresh();
   }
 
-  const links =
+  const baseLinks =
     role === "admin"
       ? [
           { href: "/admin", label: "Dashboard" },
@@ -69,6 +71,7 @@ export function Nav({ role, userName, unreadNotifications = 0, lang = "en" }: Na
           { href: "/learn/progress", label: T.myProgress },
           { href: "/courses", label: T.browse },
         ];
+  const links = attestation || role === "admin" ? [...baseLinks, { href: "/attestation", label: "Attestation" }] : baseLinks;
 
   return (
     <nav className="bg-white border-b px-4 py-3">

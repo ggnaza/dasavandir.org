@@ -6,6 +6,7 @@ import { PresencePing } from "@/components/presence-ping";
 import { ResendActivationButton } from "./resend-activation-button";
 import { cookies } from "next/headers";
 import { getLang } from "@/lib/i18n";
+import { canEnter, getModuleGrants } from "@/lib/access/module-access";
 
 export const dynamic = "force-dynamic";
 
@@ -31,11 +32,12 @@ export default async function LearnLayout({ children }: { children: React.ReactN
     : profile?.role === "course_creator" || profile?.role === "course_manager" ? "creator"
     : "learner";
   const isPending = profile?.status === "pending";
+  const attestation = canEnter(await getModuleGrants(user.id, profile?.role ?? null), "attestation");
 
   return (
     <div className="min-h-screen">
       <PresencePing />
-      <Nav role={navRole as "learner" | "admin" | "creator" | "space_manager"} userName={profile?.full_name} unreadNotifications={unreadCount ?? 0} lang={lang} />
+      <Nav role={navRole as "learner" | "admin" | "creator" | "space_manager"} userName={profile?.full_name} unreadNotifications={unreadCount ?? 0} lang={lang} attestation={attestation} />
       {isPending && (
         <div className="bg-amber-50 border-b border-amber-200 px-4 py-3 text-center text-sm text-amber-800">
           <strong>Check your email</strong> — we sent an activation link to <strong>{user.email}</strong>. Your account will be deleted if not activated within 24 hours.
