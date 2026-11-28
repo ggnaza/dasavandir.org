@@ -13,6 +13,11 @@ import {
   validateCorrect,
   sameCorrect,
   parseEmails,
+  deadlineOf,
+  deadlineForNewAttempt,
+  isExpired,
+  visibleTests,
+  GRACE_SECONDS,
   type Choice,
 } from "./attestation-core.ts";
 
@@ -216,4 +221,32 @@ test("parseEmails: reports what is not an address", () => {
   assert.deepEqual(r.emails, ["ok@x.am"]);
   assert.deepEqual(r.invalid, ["Anna", "Asatryan", "broken@", "@nope.com"]);
   assert.deepEqual(parseEmails("  \n ,; ").emails, []);
+});
+
+test("an attempt's deadline is only what was stored at start (ADR-0011)", () => {
+  // The test's limit is not an input at all: editing it cannot touch a live attempt.
+  assert.equal(deadlineOf({ deadline_at: "2026-11-28T11:00:00.000Z" })?.toISOString(), "2026-11-28T11:00:00.000Z");
+  // An attempt started while the test was untimed stays untimed after a limit is added.
+  assert.equal(deadlineOf({ deadline_at: null }), null);
+  assert.equal(deadlineOf({}), null);
+});
+
+test("a new attempt's deadline is start + limit, none when untimed", () => {
+  const start = new Date("2026-11-28T10:00:00.000Z");
+  assert.equal(deadlineForNewAttempt({ time_limit_minutes: 90 }, start)?.toISOString(), "2026-11-28T11:30:00.000Z");
+  assert.equal(deadlineForNewAttempt({ time_limit_minutes: null }, start), null);
+});
+
+test("expiry allows the grace period, never expires an untimed attempt", () => {
+  const d = new Date("2026-11-28T11:00:00.000Z");
+  assert.equal(isExpired(d, d.getTime() + GRACE_SECONDS * 1000), false);
+  assert.equal(isExpired(d, d.getTime() + GRACE_SECONDS * 1000 + 1), true);
+  assert.equal(isExpired(null, Date.now() + 1e12), false);
+});
+
+test("teachers see only invited tests; managers see all", () => {
+  const tests = [{ id: "a" }, { id: "b" }, { id: "c" }];
+  assert.deepEqual(visibleTests(tests, new Set(["b"])).map((t) => t.id), ["b"]);
+  assert.deepEqual(visibleTests(tests, new Set()), []);
+  assert.deepEqual(visibleTests(tests, null).map((t) => t.id), ["a", "b", "c"]);
 });

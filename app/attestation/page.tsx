@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getAttestationUser } from "@/lib/attestation/server";
+import { getAttestationUser, invitedTestIds } from "@/lib/attestation/server";
 import { finalizeExpired } from "@/lib/attestation/attempts";
+import { visibleTests } from "@/lib/attestation-core";
 
 export const dynamic = "force-dynamic";
 
@@ -20,14 +21,17 @@ export default async function AttestationHome() {
     .eq("status", "in_progress");
   await finalizeExpired(Array.from(new Set((openRows ?? []).map((r) => r.test_id as string))));
 
-  const [{ data: tests }, { data: attempts }] = await Promise.all([
+  const [{ data: allTests }, { data: attempts }, invited] = await Promise.all([
     admin
       .from("attestation_tests")
       .select("id, subject, title, description, time_limit_minutes, max_attempts")
       .eq("status", "published")
       .order("subject"),
     admin.from("attestation_attempts").select("test_id, status").eq("user_id", user.id),
+    user.isManager ? Promise.resolve(null) : invitedTestIds(user.id),
   ]);
+  // Teachers see only the tests they were invited to; managers see every published test.
+  const tests = visibleTests(allTests ?? [], invited);
 
   const statusOf = (t: { id: string; max_attempts: number }) => {
     const mine = (attempts ?? []).filter((a) => a.test_id === t.id);
@@ -48,7 +52,7 @@ export default async function AttestationHome() {
         )}
       </div>
       {(tests ?? []).length === 0 ? (
-        <p className="text-gray-500">Այս պահին հասանելի թեստեր չկան։</p>
+        <p className="text-gray-500">Այս պահին Ձեզ համար հասանելի թեստեր չկան։ Եթե սպասում եք հրավերի, դիմեք TFA-ի համակարգողին։</p>
       ) : (
         <ul className="grid gap-3 sm:grid-cols-2">
           {(tests ?? []).map((t) => {

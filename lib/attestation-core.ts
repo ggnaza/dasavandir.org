@@ -553,3 +553,37 @@ export function parseEmails(text: string): { emails: string[]; invalid: string[]
   }
   return { emails, invalid };
 }
+
+// ---------------------------------------------------------------------------
+// Time limits and invitations (ADR-0011)
+// ---------------------------------------------------------------------------
+
+/** Seconds of slack after the deadline for an in-flight save or submit. */
+export const GRACE_SECONDS = 60;
+
+/**
+ * When an attempt's time runs out: the deadline stored when it started, or null
+ * (untimed). The test's current limit is deliberately not consulted, so editing a
+ * limit never shortens, extends or adds a clock to an attempt already under way.
+ * Attempts from before stored deadlines were backfilled by the migration.
+ */
+export function deadlineOf(attempt: { deadline_at?: string | null }): Date | null {
+  return attempt.deadline_at ? new Date(attempt.deadline_at) : null;
+}
+
+/** The deadline to store on an attempt that starts at `start`, or null when the test is untimed. */
+export function deadlineForNewAttempt(test: { time_limit_minutes: number | null }, start: Date): Date | null {
+  return test.time_limit_minutes ? new Date(start.getTime() + test.time_limit_minutes * 60_000) : null;
+}
+
+export function isExpired(deadline: Date | null, now = Date.now()): boolean {
+  return deadline !== null && now > deadline.getTime() + GRACE_SECONDS * 1000;
+}
+
+/**
+ * The tests a user may see: managers see all, a teacher only those invited to.
+ * `invited` is null for managers.
+ */
+export function visibleTests<T extends { id: string }>(tests: T[], invited: Set<string> | null): T[] {
+  return invited ? tests.filter((t) => invited.has(t.id)) : tests;
+}

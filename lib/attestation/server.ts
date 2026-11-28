@@ -19,6 +19,8 @@ export interface AttestationUser {
   role: string;
   /** Builds tests and sees results: platform admin, or `ldm` in the attestation module. */
   isManager: boolean;
+  /** Platform admin: the only role that may add or remove managers (ADR-0011). */
+  isAdmin: boolean;
 }
 
 /** The signed-in user if they may enter the attestation module, else null. */
@@ -43,7 +45,25 @@ export async function getAttestationUser(): Promise<AttestationUser | null> {
     fullName: profile.full_name ?? null,
     role: profile.role,
     isManager: profile.role === "admin" || grants.attestation === "ldm",
+    isAdmin: profile.role === "admin",
   };
+}
+
+/**
+ * Ids of the tests a teacher was invited to. Managers are not limited by
+ * invitations — callers check `isManager` first (ADR-0011).
+ */
+export async function invitedTestIds(userId: string): Promise<Set<string>> {
+  const admin = createAdminClient();
+  const { data, error } = await admin.from("attestation_invites").select("test_id").eq("user_id", userId);
+  if (error) throw new Error(`Could not read invitations: ${error.message}`, { cause: error });
+  return new Set((data ?? []).map((r) => r.test_id as string));
+}
+
+/** May this user open this test? Managers: any test. Teachers: only tests they are invited to. */
+export async function mayTakeTest(user: AttestationUser, testId: string): Promise<boolean> {
+  if (user.isManager) return true;
+  return (await invitedTestIds(user.id)).has(testId);
 }
 
 export function jsonError(message: string, status: number): Response {
@@ -53,6 +73,12 @@ export function jsonError(message: string, status: number): Response {
 /** 401/403 response, or null when the user may proceed. */
 export function denyUnlessUser(user: AttestationUser | null): Response | null {
   return user ? null : jsonError("Unauthorized", 401);
+}
+
+export function denyUnlessAdmin(user: AttestationUser | null): Response | null {
+  if (!user) return jsonError("Unauthorized", 401);
+  if (!user.isAdmin) return jsonError("Only a platform admin can do this", 403);
+  return null;
 }
 
 export function denyUnlessManager(user: AttestationUser | null): Response | null {
@@ -113,6 +139,8 @@ export interface AttemptRow {
   max_score: number | null;
   percent: number | null;
   started_at: string;
+  /** Fixed when the attempt starts; null for attempts opened before ADR-0011 (use the test's limit). */
+  deadline_at?: string | null;
   submitted_at: string | null;
 }
 

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { TakersPanel } from "@/components/attestation/takers-panel";
+import { ManagersPanel } from "@/components/attestation/managers-panel";
 
 interface TestSummary {
   id: string;
@@ -11,6 +12,7 @@ interface TestSummary {
   title: string;
   year: string | null;
   status: "draft" | "published" | "archived";
+  time_limit_minutes: number | null;
   question_count: number;
   review_count: number;
   submitted_count: number;
@@ -29,13 +31,68 @@ export default function ManageTestsPage() {
   const [busy, setBusy] = useState(false);
   const [subject, setSubject] = useState("");
   const [title, setTitle] = useState("");
+  const [limits, setLimits] = useState<Record<string, string>>({});
+  const [allLimit, setAllLimit] = useState("");
+  const [limitNotice, setLimitNotice] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
 
   const load = useCallback(async () => {
     const res = await fetch("/api/attestation/tests");
     const body = (await res.json()) as { tests?: TestSummary[]; error?: string };
     if (!res.ok) setError(body.error ?? "Could not load tests");
-    else setTests(body.tests ?? []);
+    else {
+      setTests(body.tests ?? []);
+    }
+    return body.tests ?? [];
   }, []);
+
+  const saved = (t: TestSummary) => (t.time_limit_minutes ? String(t.time_limit_minutes) : "");
+  // Fill limits for tests not shown yet; keep what the manager is typing elsewhere.
+  useEffect(() => {
+    if (!tests) return;
+    setLimits((prev) => {
+      const next = { ...prev };
+      for (const t of tests) if (!(t.id in next)) next[t.id] = saved(t);
+      return next;
+    });
+  }, [tests]);
+
+  /** "" = no limit; otherwise whole minutes 1–600 (the API's bounds). */
+  function parseLimit(v: string): number | null | "bad" {
+    if (!v.trim()) return null;
+    const n = Number(v);
+    return Number.isInteger(n) && n >= 1 && n <= 600 ? n : "bad";
+  }
+
+  async function saveLimits(ids: string[], value: string) {
+    const minutes = parseLimit(value);
+    if (minutes === "bad") {
+      setLimitNotice({ kind: "error", text: "Time limit must be whole minutes between 1 and 600, or empty for no limit." });
+      return;
+    }
+    setLimitNotice(null);
+    const failed: string[] = [];
+    for (const id of ids) {
+      const res = await fetch(`/api/attestation/tests/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ time_limit_minutes: minutes }),
+      });
+      if (!res.ok) failed.push(tests?.find((t) => t.id === id)?.subject ?? id);
+    }
+    const fresh = await load();
+    // Refresh only the rows just saved, so unsaved edits in other rows survive.
+    setLimits((prev) => {
+      const next = { ...prev };
+      for (const t of fresh) if (ids.includes(t.id)) next[t.id] = saved(t);
+      return next;
+    });
+    if (failed.length) setLimitNotice({ kind: "error", text: `Could not save the time limit for: ${failed.join(", ")}` });
+    else
+      setLimitNotice({
+        kind: "ok",
+        text: `${minutes ? `Time limit set to ${minutes} min` : "Time limit removed"} for ${ids.length} test${ids.length === 1 ? "" : "s"}. Teachers already in a test keep the time they started with.`,
+      });
+  }
 
   useEffect(() => {
     void load();
@@ -116,7 +173,9 @@ export default function ManageTestsPage() {
 
       {error && <p className="text-red-600 text-sm">{error}</p>}
 
-      <TakersPanel />
+      <ManagersPanel />
+
+      <TakersPanel tests={tests ?? []} />
 
       {tests === null ? (
         <p className="text-gray-500">Loading…</p>
@@ -124,12 +183,41 @@ export default function ManageTestsPage() {
         <p className="text-gray-500">No tests yet.</p>
       ) : (
         <div className="bg-white rounded-xl border overflow-hidden">
+          <div className="flex flex-wrap items-center gap-2 px-4 py-3 border-b text-sm">
+            <span className="text-gray-700">Time limit for every test:</span>
+            <input
+              aria-label="Time limit for every test, in minutes"
+              inputMode="numeric"
+              className="border rounded px-2 py-1 w-20"
+              placeholder="min"
+              value={allLimit}
+              onChange={(e) => setAllLimit(e.target.value)}
+            />
+            <span className="text-gray-500">minutes</span>
+            <button
+              type="button"
+              className="px-3 py-1 rounded border"
+              onClick={() => {
+                const what = allLimit.trim() ? `${allLimit.trim()} minutes` : "no time limit";
+                if (confirm(`Set ${what} on all ${tests.length} tests?`)) void saveLimits(tests.map((t) => t.id), allLimit);
+              }}
+            >
+              Apply to all
+            </button>
+            <span className="text-xs text-gray-500">Empty = no limit. The clock starts when a teacher presses Start; at zero the test is submitted as it stands.</span>
+          </div>
+          {limitNotice && (
+            <p role="status" className={`px-4 py-2 text-sm border-b ${limitNotice.kind === "error" ? "text-red-600" : "text-green-700"}`}>
+              {limitNotice.text}
+            </p>
+          )}
           <table className="w-full text-sm">
             <thead className="bg-gray-50 text-left text-gray-500">
               <tr>
                 <th className="px-4 py-2">Subject</th>
                 <th className="px-4 py-2">Title</th>
                 <th className="px-4 py-2">Status</th>
+                <th className="px-4 py-2">Time limit</th>
                 <th className="px-4 py-2 text-right">Questions</th>
                 <th className="px-4 py-2 text-right">Needs review</th>
                 <th className="px-4 py-2 text-right">Submitted</th>
@@ -147,6 +235,23 @@ export default function ManageTestsPage() {
                   </td>
                   <td className="px-4 py-2">
                     <span className={`px-2 py-0.5 rounded text-xs ${STATUS_STYLE[t.status]}`}>{t.status}</span>
+                  </td>
+                  <td className="px-4 py-2 whitespace-nowrap">
+                    <input
+                      aria-label={`Time limit for ${t.subject}, in minutes`}
+                      inputMode="numeric"
+                      className="border rounded px-2 py-0.5 w-16"
+                      placeholder="none"
+                      value={limits[t.id] ?? ""}
+                      onChange={(e) => setLimits({ ...limits, [t.id]: e.target.value })}
+                      onBlur={(e) => {
+                        if (e.target.value.trim() !== saved(t)) void saveLimits([t.id], e.target.value);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+                      }}
+                    />{" "}
+                    <span className="text-gray-500">min</span>
                   </td>
                   <td className="px-4 py-2 text-right">{t.question_count}</td>
                   <td className={`px-4 py-2 text-right ${t.review_count ? "text-amber-700 font-medium" : "text-gray-400"}`}>{t.review_count}</td>
