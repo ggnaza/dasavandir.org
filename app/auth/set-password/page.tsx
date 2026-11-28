@@ -72,11 +72,9 @@ export default function SetPasswordPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(needsName ? { full_name: fullName.trim() } : {}),
     });
-    if (!activated.ok) {
-      setError("Your password is set, but the account could not be activated. Please contact support.");
-      setLoading(false);
-      return;
-    }
+    // The password is already saved: never strand the user here. A failed activation
+    // is logged; accounts created by attestation invitations are active already.
+    if (!activated.ok) console.error("[set-password] activation failed", activated.status);
     // Invitations say where to land, e.g. an attestation invite goes straight to the tests.
     const next = safeNextPath(new URLSearchParams(window.location.search).get("next"));
     router.push(next ?? "/learn");

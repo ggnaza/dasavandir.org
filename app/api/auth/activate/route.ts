@@ -2,6 +2,7 @@ import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { ensureProfile } from "@/lib/auth/ensure-profile";
+import { sessionFromEmailLink } from "@/lib/attestation-invite-email";
 import { NextResponse } from "next/server";
 
 export async function GET(req: Request) {
@@ -53,6 +54,16 @@ export async function POST(req: Request) {
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  // Only a session opened from an emailed link (invite, magic link, recovery) proves
+  // the caller owns the address. A self-signup signed in with a password must use its
+  // activation email instead, so this cannot be used to skip email verification.
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (!sessionFromEmailLink(session?.access_token)) {
+    return NextResponse.json({ error: "Open the link from your email to activate this account." }, { status: 403 });
+  }
+
   let body: unknown = undefined;
   const raw = await req.text();
   if (raw.trim()) {
@@ -70,6 +81,12 @@ export async function POST(req: Request) {
   await ensureProfile(admin, user);
   const { error } = await admin.from("profiles").update({ status: "active" }).eq("id", user.id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  // Record that the invitation was accepted (a password chosen). Re-invites use this,
+  // not last_sign_in_at — a link scanner that opens the link also "signs in".
+  const { error: metaErr } = await admin.auth.admin.updateUserById(user.id, {
+    app_metadata: { ...(user.app_metadata ?? {}), invite_accepted: true },
+  });
+  if (metaErr) console.error("[activate] could not record invite_accepted", metaErr.message);
 
   const name = input.data?.full_name;
   if (name) {
@@ -82,3 +99,4 @@ export async function POST(req: Request) {
   }
   return NextResponse.json({ ok: true });
 }
+

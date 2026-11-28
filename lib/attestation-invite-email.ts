@@ -65,8 +65,48 @@ export function attestationInviteEmail({
   };
 }
 
-/** A same-site path to continue to, or null. Blocks `//host` and `/\host` open redirects. */
+/**
+ * A same-site path to continue to, or null. Blocks `//host`, backslashes, and
+ * tab/CR/LF anywhere — the URL parser strips those, so `/\t/host` becomes `//host`.
+ */
 export function safeNextPath(next: string | null | undefined): string | null {
-  if (!next || !next.startsWith("/") || next.startsWith("//") || next.startsWith("/\\")) return null;
+  if (!next || !next.startsWith("/") || next.startsWith("//") || /[\\\t\n\r]/.test(next)) return null;
   return next;
+}
+
+/** Hosts invitation links may point at. Anything else falls back to the configured site URL. */
+const LINK_HOSTS = new Set(["dasavandir.org", "www.dasavandir.org", "staging.dasavandir.org", "localhost:3000"]);
+
+/**
+ * The origin to put in emailed links. The request's own origin is used only when it
+ * is one of ours (so staging invites go to staging); a spoofed Host or a preview
+ * deployment falls back to NEXT_PUBLIC_SITE_URL, never to an attacker's domain.
+ */
+export function inviteLinkOrigin(requestOrigin: string, siteUrl: string | undefined): string {
+  try {
+    const u = new URL(requestOrigin);
+    if (LINK_HOSTS.has(u.host) && (u.protocol === "https:" || u.host === "localhost:3000")) return u.origin;
+  } catch {
+    // fall through
+  }
+  return (siteUrl || "https://dasavandir.org").replace(/\/+$/, "");
+}
+
+/** `amr` methods GoTrue records for sessions opened from an emailed link. */
+const EMAIL_LINK_METHODS = new Set(["otp", "magiclink", "invite", "recovery", "email/signup"]);
+
+/**
+ * True when an access token's session was opened from an emailed link (invite, magic
+ * link, recovery) — proof the holder controls the address. Call only on a token the
+ * auth server has already validated (e.g. after supabase.auth.getUser()).
+ */
+export function sessionFromEmailLink(accessToken: string | undefined | null): boolean {
+  if (!accessToken) return false;
+  try {
+    const part = accessToken.split(".")[1] ?? "";
+    const payload = JSON.parse(Buffer.from(part, "base64url").toString("utf8")) as { amr?: { method?: string }[] };
+    return (payload.amr ?? []).some((a) => EMAIL_LINK_METHODS.has(String(a.method)));
+  } catch {
+    return false;
+  }
 }

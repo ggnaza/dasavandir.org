@@ -21,6 +21,7 @@ interface AddResult {
   managers: string[];
   invalid: string[];
   failed: { email: string; reason: string }[];
+  recentlySent: string[];
   emailed: number;
 }
 
@@ -177,11 +178,16 @@ export function TakersPanel({ tests }: { tests: TestChoice[] }) {
           {result.emailed > 0 && <p className="text-green-700">Emails sent: {result.emailed}.</p>}
           {result.already.length > 0 && (
             <p className="text-gray-600">
-              Already invited to these subjects: {result.already.length} (anyone who has not signed in yet got a fresh link).
+              Already invited to these subjects: {result.already.length} — emailed again (with a fresh link if they have not set a password yet).
             </p>
           )}
           {result.managers.length > 0 && (
             <p className="text-gray-600">Managers or admins, who already see every test: {result.managers.join(", ")}.</p>
+          )}
+          {result.recentlySent.length > 0 && (
+            <p className="text-gray-600">
+              Not re-sent — a link went out less than 10 minutes ago: {result.recentlySent.join(", ")}.
+            </p>
           )}
           {result.failed.length > 0 && (
             <div className="text-amber-700">
