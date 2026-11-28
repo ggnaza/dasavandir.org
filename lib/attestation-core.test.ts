@@ -223,16 +223,12 @@ test("parseEmails: reports what is not an address", () => {
   assert.deepEqual(parseEmails("  \n ,; ").emails, []);
 });
 
-test("a stored deadline wins over the test's current limit (ADR-0011)", () => {
-  const started_at = "2026-11-28T10:00:00.000Z";
-  const stored = { started_at, deadline_at: "2026-11-28T11:00:00.000Z" };
-  // The manager later shortened the test to 10 minutes: the teacher keeps their hour.
-  assert.equal(deadlineOf(stored, { time_limit_minutes: 10 })?.toISOString(), "2026-11-28T11:00:00.000Z");
-  // ...or made it untimed: the stored deadline still applies.
-  assert.equal(deadlineOf(stored, { time_limit_minutes: null })?.toISOString(), "2026-11-28T11:00:00.000Z");
-  // Attempts from before stored deadlines fall back to the test's limit.
-  assert.equal(deadlineOf({ started_at, deadline_at: null }, { time_limit_minutes: 30 })?.toISOString(), "2026-11-28T10:30:00.000Z");
-  assert.equal(deadlineOf({ started_at }, { time_limit_minutes: null }), null);
+test("an attempt's deadline is only what was stored at start (ADR-0011)", () => {
+  // The test's limit is not an input at all: editing it cannot touch a live attempt.
+  assert.equal(deadlineOf({ deadline_at: "2026-11-28T11:00:00.000Z" })?.toISOString(), "2026-11-28T11:00:00.000Z");
+  // An attempt started while the test was untimed stays untimed after a limit is added.
+  assert.equal(deadlineOf({ deadline_at: null }), null);
+  assert.equal(deadlineOf({}), null);
 });
 
 test("a new attempt's deadline is start + limit, none when untimed", () => {

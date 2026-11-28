@@ -562,17 +562,13 @@ export function parseEmails(text: string): { emails: string[]; invalid: string[]
 export const GRACE_SECONDS = 60;
 
 /**
- * When an attempt's time runs out. The deadline stored at start wins, so editing a
- * test's limit never changes the time of a teacher already inside it. Attempts
- * opened before deadlines were stored fall back to the test's current limit.
+ * When an attempt's time runs out: the deadline stored when it started, or null
+ * (untimed). The test's current limit is deliberately not consulted, so editing a
+ * limit never shortens, extends or adds a clock to an attempt already under way.
+ * Attempts from before stored deadlines were backfilled by the migration.
  */
-export function deadlineOf(
-  attempt: { started_at: string; deadline_at?: string | null },
-  test: { time_limit_minutes: number | null },
-): Date | null {
-  if (attempt.deadline_at) return new Date(attempt.deadline_at);
-  if (!test.time_limit_minutes) return null;
-  return new Date(new Date(attempt.started_at).getTime() + test.time_limit_minutes * 60_000);
+export function deadlineOf(attempt: { deadline_at?: string | null }): Date | null {
+  return attempt.deadline_at ? new Date(attempt.deadline_at) : null;
 }
 
 /** The deadline to store on an attempt that starts at `start`, or null when the test is untimed. */

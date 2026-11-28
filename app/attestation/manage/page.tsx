@@ -41,9 +41,20 @@ export default function ManageTestsPage() {
     if (!res.ok) setError(body.error ?? "Could not load tests");
     else {
       setTests(body.tests ?? []);
-      setLimits(Object.fromEntries((body.tests ?? []).map((t) => [t.id, t.time_limit_minutes ? String(t.time_limit_minutes) : ""])));
     }
+    return body.tests ?? [];
   }, []);
+
+  const saved = (t: TestSummary) => (t.time_limit_minutes ? String(t.time_limit_minutes) : "");
+  // Fill limits for tests not shown yet; keep what the manager is typing elsewhere.
+  useEffect(() => {
+    if (!tests) return;
+    setLimits((prev) => {
+      const next = { ...prev };
+      for (const t of tests) if (!(t.id in next)) next[t.id] = saved(t);
+      return next;
+    });
+  }, [tests]);
 
   /** "" = no limit; otherwise whole minutes 1–600 (the API's bounds). */
   function parseLimit(v: string): number | null | "bad" {
@@ -68,7 +79,13 @@ export default function ManageTestsPage() {
       });
       if (!res.ok) failed.push(tests?.find((t) => t.id === id)?.subject ?? id);
     }
-    await load();
+    const fresh = await load();
+    // Refresh only the rows just saved, so unsaved edits in other rows survive.
+    setLimits((prev) => {
+      const next = { ...prev };
+      for (const t of fresh) if (ids.includes(t.id)) next[t.id] = saved(t);
+      return next;
+    });
     if (failed.length) setLimitNotice({ kind: "error", text: `Could not save the time limit for: ${failed.join(", ")}` });
     else
       setLimitNotice({
@@ -228,8 +245,7 @@ export default function ManageTestsPage() {
                       value={limits[t.id] ?? ""}
                       onChange={(e) => setLimits({ ...limits, [t.id]: e.target.value })}
                       onBlur={(e) => {
-                        const saved = t.time_limit_minutes ? String(t.time_limit_minutes) : "";
-                        if (e.target.value.trim() !== saved) void saveLimits([t.id], e.target.value);
+                        if (e.target.value.trim() !== saved(t)) void saveLimits([t.id], e.target.value);
                       }}
                       onKeyDown={(e) => {
                         if (e.key === "Enter") (e.target as HTMLInputElement).blur();
