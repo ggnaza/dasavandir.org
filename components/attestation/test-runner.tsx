@@ -23,7 +23,7 @@ interface Passage {
   image_path: string | null;
 }
 interface TakePayload {
-  state: "in_progress" | "done";
+  state: "in_progress" | "done" | "new";
   attemptId?: string;
   answers?: Record<string, AnswerValue>;
   deadline?: string | null;
@@ -47,7 +47,8 @@ export function TestRunner({ testId }: { testId: string }) {
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<TakePayload | null>(null);
   const [preview, setPreview] = useState<Preview | null>(null);
-  const [started, setStarted] = useState(false);
+  const [started, setStarted] = useState<false | "start" | "resume">(false);
+  const autoSubmitted = useRef(false);
   const [answers, setAnswers] = useState<Record<string, AnswerValue>>({});
   const [index, setIndex] = useState(0);
   const [saveState, setSaveState] = useState<"saved" | "saving" | "error">("saved");
@@ -77,7 +78,7 @@ export function TestRunner({ testId }: { testId: string }) {
       }
       setPreview(body);
       // An attempt already under way resumes at once: its clock is already running.
-      if (body.state === "in_progress") setStarted(true);
+      if (body.state === "in_progress") setStarted("resume");
       else setPhase("intro");
     }
     look().catch(() => {
@@ -97,7 +98,7 @@ export function TestRunner({ testId }: { testId: string }) {
     let cancelled = false;
     async function load() {
       setPhase((p) => (p === "intro" ? "starting" : p));
-      const res = await fetch(`/api/attestation/take/${testId}`, { method: "POST" });
+      const res = await fetch(`/api/attestation/take/${testId}${started === "resume" ? "?resume=1" : ""}`, { method: "POST" });
       const body = (await res.json()) as TakePayload & { error?: string };
       if (cancelled) return;
       if (!res.ok) {
@@ -107,6 +108,13 @@ export function TestRunner({ testId }: { testId: string }) {
       }
       if (body.state === "done") {
         setPhase("done");
+        return;
+      }
+      if (body.state === "new") {
+        // The attempt being resumed ran out meanwhile; show the start screen again.
+        setStarted(false);
+        setPreview((p) => (p ? { ...p, state: "new" } : p));
+        setPhase("intro");
         return;
       }
       setData(body);
@@ -185,7 +193,11 @@ export function TestRunner({ testId }: { testId: string }) {
     return () => clearInterval(t);
   }, [deadline, phase]);
   useEffect(() => {
-    if (deadline && phase === "taking" && now >= deadline) void submit();
+    // Once only: a failed auto-submit shows its error instead of retrying every second.
+    if (deadline && phase === "taking" && now >= deadline && !autoSubmitted.current) {
+      autoSubmitted.current = true;
+      void submit();
+    }
   }, [deadline, now, phase, submit]);
 
   const questions = data?.questions ?? [];
@@ -214,7 +226,7 @@ export function TestRunner({ testId }: { testId: string }) {
           )}
           <li>Պատասխանները պահպանվում են ինքնաշխատ։</li>
         </ul>
-        <button type="button" className="px-5 py-2 rounded-lg bg-violet-600 text-white" onClick={() => setStarted(true)}>
+        <button type="button" className="px-5 py-2 rounded-lg bg-violet-600 text-white" onClick={() => setStarted("start")}>
           Սկսել
         </button>
       </div>

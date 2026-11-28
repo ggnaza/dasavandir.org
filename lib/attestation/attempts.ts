@@ -51,7 +51,12 @@ export interface TakeState {
  * Resume the open attempt, or open a new one if attempts remain. An open attempt
  * whose time ran out is submitted as it stands first.
  */
-export async function startOrResume(userId: string, test: TestRow, questions: QuestionRow[]): Promise<TakeState> {
+export async function startOrResume(
+  userId: string,
+  test: TestRow,
+  questions: QuestionRow[],
+  opts: { resumeOnly?: boolean } = {},
+): Promise<TakeState | { state: "new" }> {
   const admin = createAdminClient();
   const { data: rows, error } = await admin
     .from("attestation_attempts")
@@ -64,13 +69,16 @@ export async function startOrResume(userId: string, test: TestRow, questions: Qu
   let open = attempts.find((a) => a.status === "in_progress") ?? null;
   let submittedCount = attempts.filter((a) => a.status === "submitted").length;
 
-  if (open && isExpired(deadlineOf(open, test))) {
+  if (open && isExpired(deadlineOf(open))) {
     await finalizeAttempt(open, questions);
     open = null;
     submittedCount++;
   }
 
   if (!open) {
+    // The caller expected to resume, but the attempt ran out meanwhile: let the
+    // teacher see the start screen again rather than silently starting a clock.
+    if (opts.resumeOnly && submittedCount < test.max_attempts) return { state: "new" };
     if (submittedCount >= test.max_attempts) {
       return { state: "done", attemptId: null, answers: {}, startedAt: null, deadline: null, submittedCount };
     }
@@ -102,7 +110,7 @@ export async function startOrResume(userId: string, test: TestRow, questions: Qu
     }
   }
 
-  const deadline = deadlineOf(open, test);
+  const deadline = deadlineOf(open);
   return {
     state: "in_progress",
     attemptId: open.id,
@@ -158,15 +166,14 @@ export class AnswerError extends Error {
 export async function finalizeExpired(testIds: string[]): Promise<void> {
   if (testIds.length === 0) return;
   const admin = createAdminClient();
-  const [{ data: tests }, { data: open }] = await Promise.all([
-    admin.from("attestation_tests").select("id, time_limit_minutes").in("id", testIds),
-    admin.from("attestation_attempts").select("*").in("test_id", testIds).eq("status", "in_progress"),
-  ]);
-  const limits = new Map((tests ?? []).map((t) => [t.id as string, t as Pick<TestRow, "time_limit_minutes">]));
-  // A stored deadline counts even if the test has since become untimed.
-  const expired = ((open ?? []) as AttemptRow[]).filter((a) =>
-    isExpired(deadlineOf(a, limits.get(a.test_id) ?? { time_limit_minutes: null })),
-  );
+  const { data: open } = await admin
+    .from("attestation_attempts")
+    .select("*")
+    .in("test_id", testIds)
+    .eq("status", "in_progress")
+    .not("deadline_at", "is", null);
+  // The stored deadline decides, even if the test's limit has changed since.
+  const expired = ((open ?? []) as AttemptRow[]).filter((a) => isExpired(deadlineOf(a)));
   const byTest = new Map<string, QuestionRow[]>();
   for (const a of expired) {
     if (!byTest.has(a.test_id)) {
@@ -183,7 +190,7 @@ export async function finalizeExpired(testIds: string[]): Promise<void> {
  */
 export async function attemptStanding(
   userId: string,
-  test: Pick<TestRow, "id" | "max_attempts" | "time_limit_minutes">,
+  test: Pick<TestRow, "id" | "max_attempts">,
 ): Promise<"new" | "in_progress" | "done"> {
   const admin = createAdminClient();
   const { data, error } = await admin
@@ -197,7 +204,7 @@ export async function attemptStanding(
   let submitted = rows.filter((a) => a.status === "submitted").length;
   if (open) {
     // A timed-out open attempt will be submitted by startOrResume; count it as used.
-    if (!isExpired(deadlineOf(open, test))) return "in_progress";
+    if (!isExpired(deadlineOf(open))) return "in_progress";
     submitted++;
   }
   return submitted >= test.max_attempts ? "done" : "new";

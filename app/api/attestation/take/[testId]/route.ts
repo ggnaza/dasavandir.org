@@ -31,7 +31,7 @@ export async function GET(_req: Request, { params }: { params: { testId: string 
 }
 
 /** Open (or resume) the caller's attempt at a published test. Never returns answers or scores. */
-export async function POST(_req: Request, { params }: { params: { testId: string } }) {
+export async function POST(req: Request, { params }: { params: { testId: string } }) {
   const user = await getAttestationUser();
   const denied = denyUnlessUser(user);
   if (denied) return denied;
@@ -41,8 +41,10 @@ export async function POST(_req: Request, { params }: { params: { testId: string
     return jsonError("Test not found", 404);
   }
 
-  const state = await startOrResume(user!.id, data.test, data.questions);
-  if (state.state === "done") return Response.json({ state: "done" });
+  // `?resume=1`: the runner skipped the start screen to resume; never open a new attempt then.
+  const resumeOnly = new URL(req.url).searchParams.get("resume") === "1";
+  const state = await startOrResume(user!.id, data.test, data.questions, { resumeOnly });
+  if (state.state === "done" || state.state === "new") return Response.json({ state: state.state });
 
   const figures = await signFigures([
     ...data.questions.map((q) => q.image_path),

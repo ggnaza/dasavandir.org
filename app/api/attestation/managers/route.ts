@@ -106,5 +106,9 @@ export async function DELETE(req: Request) {
     .select("user_id");
   if (error) return jsonError(error.message, 500);
   if (!data?.length) return jsonError("Not an attestation manager", 404);
+  // Clear invitations left from before they were a manager, so a later re-invite
+  // starts clean and the teachers list never shows stale subjects.
+  const { error: invErr } = await admin.from("attestation_invites").delete().eq("user_id", input.data.user_id);
+  if (invErr) return jsonError(invErr.message, 500);
   return Response.json({ ok: true });
 }

@@ -4,6 +4,7 @@ import {
   denyUnlessUser,
   getAttestationUser,
   jsonError,
+  mayTakeTest,
   loadTest,
   zodMessage,
   type AttemptRow,
@@ -50,8 +51,10 @@ export async function POST(req: Request, { params }: { params: { id: string } })
 
   const data = await loadTest(attempt.test_id);
   if (!data) return jsonError("Test not found", 404);
+  // A withdrawn invitation stops the attempt where it is (a manager can re-invite to resume).
+  if (!(await mayTakeTest(user!, attempt.test_id))) return jsonError("You are no longer invited to this test", 403);
 
-  if (answers && !isExpired(deadlineOf(attempt, data.test))) {
+  if (answers && !isExpired(deadlineOf(attempt))) {
     try {
       await mergeAnswers(attempt.id, user!.id, data.questions, answers, coerceResponse);
     } catch (e) {

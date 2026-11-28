@@ -5,6 +5,7 @@ import {
   denyUnlessUser,
   getAttestationUser,
   jsonError,
+  mayTakeTest,
   loadTest,
   readJson,
   zodMessage,
@@ -36,7 +37,9 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
 
   const data = await loadTest(attempt.test_id);
   if (!data) return jsonError("Test not found", 404);
-  if (isExpired(deadlineOf(attempt, data.test))) return jsonError("Time is up", 409);
+  // A withdrawn invitation stops the attempt where it is (a manager can re-invite to resume).
+  if (!(await mayTakeTest(user!, attempt.test_id))) return jsonError("You are no longer invited to this test", 403);
+  if (isExpired(deadlineOf(attempt))) return jsonError("Time is up", 409);
 
   // Merged in one UPDATE inside Postgres, so overlapping saves cannot drop each other's answers.
   let ok: boolean;

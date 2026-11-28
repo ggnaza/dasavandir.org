@@ -4,7 +4,7 @@
 --    may see and take. Managers and admins see every test without rows here.
 -- 2. attestation_attempts.deadline_at — set when an attempt starts, so editing a
 --    test's time limit never changes the time of a teacher already in the test.
---    NULL means "no stored deadline": fall back to the test's current limit.
+--    NULL means untimed.
 --
 -- RLS on, no client policies: all access goes through the service role.
 -- Idempotent — safe to re-run. Staging shares the production database.
@@ -24,3 +24,13 @@ ALTER TABLE public.attestation_invites ENABLE ROW LEVEL SECURITY;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.attestation_invites TO service_role;
 
 ALTER TABLE public.attestation_attempts ADD COLUMN IF NOT EXISTS deadline_at timestamptz;
+
+-- NULL deadline_at now means "untimed". Give attempts that were open before this
+-- migration on a timed test the deadline they already had. Re-running is a no-op.
+UPDATE public.attestation_attempts a
+SET deadline_at = a.started_at + make_interval(mins => t.time_limit_minutes)
+FROM public.attestation_tests t
+WHERE t.id = a.test_id
+  AND a.status = 'in_progress'
+  AND a.deadline_at IS NULL
+  AND t.time_limit_minutes IS NOT NULL;

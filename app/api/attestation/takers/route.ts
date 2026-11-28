@@ -20,22 +20,29 @@ export async function GET() {
   if (denied) return denied;
 
   const admin = createAdminClient();
-  const [{ data: members, error }, { data: invites, error: invErr }] = await Promise.all([
-    admin
-      .from("module_access")
-      .select("user_id, granted_at, profile:profiles(full_name, email)")
-      .eq("module", "attestation")
-      .eq("access", "member")
-      .order("granted_at", { ascending: false }),
-    admin.from("attestation_invites").select("user_id, test_id"),
-  ]);
-  if (error || invErr) return jsonError((error ?? invErr)!.message, 500);
+  const { data: members, error } = await admin
+    .from("module_access")
+    .select("user_id, granted_at, profile:profiles(full_name, email)")
+    .eq("module", "attestation")
+    .eq("access", "member")
+    .order("granted_at", { ascending: false });
+  if (error) return jsonError(error.message, 500);
 
+  // Read invitations per chunk of teachers: one unfiltered read would be capped
+  // at PostgREST's max-rows and silently drop subjects (max 15 tests × 50 < 1000).
   const byUser = new Map<string, string[]>();
-  for (const r of invites ?? []) {
-    const list = byUser.get(r.user_id as string) ?? [];
-    list.push(r.test_id as string);
-    byUser.set(r.user_id as string, list);
+  const ids = (members ?? []).map((m) => m.user_id as string);
+  for (let i = 0; i < ids.length; i += 50) {
+    const { data: invites, error: invErr } = await admin
+      .from("attestation_invites")
+      .select("user_id, test_id")
+      .in("user_id", ids.slice(i, i + 50));
+    if (invErr) return jsonError(invErr.message, 500);
+    for (const r of invites ?? []) {
+      const list = byUser.get(r.user_id as string) ?? [];
+      list.push(r.test_id as string);
+      byUser.set(r.user_id as string, list);
+    }
   }
   return Response.json({
     takers: (members ?? []).map((m) => ({ ...m, test_ids: byUser.get(m.user_id as string) ?? [] })),
@@ -67,9 +74,9 @@ export async function POST(req: Request) {
 
   const admin = createAdminClient();
   const testIds = Array.from(new Set(input.data.test_ids));
-  const { data: tests, error: testErr } = await admin.from("attestation_tests").select("id").in("id", testIds);
+  const { data: tests, error: testErr } = await admin.from("attestation_tests").select("id").in("id", testIds).eq("status", "published");
   if (testErr) return jsonError(testErr.message, 500);
-  if ((tests ?? []).length !== testIds.length) return jsonError("One of the chosen tests no longer exists", 400);
+  if ((tests ?? []).length !== testIds.length) return jsonError("Only published tests can be chosen — refresh the page", 400);
 
   let found;
   try {
@@ -105,12 +112,14 @@ export async function POST(req: Request) {
       managers.push(e);
       continue;
     }
+    // Always (re)write the member row: invitations without it would grant nothing,
+    // e.g. after a manager was removed or a row was deleted elsewhere.
+    memberRows.push({ user_id: p.id, module: "attestation", access: "member" });
     const fresh = testIds.filter((t) => !existing.has(`${p.id}:${t}`));
     if (fresh.length === 0) {
       already.push(e);
       continue;
     }
-    memberRows.push({ user_id: p.id, module: "attestation", access: "member" });
     for (const t of fresh) inviteRows.push({ user_id: p.id, test_id: t, invited_by: user!.id });
     added.push(e);
   }
