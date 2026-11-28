@@ -5,26 +5,16 @@
  * `review_note`, and a teacher never receives a score (ADR-0010).
  */
 import { createAdminClient } from "@/lib/supabase/admin";
-import { gradeAttempt, type Response as LearnerResponse } from "@/lib/attestation-core";
-import type { AttemptRow, QuestionRow, TestRow } from "@/lib/attestation/server";
+import { deadlineForNewAttempt, deadlineOf, gradeAttempt, isExpired, type Response as LearnerResponse } from "@/lib/attestation-core";
 
-/** Seconds of slack after the deadline for an in-flight save or submit. */
-export const GRACE_SECONDS = 60;
+export { GRACE_SECONDS, deadlineForNewAttempt, deadlineOf, isExpired } from "@/lib/attestation-core";
+import type { AttemptRow, QuestionRow, TestRow } from "@/lib/attestation/server";
 
 export type PublicQuestion = Omit<QuestionRow, "correct" | "needs_review" | "review_note" | "points" | "scoring">;
 
 export function toPublicQuestion(q: QuestionRow): PublicQuestion {
   const { correct: _c, needs_review: _n, review_note: _r, points: _p, scoring: _s, ...rest } = q;
   return rest;
-}
-
-export function deadlineOf(attempt: Pick<AttemptRow, "started_at">, test: Pick<TestRow, "time_limit_minutes">): Date | null {
-  if (!test.time_limit_minutes) return null;
-  return new Date(new Date(attempt.started_at).getTime() + test.time_limit_minutes * 60_000);
-}
-
-export function isExpired(deadline: Date | null, now = Date.now()): boolean {
-  return deadline !== null && now > deadline.getTime() + GRACE_SECONDS * 1000;
 }
 
 /** Grade and close an attempt. Idempotent: an already-submitted attempt is left alone. */
@@ -84,9 +74,16 @@ export async function startOrResume(userId: string, test: TestRow, questions: Qu
     if (submittedCount >= test.max_attempts) {
       return { state: "done", attemptId: null, answers: {}, startedAt: null, deadline: null, submittedCount };
     }
+    const start = new Date();
+    const due = deadlineForNewAttempt(test, start);
     const { data: created, error: insErr } = await admin
       .from("attestation_attempts")
-      .insert({ test_id: test.id, user_id: userId })
+      .insert({
+        test_id: test.id,
+        user_id: userId,
+        started_at: start.toISOString(),
+        deadline_at: due ? due.toISOString() : null,
+      })
       .select("*")
       .single();
     if (insErr) {
@@ -162,14 +159,14 @@ export async function finalizeExpired(testIds: string[]): Promise<void> {
   if (testIds.length === 0) return;
   const admin = createAdminClient();
   const [{ data: tests }, { data: open }] = await Promise.all([
-    admin.from("attestation_tests").select("id, time_limit_minutes").in("id", testIds).not("time_limit_minutes", "is", null),
+    admin.from("attestation_tests").select("id, time_limit_minutes").in("id", testIds),
     admin.from("attestation_attempts").select("*").in("test_id", testIds).eq("status", "in_progress"),
   ]);
   const limits = new Map((tests ?? []).map((t) => [t.id as string, t as Pick<TestRow, "time_limit_minutes">]));
-  const expired = ((open ?? []) as AttemptRow[]).filter((a) => {
-    const t = limits.get(a.test_id);
-    return t ? isExpired(deadlineOf(a, t)) : false;
-  });
+  // A stored deadline counts even if the test has since become untimed.
+  const expired = ((open ?? []) as AttemptRow[]).filter((a) =>
+    isExpired(deadlineOf(a, limits.get(a.test_id) ?? { time_limit_minutes: null })),
+  );
   const byTest = new Map<string, QuestionRow[]>();
   for (const a of expired) {
     if (!byTest.has(a.test_id)) {
@@ -178,4 +175,30 @@ export async function finalizeExpired(testIds: string[]): Promise<void> {
     }
     await finalizeAttempt(a, byTest.get(a.test_id) ?? []);
   }
+}
+
+/**
+ * Where the user stands on a test, without opening an attempt — for the start
+ * screen, so the clock starts only when the teacher presses Start.
+ */
+export async function attemptStanding(
+  userId: string,
+  test: Pick<TestRow, "id" | "max_attempts" | "time_limit_minutes">,
+): Promise<"new" | "in_progress" | "done"> {
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("attestation_attempts")
+    .select("status, started_at, deadline_at")
+    .eq("test_id", test.id)
+    .eq("user_id", userId);
+  if (error) throw new Error(error.message, { cause: error });
+  const rows = (data ?? []) as Pick<AttemptRow, "status" | "started_at" | "deadline_at">[];
+  const open = rows.find((a) => a.status === "in_progress");
+  let submitted = rows.filter((a) => a.status === "submitted").length;
+  if (open) {
+    // A timed-out open attempt will be submitted by startOrResume; count it as used.
+    if (!isExpired(deadlineOf(open, test))) return "in_progress";
+    submitted++;
+  }
+  return submitted >= test.max_attempts ? "done" : "new";
 }

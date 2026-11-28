@@ -13,6 +13,11 @@ import {
   validateCorrect,
   sameCorrect,
   parseEmails,
+  deadlineOf,
+  deadlineForNewAttempt,
+  isExpired,
+  visibleTests,
+  GRACE_SECONDS,
   type Choice,
 } from "./attestation-core.ts";
 
@@ -216,4 +221,36 @@ test("parseEmails: reports what is not an address", () => {
   assert.deepEqual(r.emails, ["ok@x.am"]);
   assert.deepEqual(r.invalid, ["Anna", "Asatryan", "broken@", "@nope.com"]);
   assert.deepEqual(parseEmails("  \n ,; ").emails, []);
+});
+
+test("a stored deadline wins over the test's current limit (ADR-0011)", () => {
+  const started_at = "2026-11-28T10:00:00.000Z";
+  const stored = { started_at, deadline_at: "2026-11-28T11:00:00.000Z" };
+  // The manager later shortened the test to 10 minutes: the teacher keeps their hour.
+  assert.equal(deadlineOf(stored, { time_limit_minutes: 10 })?.toISOString(), "2026-11-28T11:00:00.000Z");
+  // ...or made it untimed: the stored deadline still applies.
+  assert.equal(deadlineOf(stored, { time_limit_minutes: null })?.toISOString(), "2026-11-28T11:00:00.000Z");
+  // Attempts from before stored deadlines fall back to the test's limit.
+  assert.equal(deadlineOf({ started_at, deadline_at: null }, { time_limit_minutes: 30 })?.toISOString(), "2026-11-28T10:30:00.000Z");
+  assert.equal(deadlineOf({ started_at }, { time_limit_minutes: null }), null);
+});
+
+test("a new attempt's deadline is start + limit, none when untimed", () => {
+  const start = new Date("2026-11-28T10:00:00.000Z");
+  assert.equal(deadlineForNewAttempt({ time_limit_minutes: 90 }, start)?.toISOString(), "2026-11-28T11:30:00.000Z");
+  assert.equal(deadlineForNewAttempt({ time_limit_minutes: null }, start), null);
+});
+
+test("expiry allows the grace period, never expires an untimed attempt", () => {
+  const d = new Date("2026-11-28T11:00:00.000Z");
+  assert.equal(isExpired(d, d.getTime() + GRACE_SECONDS * 1000), false);
+  assert.equal(isExpired(d, d.getTime() + GRACE_SECONDS * 1000 + 1), true);
+  assert.equal(isExpired(null, Date.now() + 1e12), false);
+});
+
+test("teachers see only invited tests; managers see all", () => {
+  const tests = [{ id: "a" }, { id: "b" }, { id: "c" }];
+  assert.deepEqual(visibleTests(tests, new Set(["b"])).map((t) => t.id), ["b"]);
+  assert.deepEqual(visibleTests(tests, new Set()), []);
+  assert.deepEqual(visibleTests(tests, null).map((t) => t.id), ["a", "b", "c"]);
 });
