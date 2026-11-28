@@ -16,15 +16,19 @@ interface Taker {
 }
 interface AddResult {
   added: string[];
+  created: string[];
   already: string[];
   managers: string[];
-  notFound: string[];
   invalid: string[];
+  failed: { email: string; reason: string }[];
+  recentlySent: string[];
+  emailed: number;
 }
 
 /**
- * Managers invite teachers by email to chosen subjects. An invited teacher sees
- * Attestation in their menu and only the tests they were invited to (ADR-0011).
+ * Managers invite teachers by email to chosen subjects. Each teacher is emailed:
+ * someone without an account gets a link that creates it and opens their tests.
+ * An invited teacher sees only the tests they were invited to (ADR-0011).
  */
 export function TakersPanel({ tests }: { tests: TestChoice[] }) {
   const [takers, setTakers] = useState<Taker[] | null>(null);
@@ -76,8 +80,8 @@ export function TakersPanel({ tests }: { tests: TestChoice[] }) {
       return;
     }
     setResult(body);
-    if (body.notFound.length === 0 && body.invalid.length === 0) setText("");
-    else setText([...body.notFound, ...body.invalid].join("\n"));
+    const leftover = [...body.failed.map((f) => f.email), ...body.invalid];
+    setText(leftover.join("\n"));
     await load();
   }
 
@@ -113,7 +117,9 @@ export function TakersPanel({ tests }: { tests: TestChoice[] }) {
         <p className="font-medium">
           Teachers invited to tests {takers && <span className="text-gray-500 font-normal">({takers.length})</span>}
         </p>
-        <p className="text-xs text-gray-500">They sign in at dasavandir.org, open Attestation from the top menu and see only their subjects.</p>
+        <p className="text-xs text-gray-500">
+          Each teacher gets an email. No account yet? The email creates one and opens their tests. Invite again to resend a link.
+        </p>
       </div>
 
       <fieldset className="space-y-1">
@@ -163,15 +169,37 @@ export function TakersPanel({ tests }: { tests: TestChoice[] }) {
 
       {result && (
         <div role="status" className="text-sm space-y-1">
-          {result.added.length > 0 && <p className="text-green-700">Invited {result.added.length}.</p>}
-          {result.already.length > 0 && <p className="text-gray-600">Already invited to these subjects: {result.already.length}.</p>}
+          {result.added.length > 0 && (
+            <p className="text-green-700">
+              Invited {result.added.length}
+              {result.created.length > 0 && ` (${result.created.length} new account${result.created.length === 1 ? "" : "s"} created)`}.
+            </p>
+          )}
+          {result.emailed > 0 && <p className="text-green-700">Emails sent: {result.emailed}.</p>}
+          {result.already.length > 0 && (
+            <p className="text-gray-600">
+              Already invited to these subjects: {result.already.length} — emailed again (with a fresh link if they have not set a password yet).
+            </p>
+          )}
           {result.managers.length > 0 && (
             <p className="text-gray-600">Managers or admins, who already see every test: {result.managers.join(", ")}.</p>
           )}
-          {result.notFound.length > 0 && (
-            <p className="text-amber-700">
-              No account yet for {result.notFound.length} (left in the box): they need to sign up at dasavandir.org first, then invite them again.
+          {result.recentlySent.length > 0 && (
+            <p className="text-gray-600">
+              Not re-sent — a link went out less than 10 minutes ago: {result.recentlySent.join(", ")}.
             </p>
+          )}
+          {result.failed.length > 0 && (
+            <div className="text-amber-700">
+              <p>Problems (left in the box to try again):</p>
+              <ul className="list-disc pl-5">
+                {result.failed.map((f) => (
+                  <li key={f.email}>
+                    {f.email} — {f.reason}
+                  </li>
+                ))}
+              </ul>
+            </div>
           )}
           {result.invalid.length > 0 && <p className="text-red-600">Not email addresses: {result.invalid.join(", ")}</p>}
         </div>

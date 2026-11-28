@@ -63,3 +63,29 @@ and the clock started the moment the test page opened.
 - R9 nit, non-admin managers make one GET that returns 403 — **WONTFIX**: harmless; the panel hides itself.
 - Pre-existing, failed auto-submit retried every second — **FIXED** (once only, error shown).
 - Pre-existing, home page finalizes every user's expired attempts on listed tests; manager reset unscoped — **TRACKED** here, harmless while all managers see all tests.
+
+## Amendment (2026-11-28, before build) — emailed invitations create accounts
+Operator: invited teachers "should create an account and appear in their test page, with a start button".
+- **Decision:** inviting an email with no account creates it (`auth.admin.generateLink` type `invite`) and
+  emails a one-time link → `/auth/set-password?next=/attestation` (asks for a name if missing) → their tests.
+  Re-inviting anyone who never signed in sends a fresh `magiclink` (fixes expired links). Active teachers are
+  emailed only when a subject is newly added. Invited accounts are created `active`, never `pending`.
+- **Found while building (pre-existing bug, fixed here):** `/auth/set-password` POSTs `/api/auth/activate`,
+  which had only GET (405). Admin-invited users therefore stayed `pending` and the hourly
+  `cleanup-unverified` cron deleted them 24h after creation even after they set a password. Added the POST.
+- **Alternatives considered:** (a) keep "must sign up first" — rejected by the operator; (b) Supabase's own
+  `inviteUserByEmail` — rejected: English Supabase template, and the app already sends branded mail via
+  Resend; (c) a pending-invitations table that activates on signup — rejected: more moving parts, and the
+  teacher would still have to find the signup page themselves.
+
+### Independent review of 4b838a8 (2026-11-28) — dispositions
+- E1 major, activate POST let a pending self-signup skip email activation — **FIXED**: only sessions whose `amr` shows an emailed link (otp/invite/magiclink/recovery) may self-activate; unit-tested.
+- E2 major, "never signed in" via `last_sign_in_at` broken by link scanners — **FIXED**: acceptance is `app_metadata.invite_accepted` set by activate; every re-invite emails (fresh link while not accepted).
+- E3 major, link origin from Host header — **FIXED**: our hosts only, else `NEXT_PUBLIC_SITE_URL`; unit-tested.
+- E4 major, 100 sequential account creations vs 60s — **FIXED**: batches of 10, 50 per request.
+- E5 minor, `safeNextPath` tab/newline bypass — **FIXED**, unit-tested.
+- E6 minor, auth user without profile could never be invited — **FIXED**: magiclink fallback + ensureProfile.
+- E7 minor, magiclink for an unconfirmed invited user unverified — **TRACKED**: hands-on on staging (re-invite path).
+- E8 minor, abuse ceiling — **FIXED**: 300 new accounts per manager per day; no re-send within 10 minutes.
+- E9 nit, retry wording — **FIXED** by E2. E10 nit, name prompt reads metadata not profile — **WONTFIX**: server never overwrites an existing name.
+- Discoveries (pre-existing, not changed here): `/auth/callback` follows an unvalidated `next` (`//evil` open redirect); signup marks an account active when the activation email fails; `sendActivationEmail` puts the URL in href unescaped (server-built).

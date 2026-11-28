@@ -4,8 +4,18 @@ import { denyUnlessManager, getAttestationUser, jsonError, readJson, zodMessage 
 import { profilesByEmail } from "@/lib/attestation/people";
 import { parseEmails } from "@/lib/attestation-core";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
+import { sendEmailBatch } from "@/lib/email";
+import { attestationInviteEmail, inviteLinkOrigin } from "@/lib/attestation-invite-email";
+import { ATTESTATION_LANDING, createInvitedAccount, freshSetPasswordLink, inviteStanding } from "@/lib/attestation/invite-accounts";
 
 export const dynamic = "force-dynamic";
+// Creating accounts and links is one Supabase call per new teacher.
+export const maxDuration = 60;
+
+/** New accounts one request may create (≈7 Supabase calls each); the rest are reported back. */
+const MAX_NEW_ACCOUNTS = 50;
+/** New accounts one manager may create per day (spam / sender-reputation ceiling). */
+const DAILY_NEW_ACCOUNTS = 300;
 
 /**
  * Teachers invited to take tests (ADR-0011). A teacher has a `module_access`
@@ -54,7 +64,14 @@ const addSchema = z.object({
   test_ids: z.array(z.string().uuid()).min(1, "Choose at least one subject").max(100),
 });
 
-/** Invite every pasted email that has an account to each chosen test. */
+/**
+ * Invite every pasted email to each chosen test, and email them.
+ * - No account yet: one is created and the email carries a link that sets their
+ *   password and opens their tests.
+ * - Invited but no password chosen yet: a fresh link (re-inviting fixes an expired or
+ *   scanner-consumed link), at most once per 10 minutes.
+ * - Active account: an email pointing to their tests.
+ */
 export async function POST(req: Request) {
   const user = await getAttestationUser();
   const denied = denyUnlessManager(user);
@@ -74,15 +91,45 @@ export async function POST(req: Request) {
 
   const admin = createAdminClient();
   const testIds = Array.from(new Set(input.data.test_ids));
-  const { data: tests, error: testErr } = await admin.from("attestation_tests").select("id").in("id", testIds).eq("status", "published");
+  const { data: tests, error: testErr } = await admin.from("attestation_tests").select("id, subject").in("id", testIds).eq("status", "published");
   if (testErr) return jsonError(testErr.message, 500);
   if ((tests ?? []).length !== testIds.length) return jsonError("Only published tests can be chosen — refresh the page", 400);
+
+  const subjects = (tests ?? []).map((t) => t.subject as string);
+  const origin = inviteLinkOrigin(new URL(req.url).origin, process.env.NEXT_PUBLIC_SITE_URL);
 
   let found;
   try {
     found = await profilesByEmail(emails);
   } catch (e) {
     return jsonError(e instanceof Error ? e.message : "Lookup failed", 500);
+  }
+
+  // Create accounts for emails that have none. Links are kept to email below.
+  const links = new Map<string, string>();
+  const created: string[] = [];
+  const failed: { email: string; reason: string }[] = [];
+  const missing = emails.filter((e) => !found.has(e));
+  for (const e of missing.slice(MAX_NEW_ACCOUNTS)) failed.push({ email: e, reason: `Over ${MAX_NEW_ACCOUNTS} new accounts at once — invite again` });
+  const toCreate = missing.slice(0, MAX_NEW_ACCOUNTS);
+  for (let i = 0; i < toCreate.length; i += 10) {
+    await Promise.all(
+      toCreate.slice(i, i + 10).map(async (e) => {
+        const quota = await checkRateLimit(`attestation-new-accounts:${user!.id}`, DAILY_NEW_ACCOUNTS, 24 * 60 * 60_000);
+        if (!quota.allowed) {
+          failed.push({ email: e, reason: `Daily limit of ${DAILY_NEW_ACCOUNTS} new accounts reached — try tomorrow` });
+          return;
+        }
+        try {
+          const acct = await createInvitedAccount(admin, e, origin);
+          found.set(e, { id: acct.id, role: "learner" });
+          links.set(e, acct.link);
+          created.push(e);
+        } catch (err) {
+          failed.push({ email: e, reason: err instanceof Error ? err.message : "Could not create the account" });
+        }
+      }),
+    );
   }
 
   const ids = emails.filter((e) => found.has(e)).map((e) => found.get(e)!.id);
@@ -98,15 +145,11 @@ export async function POST(req: Request) {
   const added: string[] = [];
   const already: string[] = [];
   const managers: string[] = [];
-  const notFound: string[] = [];
   const memberRows: { user_id: string; module: string; access: string }[] = [];
   const inviteRows: { user_id: string; test_id: string; invited_by: string }[] = [];
   for (const e of emails) {
     const p = found.get(e);
-    if (!p) {
-      notFound.push(e);
-      continue;
-    }
+    if (!p) continue; // account creation failed; listed in `failed`
     // Managers and admins already see every test; inviting them would change nothing.
     if (p.role === "admin" || isManager.has(p.id)) {
       managers.push(e);
@@ -132,7 +175,35 @@ export async function POST(req: Request) {
     const { error } = await admin.from("attestation_invites").upsert(inviteRows, { onConflict: "test_id,user_id", ignoreDuplicates: true });
     if (error) return jsonError(error.message, 500);
   }
-  return Response.json({ added, already, managers, notFound, invalid });
+  // Everyone invited gets an email — re-inviting is how a manager resends one.
+  const toEmail = [...added, ...already];
+  const recentlySent: string[] = [];
+  const outbox: ReturnType<typeof attestationInviteEmail>[] = [];
+  for (let i = 0; i < toEmail.length; i += 10) {
+    await Promise.all(
+      toEmail.slice(i, i + 10).map(async (e) => {
+        try {
+          let link = links.get(e) ?? null;
+          if (!link) {
+            const st = await inviteStanding(admin, found.get(e)!.id);
+            if (st.pending && st.recentlySent) {
+              recentlySent.push(e);
+              return;
+            }
+            if (st.pending) link = await freshSetPasswordLink(admin, e, origin);
+          }
+          if (link) outbox.push(attestationInviteEmail({ to: e, subjects, url: link, newAccount: true }));
+          else outbox.push(attestationInviteEmail({ to: e, subjects, url: `${origin}${ATTESTATION_LANDING}`, newAccount: false }));
+        } catch (err) {
+          failed.push({ email: e, reason: `Invited, but no email: ${err instanceof Error ? err.message : "link failed"}` });
+        }
+      }),
+    );
+  }
+  const sent = outbox.length ? await sendEmailBatch(outbox) : { sent: 0, failed: [] };
+  for (const f of sent.failed) failed.push({ email: f.to, reason: `Invited, but the email failed: ${f.reason}` });
+
+  return Response.json({ added, created, already, managers, invalid, failed, recentlySent, emailed: sent.sent });
 }
 
 const removeSchema = z.object({ user_id: z.string().uuid(), test_id: z.string().uuid().optional() });
