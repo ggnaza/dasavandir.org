@@ -110,6 +110,10 @@ here carry the claim-as-carry-away **plus status**. Route by status first (don't
   **Carry-away:** native markdown+KaTeX questions with optional private figure; keys imported mechanically
   from the key PDF text layer (never AI); scoring mode and points are per-question data; teachers see only
   "submitted", results go to admins + module managers. *(status: proposed 2026-11-25 — operator chose C.)*
+- `0011-attestation-managers-invites-timer.md` — admin-only attestation managers panel, per-test teacher
+  invitations, frozen per-attempt deadline. **Open when:** changing who can enter or take attestation tests,
+  or the timer. **Carry-away:** only admins grant `ldm`; a `member` sees only tests in `attestation_invites`;
+  each attempt stores `deadline_at` at start, null falls back to the test's limit. *(status: proposed 2026-11-28.)*
 
 ## Maintenance
 

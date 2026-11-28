@@ -33,13 +33,21 @@ interface TakePayload {
   figures?: Record<string, string>;
 }
 
-type Phase = "loading" | "error" | "taking" | "submitted" | "done";
+interface Preview {
+  state: "new" | "in_progress" | "done";
+  test: { title: string; subject: string; description: string | null; time_limit_minutes: number | null };
+  question_count: number;
+}
+
+type Phase = "loading" | "intro" | "starting" | "error" | "taking" | "submitted" | "done";
 
 /** The teacher's test screen: one question per screen, autosave, timer, submit. Never shows a score. */
 export function TestRunner({ testId }: { testId: string }) {
   const [phase, setPhase] = useState<Phase>("loading");
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<TakePayload | null>(null);
+  const [preview, setPreview] = useState<Preview | null>(null);
+  const [started, setStarted] = useState(false);
   const [answers, setAnswers] = useState<Record<string, AnswerValue>>({});
   const [index, setIndex] = useState(0);
   const [saveState, setSaveState] = useState<"saved" | "saving" | "error">("saved");
@@ -51,9 +59,44 @@ export function TestRunner({ testId }: { testId: string }) {
   const chain = useRef<Promise<void>>(Promise.resolve());
   const latest = useRef<Record<string, AnswerValue>>({});
 
+  // Step 1: the start screen. Nothing is opened, so the clock has not started.
   useEffect(() => {
     let cancelled = false;
+    async function look() {
+      const res = await fetch(`/api/attestation/take/${testId}`);
+      const body = (await res.json()) as Preview & { error?: string };
+      if (cancelled) return;
+      if (!res.ok) {
+        setError(body.error ?? "Սխալ");
+        setPhase("error");
+        return;
+      }
+      if (body.state === "done") {
+        setPhase("done");
+        return;
+      }
+      setPreview(body);
+      // An attempt already under way resumes at once: its clock is already running.
+      if (body.state === "in_progress") setStarted(true);
+      else setPhase("intro");
+    }
+    look().catch(() => {
+      if (!cancelled) {
+        setError("Չհաջողվեց բեռնել թեստը");
+        setPhase("error");
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [testId]);
+
+  // Step 2: open (or resume) the attempt — this is when the clock starts.
+  useEffect(() => {
+    if (!started) return;
+    let cancelled = false;
     async function load() {
+      setPhase((p) => (p === "intro" ? "starting" : p));
       const res = await fetch(`/api/attestation/take/${testId}`, { method: "POST" });
       const body = (await res.json()) as TakePayload & { error?: string };
       if (cancelled) return;
@@ -80,7 +123,7 @@ export function TestRunner({ testId }: { testId: string }) {
     return () => {
       cancelled = true;
     };
-  }, [testId]);
+  }, [testId, started]);
 
   const flush = useCallback((): Promise<void> => {
     const run = async () => {
@@ -149,7 +192,34 @@ export function TestRunner({ testId }: { testId: string }) {
   const passages = useMemo(() => new Map((data?.passages ?? []).map((p) => [p.id, p])), [data?.passages]);
   const answeredCount = questions.filter((q) => isAnswered(q.answer_type, answers[q.id] ?? null)).length;
 
-  if (phase === "loading") return <p className="text-gray-500">Բեռնվում է…</p>;
+  if (phase === "loading" || phase === "starting") return <p className="text-gray-500">Բեռնվում է…</p>;
+  if (phase === "intro" && preview) {
+    const mins = preview.test.time_limit_minutes;
+    return (
+      <div className="max-w-lg mx-auto bg-white rounded-xl border p-8 space-y-4">
+        <div>
+          <p className="text-xs text-gray-500">{preview.test.subject}</p>
+          <h1 className="text-lg font-semibold">{preview.test.title}</h1>
+        </div>
+        {preview.test.description && <p className="text-sm text-gray-600 whitespace-pre-line">{preview.test.description}</p>}
+        <ul className="text-sm text-gray-700 space-y-1 list-disc pl-5">
+          <li>Հարցերի քանակը՝ {preview.question_count}</li>
+          {mins ? (
+            <li>
+              Տևողությունը՝ <strong>{mins} րոպե</strong>։ Ժամաչափը սկսվում է «Սկսել» սեղմելուց հետո և չի դադարում, եթե փակեք էջը։ Ժամանակի
+              ավարտին թեստը կհանձնվի ինքնաշխատ։
+            </li>
+          ) : (
+            <li>Ժամանակի սահմանափակում չկա։</li>
+          )}
+          <li>Պատասխանները պահպանվում են ինքնաշխատ։</li>
+        </ul>
+        <button type="button" className="px-5 py-2 rounded-lg bg-violet-600 text-white" onClick={() => setStarted(true)}>
+          Սկսել
+        </button>
+      </div>
+    );
+  }
   if (phase === "error") return <p className="text-red-600">{error}</p>;
   if (phase === "done" || phase === "submitted") {
     return (

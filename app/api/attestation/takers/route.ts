@@ -1,16 +1,18 @@
 import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { denyUnlessManager, getAttestationUser, jsonError, readJson, zodMessage } from "@/lib/attestation/server";
+import { profilesByEmail } from "@/lib/attestation/people";
 import { parseEmails } from "@/lib/attestation-core";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 
 /**
- * Who may take attestation tests. Managers (admins and attestation LDMs) add
- * teachers by email here, so granting access does not need a platform admin.
- * Rows live in `module_access` (module = 'attestation'); RLS is on, so every read
- * and write goes through the service role after the manager check.
+ * Teachers invited to take tests (ADR-0011). A teacher has a `module_access`
+ * `member` row (which puts Attestation in their menu) plus one
+ * `attestation_invites` row per test they may take. Managers are listed in the
+ * managers panel, not here. RLS is on, so all reads and writes use the service
+ * role after the manager check.
  */
 export async function GET() {
   const user = await getAttestationUser();
@@ -18,18 +20,34 @@ export async function GET() {
   if (denied) return denied;
 
   const admin = createAdminClient();
-  const { data, error } = await admin
-    .from("module_access")
-    .select("user_id, access, granted_at, profile:profiles(full_name, email)")
-    .eq("module", "attestation")
-    .order("granted_at", { ascending: false });
-  if (error) return jsonError(error.message, 500);
-  return Response.json({ takers: data ?? [] });
+  const [{ data: members, error }, { data: invites, error: invErr }] = await Promise.all([
+    admin
+      .from("module_access")
+      .select("user_id, granted_at, profile:profiles(full_name, email)")
+      .eq("module", "attestation")
+      .eq("access", "member")
+      .order("granted_at", { ascending: false }),
+    admin.from("attestation_invites").select("user_id, test_id"),
+  ]);
+  if (error || invErr) return jsonError((error ?? invErr)!.message, 500);
+
+  const byUser = new Map<string, string[]>();
+  for (const r of invites ?? []) {
+    const list = byUser.get(r.user_id as string) ?? [];
+    list.push(r.test_id as string);
+    byUser.set(r.user_id as string, list);
+  }
+  return Response.json({
+    takers: (members ?? []).map((m) => ({ ...m, test_ids: byUser.get(m.user_id as string) ?? [] })),
+  });
 }
 
-const addSchema = z.object({ emails: z.string().min(1).max(20000) });
+const addSchema = z.object({
+  emails: z.string().min(1).max(20000),
+  test_ids: z.array(z.string().uuid()).min(1, "Choose at least one subject").max(100),
+});
 
-/** Grant test-taker access to every pasted email that has an account. */
+/** Invite every pasted email that has an account to each chosen test. */
 export async function POST(req: Request) {
   const user = await getAttestationUser();
   const denied = denyUnlessManager(user);
@@ -48,46 +66,73 @@ export async function POST(req: Request) {
   if (emails.length > 300) return jsonError("At most 300 emails at a time", 400);
 
   const admin = createAdminClient();
-  // Profile emails are stored lower-case (Supabase normalises auth emails), and
-  // parseEmails lower-cases input, so an exact match is case-insensitive in effect.
-  const found = new Map<string, { id: string; role: string }>();
-  for (let i = 0; i < emails.length; i += 100) {
-    const chunk = emails.slice(i, i + 100);
-    const { data, error } = await admin.from("profiles").select("id, email, role").in("email", chunk);
-    if (error) return jsonError(error.message, 500);
-    for (const p of data ?? []) found.set(String(p.email).toLowerCase(), { id: p.id, role: p.role });
+  const testIds = Array.from(new Set(input.data.test_ids));
+  const { data: tests, error: testErr } = await admin.from("attestation_tests").select("id").in("id", testIds);
+  if (testErr) return jsonError(testErr.message, 500);
+  if ((tests ?? []).length !== testIds.length) return jsonError("One of the chosen tests no longer exists", 400);
+
+  let found;
+  try {
+    found = await profilesByEmail(emails);
+  } catch (e) {
+    return jsonError(e instanceof Error ? e.message : "Lookup failed", 500);
   }
 
   const ids = emails.filter((e) => found.has(e)).map((e) => found.get(e)!.id);
-  const { data: existing } = ids.length
-    ? await admin.from("module_access").select("user_id, access").eq("module", "attestation").in("user_id", ids)
-    : { data: [] as { user_id: string; access: string }[] };
-  const had = new Map((existing ?? []).map((r) => [r.user_id, r.access]));
+  const [{ data: access }, { data: had }] = ids.length
+    ? await Promise.all([
+        admin.from("module_access").select("user_id, access").eq("module", "attestation").in("user_id", ids),
+        admin.from("attestation_invites").select("user_id, test_id").in("user_id", ids).in("test_id", testIds),
+      ])
+    : [{ data: [] as { user_id: string; access: string }[] }, { data: [] as { user_id: string; test_id: string }[] }];
+  const isManager = new Set((access ?? []).filter((r) => r.access === "ldm").map((r) => r.user_id));
+  const existing = new Set((had ?? []).map((r) => `${r.user_id}:${r.test_id}`));
 
   const added: string[] = [];
   const already: string[] = [];
+  const managers: string[] = [];
   const notFound: string[] = [];
-  const rows: { user_id: string; module: string; access: string }[] = [];
+  const memberRows: { user_id: string; module: string; access: string }[] = [];
+  const inviteRows: { user_id: string; test_id: string; invited_by: string }[] = [];
   for (const e of emails) {
     const p = found.get(e);
-    if (!p) notFound.push(e);
-    else if (p.role === "admin" || had.has(p.id)) already.push(e);
-    else {
-      rows.push({ user_id: p.id, module: "attestation", access: "member" });
-      added.push(e);
+    if (!p) {
+      notFound.push(e);
+      continue;
     }
+    // Managers and admins already see every test; inviting them would change nothing.
+    if (p.role === "admin" || isManager.has(p.id)) {
+      managers.push(e);
+      continue;
+    }
+    const fresh = testIds.filter((t) => !existing.has(`${p.id}:${t}`));
+    if (fresh.length === 0) {
+      already.push(e);
+      continue;
+    }
+    memberRows.push({ user_id: p.id, module: "attestation", access: "member" });
+    for (const t of fresh) inviteRows.push({ user_id: p.id, test_id: t, invited_by: user!.id });
+    added.push(e);
   }
-  if (rows.length) {
+  if (memberRows.length) {
     // ignoreDuplicates: never downgrade someone who became a manager meanwhile.
-    const { error } = await admin.from("module_access").upsert(rows, { onConflict: "user_id,module", ignoreDuplicates: true });
+    const { error } = await admin.from("module_access").upsert(memberRows, { onConflict: "user_id,module", ignoreDuplicates: true });
     if (error) return jsonError(error.message, 500);
   }
-  return Response.json({ added, already, notFound, invalid });
+  if (inviteRows.length) {
+    const { error } = await admin.from("attestation_invites").upsert(inviteRows, { onConflict: "test_id,user_id", ignoreDuplicates: true });
+    if (error) return jsonError(error.message, 500);
+  }
+  return Response.json({ added, already, managers, notFound, invalid });
 }
 
-const removeSchema = z.object({ user_id: z.string().uuid() });
+const removeSchema = z.object({ user_id: z.string().uuid(), test_id: z.string().uuid().optional() });
 
-/** Remove a teacher's access. Managers are not removed here (an admin does that). */
+/**
+ * Withdraw one invitation (`test_id`), or all of a teacher's invitations. A
+ * teacher left with no invitations loses Attestation access entirely. Managers
+ * are not removed here (an admin does that in the managers panel).
+ */
 export async function DELETE(req: Request) {
   const user = await getAttestationUser();
   const denied = denyUnlessManager(user);
@@ -97,16 +142,37 @@ export async function DELETE(req: Request) {
   if ("error" in parsed) return parsed.error;
   const input = removeSchema.safeParse(parsed.body);
   if (!input.success) return jsonError(zodMessage(input.error), 400);
+  const { user_id, test_id } = input.data;
 
   const admin = createAdminClient();
-  const { data, error } = await admin
+  const { data: member, error: memErr } = await admin
     .from("module_access")
-    .delete()
-    .eq("user_id", input.data.user_id)
+    .select("user_id")
+    .eq("user_id", user_id)
     .eq("module", "attestation")
     .eq("access", "member")
-    .select("user_id");
-  if (error) return jsonError(error.message, 500);
-  if (!data?.length) return jsonError("Not a test taker (managers are removed by an admin)", 404);
-  return Response.json({ ok: true });
+    .maybeSingle();
+  if (memErr) return jsonError(memErr.message, 500);
+  if (!member) return jsonError("Not a test taker (managers are removed by an admin)", 404);
+
+  let del = admin.from("attestation_invites").delete().eq("user_id", user_id);
+  if (test_id) del = del.eq("test_id", test_id);
+  const { error: delErr } = await del;
+  if (delErr) return jsonError(delErr.message, 500);
+
+  const { count, error: cntErr } = await admin
+    .from("attestation_invites")
+    .select("test_id", { count: "exact", head: true })
+    .eq("user_id", user_id);
+  if (cntErr) return jsonError(cntErr.message, 500);
+  if ((count ?? 0) === 0) {
+    const { error } = await admin
+      .from("module_access")
+      .delete()
+      .eq("user_id", user_id)
+      .eq("module", "attestation")
+      .eq("access", "member");
+    if (error) return jsonError(error.message, 500);
+  }
+  return Response.json({ ok: true, removedAccess: (count ?? 0) === 0 });
 }
