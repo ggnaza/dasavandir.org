@@ -113,7 +113,7 @@ here carry the claim-as-carry-away **plus status**. Route by status first (don't
 - `0011-attestation-managers-invites-timer.md` — admin-only attestation managers panel, per-test teacher
   invitations, frozen per-attempt deadline. **Open when:** changing who can enter or take attestation tests,
   or the timer. **Carry-away:** only admins grant `ldm`; a `member` sees only tests in `attestation_invites`;
-  each attempt stores `deadline_at` at start, null falls back to the test's limit. *(status: proposed 2026-11-28.)*
+  each attempt stores `deadline_at` at start, null = untimed; inviting an email with no account creates it and emails a set-password link that lands on the tests. *(status: proposed 2026-11-28.)*
 
 ## Maintenance
 

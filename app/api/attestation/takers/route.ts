@@ -4,8 +4,16 @@ import { denyUnlessManager, getAttestationUser, jsonError, readJson, zodMessage 
 import { profilesByEmail } from "@/lib/attestation/people";
 import { parseEmails } from "@/lib/attestation-core";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
+import { sendEmailBatch } from "@/lib/email";
+import { attestationInviteEmail } from "@/lib/attestation-invite-email";
+import { ATTESTATION_LANDING, createInvitedAccount, freshSetPasswordLink, neverSignedIn } from "@/lib/attestation/invite-accounts";
 
 export const dynamic = "force-dynamic";
+// Creating accounts and links is one Supabase call per new teacher.
+export const maxDuration = 60;
+
+/** New accounts one request may create; the rest are reported back to paste again. */
+const MAX_NEW_ACCOUNTS = 100;
 
 /**
  * Teachers invited to take tests (ADR-0011). A teacher has a `module_access`
@@ -54,7 +62,13 @@ const addSchema = z.object({
   test_ids: z.array(z.string().uuid()).min(1, "Choose at least one subject").max(100),
 });
 
-/** Invite every pasted email that has an account to each chosen test. */
+/**
+ * Invite every pasted email to each chosen test, and email them.
+ * - No account yet: one is created and the email carries a link that sets their
+ *   password and opens their tests.
+ * - Account that never signed in: a fresh link (so re-inviting fixes an expired one).
+ * - Active account: an email pointing to their tests (only when something new was added).
+ */
 export async function POST(req: Request) {
   const user = await getAttestationUser();
   const denied = denyUnlessManager(user);
@@ -74,15 +88,35 @@ export async function POST(req: Request) {
 
   const admin = createAdminClient();
   const testIds = Array.from(new Set(input.data.test_ids));
-  const { data: tests, error: testErr } = await admin.from("attestation_tests").select("id").in("id", testIds).eq("status", "published");
+  const { data: tests, error: testErr } = await admin.from("attestation_tests").select("id, subject").in("id", testIds).eq("status", "published");
   if (testErr) return jsonError(testErr.message, 500);
   if ((tests ?? []).length !== testIds.length) return jsonError("Only published tests can be chosen — refresh the page", 400);
+
+  const subjects = (tests ?? []).map((t) => t.subject as string);
+  const origin = new URL(req.url).origin;
 
   let found;
   try {
     found = await profilesByEmail(emails);
   } catch (e) {
     return jsonError(e instanceof Error ? e.message : "Lookup failed", 500);
+  }
+
+  // Create accounts for emails that have none. Links are kept to email below.
+  const links = new Map<string, string>();
+  const created: string[] = [];
+  const failed: { email: string; reason: string }[] = [];
+  const missing = emails.filter((e) => !found.has(e));
+  for (const e of missing.slice(MAX_NEW_ACCOUNTS)) failed.push({ email: e, reason: `Over ${MAX_NEW_ACCOUNTS} new accounts at once — invite again` });
+  for (const e of missing.slice(0, MAX_NEW_ACCOUNTS)) {
+    try {
+      const acct = await createInvitedAccount(admin, e, origin);
+      found.set(e, { id: acct.id, role: "learner" });
+      links.set(e, acct.link);
+      created.push(e);
+    } catch (err) {
+      failed.push({ email: e, reason: err instanceof Error ? err.message : "Could not create the account" });
+    }
   }
 
   const ids = emails.filter((e) => found.has(e)).map((e) => found.get(e)!.id);
@@ -98,15 +132,11 @@ export async function POST(req: Request) {
   const added: string[] = [];
   const already: string[] = [];
   const managers: string[] = [];
-  const notFound: string[] = [];
   const memberRows: { user_id: string; module: string; access: string }[] = [];
   const inviteRows: { user_id: string; test_id: string; invited_by: string }[] = [];
   for (const e of emails) {
     const p = found.get(e);
-    if (!p) {
-      notFound.push(e);
-      continue;
-    }
+    if (!p) continue; // account creation failed; listed in `failed`
     // Managers and admins already see every test; inviting them would change nothing.
     if (p.role === "admin" || isManager.has(p.id)) {
       managers.push(e);
@@ -132,7 +162,29 @@ export async function POST(req: Request) {
     const { error } = await admin.from("attestation_invites").upsert(inviteRows, { onConflict: "test_id,user_id", ignoreDuplicates: true });
     if (error) return jsonError(error.message, 500);
   }
-  return Response.json({ added, already, managers, notFound, invalid });
+  // Who gets an email: everyone newly invited, plus anyone re-invited who has not
+  // accepted yet (they need a working link). Active teachers re-pasted with nothing
+  // new are not emailed again.
+  const toEmail = [...added, ...already];
+  const outbox: ReturnType<typeof attestationInviteEmail>[] = [];
+  for (let i = 0; i < toEmail.length; i += 10) {
+    await Promise.all(
+      toEmail.slice(i, i + 10).map(async (e) => {
+        try {
+          let link = links.get(e) ?? null;
+          if (!link && (await neverSignedIn(admin, found.get(e)!.id))) link = await freshSetPasswordLink(admin, e, origin);
+          if (link) outbox.push(attestationInviteEmail({ to: e, subjects, url: link, newAccount: true }));
+          else if (added.includes(e)) outbox.push(attestationInviteEmail({ to: e, subjects, url: `${origin}${ATTESTATION_LANDING}`, newAccount: false }));
+        } catch (err) {
+          failed.push({ email: e, reason: `Invited, but no email: ${err instanceof Error ? err.message : "link failed"}` });
+        }
+      }),
+    );
+  }
+  const sent = outbox.length ? await sendEmailBatch(outbox) : { sent: 0, failed: [] };
+  for (const f of sent.failed) failed.push({ email: f.to, reason: `Invited, but the email failed: ${f.reason}` });
+
+  return Response.json({ added, created, already, managers, invalid, failed, emailed: sent.sent });
 }
 
 const removeSchema = z.object({ user_id: z.string().uuid(), test_id: z.string().uuid().optional() });
