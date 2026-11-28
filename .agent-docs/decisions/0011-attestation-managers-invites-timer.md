@@ -77,3 +77,15 @@ Operator: invited teachers "should create an account and appear in their test pa
   `inviteUserByEmail` — rejected: English Supabase template, and the app already sends branded mail via
   Resend; (c) a pending-invitations table that activates on signup — rejected: more moving parts, and the
   teacher would still have to find the signup page themselves.
+
+### Independent review of 4b838a8 (2026-11-28) — dispositions
+- E1 major, activate POST let a pending self-signup skip email activation — **FIXED**: only sessions whose `amr` shows an emailed link (otp/invite/magiclink/recovery) may self-activate; unit-tested.
+- E2 major, "never signed in" via `last_sign_in_at` broken by link scanners — **FIXED**: acceptance is `app_metadata.invite_accepted` set by activate; every re-invite emails (fresh link while not accepted).
+- E3 major, link origin from Host header — **FIXED**: our hosts only, else `NEXT_PUBLIC_SITE_URL`; unit-tested.
+- E4 major, 100 sequential account creations vs 60s — **FIXED**: batches of 10, 50 per request.
+- E5 minor, `safeNextPath` tab/newline bypass — **FIXED**, unit-tested.
+- E6 minor, auth user without profile could never be invited — **FIXED**: magiclink fallback + ensureProfile.
+- E7 minor, magiclink for an unconfirmed invited user unverified — **TRACKED**: hands-on on staging (re-invite path).
+- E8 minor, abuse ceiling — **FIXED**: 300 new accounts per manager per day; no re-send within 10 minutes.
+- E9 nit, retry wording — **FIXED** by E2. E10 nit, name prompt reads metadata not profile — **WONTFIX**: server never overwrites an existing name.
+- Discoveries (pre-existing, not changed here): `/auth/callback` follows an unvalidated `next` (`//evil` open redirect); signup marks an account active when the activation email fails; `sendActivationEmail` puts the URL in href unescaped (server-built).
