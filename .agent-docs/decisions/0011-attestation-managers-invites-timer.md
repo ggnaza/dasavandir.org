@@ -63,3 +63,17 @@ and the clock started the moment the test page opened.
 - R9 nit, non-admin managers make one GET that returns 403 — **WONTFIX**: harmless; the panel hides itself.
 - Pre-existing, failed auto-submit retried every second — **FIXED** (once only, error shown).
 - Pre-existing, home page finalizes every user's expired attempts on listed tests; manager reset unscoped — **TRACKED** here, harmless while all managers see all tests.
+
+## Amendment (2026-11-28, before build) — emailed invitations create accounts
+Operator: invited teachers "should create an account and appear in their test page, with a start button".
+- **Decision:** inviting an email with no account creates it (`auth.admin.generateLink` type `invite`) and
+  emails a one-time link → `/auth/set-password?next=/attestation` (asks for a name if missing) → their tests.
+  Re-inviting anyone who never signed in sends a fresh `magiclink` (fixes expired links). Active teachers are
+  emailed only when a subject is newly added. Invited accounts are created `active`, never `pending`.
+- **Found while building (pre-existing bug, fixed here):** `/auth/set-password` POSTs `/api/auth/activate`,
+  which had only GET (405). Admin-invited users therefore stayed `pending` and the hourly
+  `cleanup-unverified` cron deleted them 24h after creation even after they set a password. Added the POST.
+- **Alternatives considered:** (a) keep "must sign up first" — rejected by the operator; (b) Supabase's own
+  `inviteUserByEmail` — rejected: English Supabase template, and the app already sends branded mail via
+  Resend; (c) a pending-invitations table that activates on signup — rejected: more moving parts, and the
+  teacher would still have to find the signup page themselves.
